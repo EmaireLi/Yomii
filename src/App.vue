@@ -29,7 +29,11 @@
       </el-menu>
       
       <div class="sidebar-footer">
-        <el-statistic title="学习进度" :value="studyStreak" suffix="天" />
+        <el-statistic :value="studyStreak" suffix="天">
+          <template #title>
+            <span style="color: white; font-size: 16px; font-weight: 700; letter-spacing: 1px;">学习进度</span>
+          </template>
+        </el-statistic>
       </div>
     </el-aside>
 
@@ -167,17 +171,17 @@ const switchView = (viewName: string): void => {
   border-top: 1px solid rgba(255, 255, 255, 0.2);
   background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.15));
   text-align: center;
-}
-
-.sidebar-footer :deep(.el-statistic__content) {
   color: white;
-  font-size: 24px;
-  font-weight: bold;
 }
 
-.sidebar-footer :deep(.el-statistic__title) {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 12px;
+.sidebar-footer :where(.el-statistic) {
+  --el-text-color-primary: white;
+}
+
+.streak-statistic :where(.el-statistic__item-title) {
+  color: white !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
 }
 
 .yomii-content {
@@ -293,5 +297,36 @@ const switchView = (viewName: string): void => {
   .yomii-content {
     padding: 40px 60px;
   }
+}
+</style>
+<!-- 在文件最后面，加上这段代码 -->
+<style>
+/* 学习进度容器 */
+.streak-statistic {
+  text-align: center;
+}
+
+/* 标题：学习进度 (调大) */
+.streak-statistic .el-statistic__title {
+  color: white !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1px !important;
+  margin-bottom: 8px !important;
+}
+
+/* 数字部分 (调小) */
+.streak-statistic .el-statistic__content {
+  color: #ffd700 !important;
+  font-size: 26px !important;
+  font-weight: bold !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 单位：天 */
+.streak-statistic .el-statistic__suffix {
+  color: #ffd700 !important;
+  font-size: 18px !important;
+  margin-left: 4px !important;
 }
 </style>

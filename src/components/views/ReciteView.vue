@@ -5,11 +5,11 @@
       <template #header>
         <div class="card-header">
           <span>学习计划</span>
-          <el-button type="primary" size="small" @click="showPlanModal = true">⚙️ 管理计划</el-button>
         </div>
       </template>
       
       <el-row :gutter="20" v-if="currentPlan">
+        <!-- 当前计划显示 -->
         <el-col :xs="24" :sm="8">
           <div class="plan-item-new">
             <div class="plan-label">当前计划</div>
@@ -18,17 +18,66 @@
         </el-col>
         <el-col :xs="24" :sm="8">
           <div class="plan-item-new">
-            <div class="plan-label">每日目标</div>
-            <div class="plan-value">{{ currentPlan.dailyGoal }} 个单词</div>
+            <div class="plan-label">经日目标</div>
+            <div class="plan-value">{{ currentDailyGoal }} 个单词</div>
           </div>
         </el-col>
         <el-col :xs="24" :sm="8">
           <div class="plan-item-new">
-            <div class="plan-label">复习比例</div>
-            <div class="plan-value">{{ Math.round(currentPlan.reviewRatio * 100) }}%</div>
+            <div class="plan-label">当前辞书</div>
+            <div class="plan-value">{{ currentDictionaryName }}</div>
           </div>
         </el-col>
       </el-row>
+
+      <!-- 配置区 -->
+      <div class="config-section">
+        <h3 class="config-title">⚙️ 调整学习计划</h3>
+        
+        <div class="config-grid">
+          <!-- 选择辞书 -->
+          <div class="config-item">
+            <label class="config-label">选择辞书</label>
+            <select v-model="selectedDictionaryId" class="config-select">
+              <option v-for="dict in dictionaries" :key="dict.id" :value="dict.id">
+                {{ dict.name }} ({{ dict.wordCount }} 个单词)
+              </option>
+            </select>
+            <div class="dict-description" v-if="selectedDictionary">
+              {{ selectedDictionary.description }}
+            </div>
+          </div>
+
+          <!-- 选择单词数量 -->
+          <div class="config-item">
+            <label class="config-label">每日学习单词数</label>
+            <div class="word-count-options">
+              <button
+                v-for="count in wordCountOptions"
+                :key="count"
+                @click="currentDailyGoal = count"
+                :class="['word-count-btn', { active: currentDailyGoal === count }]"
+              >
+                {{ count }}
+              </button>
+            </div>
+            <input
+              v-model.number="customWordCount"
+              type="number"
+              class="custom-input"
+              placeholder="或输入自定义数量"
+              min="1"
+              max="100"
+              @change="updateCustomWordCount"
+            />
+          </div>
+        </div>
+
+        <div class="config-actions">
+          <button @click="savePlanConfig" class="btn btn-primary">保存配置</button>
+          <button @click="resetPlanConfig" class="btn btn-secondary">重置</button>
+        </div>
+      </div>
     </el-card>
 
     <!-- 选项卡 -->
@@ -256,46 +305,8 @@
         <button @click="loadReviewWords" class="btn btn-primary">重新加载</button>
       </div>
     </el-tab-pane>
-
-    <!-- 学习计划管理模态框 -->
-    <div v-if="showPlanModal" class="modal-overlay" @click.self="showPlanModal = false">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>学习计划设置</h3>
-          <button @click="showPlanModal = false" class="close-btn">✕</button>
-        </div>
-
-        <div class="modal-body">
-          <div class="form-group">
-            <label>计划名称</label>
-            <input v-model="planFormData.name" type="text" placeholder="输入计划名称" />
-          </div>
-
-          <div class="form-group">
-            <label>每日背诵目标</label>
-            <div class="input-with-info">
-              <input v-model.number="planFormData.dailyGoal" type="number" min="1" max="100" />
-              <span class="info">个单词/天</span>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>复习比例</label>
-            <div class="input-with-info">
-              <input v-model.number="planFormData.reviewRatio" type="number" min="0" max="1" step="0.1" />
-              <span class="info">{{ Math.round(planFormData.reviewRatio * 100) }}%</span>
-            </div>
-          </div>
-
-          <div class="button-group">
-            <button @click="savePlan" class="btn btn-primary">保存计划</button>
-            <button @click="showPlanModal = false" class="btn btn-secondary">取消</button>
-          </div>
-        </div>
-      </div>
-    </div>
   </el-tabs>
-  </section>
+</section>
 </template>
 
 <script setup lang="ts">
@@ -303,17 +314,31 @@ import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import type { Word } from '@/types'
 import { getLearnWords, getReviewWords, requestAddMore as requestAddMoreAPI, saveLearningSession } from '@/api'
 import { useWordProgress, useStudyStats, useStudyPlan } from '@/composables/useLocalStorage'
+import { DICTIONARIES, WORD_COUNT_OPTIONS } from '@/utils/constants'
 
 // 标签
 const activeTab = ref<'learn' | 'review'>('learn')
 
 // 学习计划管理
 const { currentPlan, updatePlan, addPlan, activatePlan } = useStudyPlan()
-const showPlanModal = ref(false)
-const planFormData = reactive({
-  name: '',
-  dailyGoal: 10,
-  reviewRatio: 0.5
+const dictionaries = DICTIONARIES
+const wordCountOptions = WORD_COUNT_OPTIONS
+const selectedDictionaryId = ref<string>('common')
+const currentDailyGoal = ref(10)
+const customWordCount = ref<number | null>(null)
+
+// 计算当前选中的辞书
+const selectedDictionary = computed(() => {
+  return dictionaries.find(d => d.id === selectedDictionaryId.value)
+})
+
+// 计算当前辞书的名称
+const currentDictionaryName = computed(() => {
+  if (currentPlan.value && (currentPlan.value as any).dictionaryId) {
+    const dict = dictionaries.find(d => d.id === (currentPlan.value as any).dictionaryId)
+    return dict ? dict.name : '常用词典'
+  }
+  return '常用词典'
 })
 
 // 背单词数据
@@ -477,27 +502,37 @@ const requestAddMore = async () => {
 }
 
 // 学习计划管理
-const savePlan = async () => {
-  if (!planFormData.name.trim()) {
-    alert('请输入计划名称')
-    return
-  }
-
+const savePlanConfig = async () => {
   if (currentPlan.value) {
+    const finalDailyGoal = customWordCount.value || currentDailyGoal.value
     updatePlan(currentPlan.value.id, {
-      name: planFormData.name,
-      dailyGoal: planFormData.dailyGoal,
-      reviewRatio: planFormData.reviewRatio
-    })
+      name: currentPlan.value.name,
+      dailyGoal: finalDailyGoal,
+      reviewRatio: currentPlan.value.reviewRatio,
+      dictionaryId: selectedDictionaryId.value
+    } as any)
   } else {
-    const newPlan = addPlan(planFormData.name, planFormData.dailyGoal, planFormData.reviewRatio)
+    const newPlan = addPlan('默认学习计划', currentDailyGoal.value, 0.5)
     activatePlan(newPlan.id)
   }
 
-  showPlanModal.value = false
   // 重新加载单词
   await loadLearnWords()
   await loadReviewWords()
+}
+
+const resetPlanConfig = () => {
+  if (currentPlan.value) {
+    selectedDictionaryId.value = (currentPlan.value as any).dictionaryId || 'common'
+    currentDailyGoal.value = currentPlan.value.dailyGoal
+    customWordCount.value = null
+  }
+}
+
+const updateCustomWordCount = () => {
+  if (customWordCount.value && customWordCount.value > 0) {
+    currentDailyGoal.value = customWordCount.value
+  }
 }
 
 // 键盘快捷键
@@ -531,11 +566,10 @@ onMounted(() => {
   loadLearnWords()
   loadReviewWords()
   
-  // 初始化计划表单
+  // 初始化计划配置
   if (currentPlan.value) {
-    planFormData.name = currentPlan.value.name
-    planFormData.dailyGoal = currentPlan.value.dailyGoal
-    planFormData.reviewRatio = currentPlan.value.reviewRatio
+    selectedDictionaryId.value = (currentPlan.value as any).dictionaryId || 'common'
+    currentDailyGoal.value = currentPlan.value.dailyGoal
   }
 
   window.addEventListener('keydown', handleKeyboard)
@@ -548,56 +582,155 @@ onUnmounted(() => {
 
 <style scoped>
 .recite-view {
-  max-width: 900px;
+  max-width: 95%;
   margin: 0 auto;
 }
 
 /* 学习计划管理区 */
-.plan-management {
-  background: #f5f7fa;
-  border-radius: 8px;
-  padding: 20px;
+.plan-card {
   margin-bottom: 30px;
 }
 
-.plan-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
+.plan-item-new {
+  padding: 15px;
+  background: linear-gradient(135deg, #f0f2f5 0%, #f5f7fa 100%);
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
 }
 
-.plan-header h2 {
-  margin: 0;
+.plan-label {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.plan-value {
   font-size: 18px;
-  color: #333;
+  font-weight: 700;
+  color: #000000;
 }
 
-.plan-info {
+/* 配置区 */
+.config-section {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 2px solid #ebeef5;
+}
+
+.config-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0 0 20px;
+}
+
+.config-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
-  margin-top: 15px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+  margin-bottom: 20px;
 }
 
-.plan-item {
+.config-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px;
+  flex-direction: column;
+}
+
+.config-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+  margin-bottom: 12px;
+}
+
+.config-select {
+  padding: 12px;
+  border: 2px solid #dcdfe6;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.config-select:hover {
+  border-color: #667eea;
+}
+
+.config-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.dict-description {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.word-count-options {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.word-count-btn {
+  padding: 10px 16px;
+  border: 2px solid #dcdfe6;
   background: white;
   border-radius: 6px;
-}
-
-.plan-item .label {
-  color: #333333;
+  font-size: 14px;
   font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: #222222;
 }
 
-.plan-item .value {
-  color: #409eff;
-  font-weight: 600;
+.word-count-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
 }
+
+.word-count-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.custom-input {
+  padding: 10px;
+  border: 2px solid #dcdfe6;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.custom-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.config-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-start;
+}
+
+.config-actions .btn {
+  padding: 12px 32px;
+  font-size: 15px;
+}
+
+/* 旧的选项卡和其他样式 */
+
 
 /* 选项卡 */
 .tabs-container {
@@ -670,8 +803,8 @@ h1 {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border-radius: 12px;
-  padding: 60px 40px;
-  min-height: 350px;
+  padding: 80px 60px;
+  min-height: 400px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -692,13 +825,13 @@ h1 {
 }
 
 .word-text {
-  font-size: 38px;
-  margin: 0 0 8px;
+  font-size: 48px;
+  margin: 0 0 12px;
   font-weight: 700;
 }
 
 .kana-text {
-  font-size: 20px;
+  font-size: 24px;
   margin: 0;
   opacity: 0.9;
 }
@@ -731,15 +864,15 @@ h1 {
 }
 
 .meaning-text {
-  font-size: 24px;
-  margin: 0 0 10px;
+  font-size: 32px;
+  margin: 0 0 12px;
   font-weight: 600;
 }
 
 .pos {
-  font-size: 14px;
+  font-size: 16px;
   opacity: 0.8;
-  margin: 0 0 20px;
+  margin: 0 0 24px;
   font-style: italic;
 }
 
@@ -764,9 +897,10 @@ h1 {
 
 .study-info {
   text-align: center;
-  margin: 20px 0;
+  margin: 24px 0;
   color: #222222;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .actions {
@@ -778,13 +912,13 @@ h1 {
 }
 
 .btn {
-  padding: 12px 24px;
+  padding: 14px 32px;
   border: none;
   border-radius: 6px;
-  font-size: 16px;
+  font-size: 18px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-weight: 500;
+  font-weight: 600;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -978,99 +1112,6 @@ h1 {
   font-size: 18px;
   color: #333333;
   margin: 15px 0;
-}
-
-/* 模态框 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  max-width: 500px;
-  width: 90%;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #ebeef5;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #000000;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #999;
-}
-
-.close-btn:hover {
-  color: #333333;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  color: #000000;
-  font-weight: 500;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  font-size: 14px;
-  box-sizing: border-box;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: #409eff;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
-}
-
-.input-with-info {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.input-with-info input {
-  flex: 1;
-}
-
-.input-with-info .info {
-  color: #333333;
-  font-size: 14px;
-  white-space: nowrap;
 }
 
 /* 动画 */

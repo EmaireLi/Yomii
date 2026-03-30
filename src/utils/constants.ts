@@ -54,7 +54,21 @@ export const DEFAULT_STUDY_PLAN = {
   name: '默认学习计划',
   dailyGoal: 10,              // 默认每天背10个单词
   reviewRatio: 0.5,           // 复习为学习的50%
+  dictionaryId: 'common',     // 选择的辞书
   createdAt: Date.now(),
   updatedAt: Date.now(),
   isActive: true
 }
+
+// 辞书列表
+export const DICTIONARIES = [
+  { id: 'common', name: '常用词典', description: '最常用的 1500 个单词', wordCount: 1500 },
+  { id: 'daily', name: '日常词典', description: '日常生活中的 2500 个词汇', wordCount: 2500 },
+  { id: 'jlpt3', name: 'JLPT N3', description: '日本语能力测试 N3 级词汇', wordCount: 3700 },
+  { id: 'jlpt2', name: 'JLPT N2', description: '日本语能力测试 N2 级词汇', wordCount: 6000 },
+  { id: 'jlpt1', name: 'JLPT N1', description: '日本语能力测试 N1 级词汇', wordCount: 10000 },
+  { id: 'business', name: '商务词典', description: '商务日语常用词汇', wordCount: 2000 }
+]
+
+// 单词数量预设选项
+export const WORD_COUNT_OPTIONS = [5, 10, 15, 20, 30, 50]

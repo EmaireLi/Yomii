@@ -4,8 +4,10 @@
 
     <!-- 编辑和提交作文 -->
     <div v-if="!showEvaluationOnly" class="essay-editor">
-      <div class="editor-card">
-        <h2>✍️ 写作练习</h2>
+      <el-card class="section-card">
+        <template #header>
+          <div class="card-header">✍️ 写作练习</div>
+        </template>
         <p class="hint">请用日语写一篇短文，最少 200 字。支持未来 AI 自动评分。</p>
 
         <div class="form-group">
@@ -60,12 +62,15 @@
             清空
           </button>
         </div>
-      </div>
+      </el-card>
     </div>
 
     <!-- 评分结果展示 -->
     <div v-if="essays.length > 0" class="essays-history">
-      <h2>📋 作文历史</h2>
+      <el-card class="section-card">
+        <template #header>
+          <div class="card-header">📋 作文历史</div>
+        </template>
 
       <div class="empty-state" v-if="essays.length === 0">
         <p>还没有提交任何作文</p>
@@ -74,7 +79,7 @@
       <div v-for="essay in essays" :key="essay.id" class="essay-item">
         <div class="essay-header">
           <div>
-            <h3>{{ essay.topic === 'custom' ? essay.title : getTopicLabel(essay.topic) }}</h3>
+            <div class="essay-title">{{ essay.topic === 'custom' ? essay.title : getTopicLabel(essay.topic) }}</div>
             <p class="meta">📅 {{ formatDate(essay.submitTime) }} | 📝 {{ essay.wordCount }} 字</p>
           </div>
           <button
@@ -85,6 +90,7 @@
             <span v-else>⏳ 等待评分</span>
           </button>
         </div>
+
 
         <!-- 评分结果 -->
         <transition name="expand">
@@ -149,11 +155,14 @@
           </div>
         </transition>
       </div>
+    </el-card>
     </div>
 
     <!-- 提示 -->
-    <div class="tips-section">
-      <h3>💡 写作建议</h3>
+    <el-card class="section-card">
+      <template #header>
+        <div class="card-header">💡 写作建议</div>
+      </template>
       <ul>
         <li>确保内容与选定话题相关</li>
         <li>使用正确的日语语法和表达</li>
@@ -161,7 +170,7 @@
         <li>使用多样的词汇和句式</li>
         <li>AI 评分系统正在优化中，目前支持人工评分和样本评分</li>
       </ul>
-    </div>
+    </el-card>
   </section>
 </template>
 
@@ -305,21 +314,14 @@ loadEssayHistory()
   animation: slideUp 0.3s ease;
 }
 
-.essay-editor {
-  margin-bottom: 40px;
+.section-card {
+  margin-bottom: 20px;
 }
 
-.editor-card {
-  background: white;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-}
-
-.editor-card h2 {
-  margin-top: 0;
+.card-header {
+  font-size: 18px;
+  font-weight: 600;
   color: #000000;
-  margin-bottom: 10px;
 }
 
 .hint {
@@ -389,11 +391,6 @@ loadEssayHistory()
   margin-top: 40px;
 }
 
-.essays-history h2 {
-  color: #000000;
-  margin-bottom: 20px;
-}
-
 .empty-state {
   text-align: center;
   padding: 40px 20px;
@@ -415,10 +412,11 @@ loadEssayHistory()
   gap: 20px;
 }
 
-.essay-header h3 {
+.essay-title {
   margin: 0 0 8px;
   color: #000000;
   font-size: 16px;
+  font-weight: 600;
 }
 
 .essay-header .meta {

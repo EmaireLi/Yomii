@@ -3,11 +3,14 @@
     <h1>智能测试 <span class="badge">AI Ready</span></h1>
 
     <div v-if="!testStarted" class="test-intro">
-      <h2>开始测试</h2>
-      <p>通过智能题库检测您的日语水平，获取详细的能力评估报告。</p>
+      <el-card class="section-card">
+        <template #header>
+          <div class="card-header">开始测试</div>
+        </template>
+        <p>通过智能题库检测您的日语水平，获取详细的能力评估报告。</p>
       
       <div class="difficulty-selector">
-        <h3>选择难度：</h3>
+        <div class="selector-title">选择难度：</div>
         <div class="difficulty-buttons">
           <button
             v-for="level in difficulties"
@@ -29,6 +32,7 @@
       <button @click="startTest" class="btn btn-start">
         开始测试
       </button>
+      </el-card>
     </div>
 
     <!-- 测试进行中 -->
@@ -106,19 +110,22 @@
 
     <!-- 测试完成 -->
     <div v-else-if="testCompleted" class="test-result">
-      <div class="result-header">
-        <p class="result-icon">🎓</p>
-        <h2>测试完成！</h2>
+      <el-card class="section-card">
+        <template #header>
+          <div class="card-header">测试完成！</div>
+        </template>
         <p class="result-score">最终得分</p>
         <div class="score-display">
           <div class="final-score">{{ score }}</div>
           <div class="total-score">/ {{ totalQuestions }}</div>
         </div>
         <p class="accuracy">正确率: {{ accuracy }}%</p>
-      </div>
+      </el-card>
 
-      <div class="result-analysis">
-        <h3>成绩分析</h3>
+      <el-card class="section-card">
+        <template #header>
+          <div class="analysis-title">成绩分析</div>
+        </template>
         <div class="analysis-grid">
           <div class="analysis-item">
             <span class="analysis-label">答对题数</span>
@@ -133,10 +140,12 @@
             <span class="analysis-value" style="color: #409eff;">{{ accuracy }}%</span>
           </div>
         </div>
-      </div>
+      </el-card>
 
-      <div class="result-recommendation">
-        <h3>评价与建议</h3>
+      <el-card class="section-card">
+        <template #header>
+          <div class="recommendation-title">评价与建议</div>
+        </template>
         <p class="recommendation-text">{{ recommendation }}</p>
         <div class="action-buttons">
           <button @click="resetTest" class="btn btn-primary">重新测试</button>
@@ -144,7 +153,7 @@
             去背单词增强基础
           </button>
         </div>
-      </div>
+      </el-card>
     </div>
   </section>
 </template>
@@ -286,7 +295,7 @@ onUnmounted(() => {
 
 <style scoped>
 .test-intro {
-  max-width: 600px;
+  max-width: 95%;
   margin: 0 auto;
   text-align: center;
 }
@@ -342,6 +351,13 @@ onUnmounted(() => {
   background: #409eff;
   color: white;
   border-color: #409eff;
+}
+
+.selector-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+  margin-bottom: 10px;
 }
 
 .test-info {
@@ -405,15 +421,17 @@ onUnmounted(() => {
 
 .question-number {
   color: #333333;
-  margin: 0 0 10px;
-  font-size: 13px;
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .question-text {
-  font-size: 18px;
+  font-size: 24px;
   color: #000000;
-  margin: 0 0 15px;
-  line-height: 1.6;
+  margin: 0 0 20px;
+  line-height: 1.8;
+  font-weight: 600;
 }
 
 .word-context {
@@ -425,14 +443,14 @@ onUnmounted(() => {
 }
 
 .word-display {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0 0 5px;
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 0 8px;
   color: #409eff;
 }
 
 .word-kana {
-  font-size: 13px;
+  font-size: 16px;
   margin: 0;
   color: #333333;
 }
@@ -447,7 +465,7 @@ onUnmounted(() => {
 .option {
   display: flex;
   align-items: center;
-  padding: 12px;
+  padding: 16px;
   background: #f5f7fa;
   border: 2px solid #e4e7ed;
   border-radius: 6px;
@@ -466,13 +484,14 @@ onUnmounted(() => {
 }
 
 .option input[type='radio'] {
-  margin-right: 10px;
+  margin-right: 12px;
   cursor: pointer;
 }
 
 .option-text {
   flex: 1;
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .button-group {
@@ -484,12 +503,12 @@ onUnmounted(() => {
 .btn-submit,
 .btn-next {
   flex: 1;
-  padding: 10px 20px;
+  padding: 14px 28px;
   border: none;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 16px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   transition: all 0.3s;
 }
 
@@ -596,18 +615,26 @@ onUnmounted(() => {
 }
 
 .final-score {
-  font-size: 36px;
+  font-size: 48px;
   font-weight: 700;
 }
 
 .total-score {
-  font-size: 16px;
+  font-size: 20px;
   opacity: 0.8;
 }
 
 .accuracy {
   font-size: 14px;
   margin: 0;
+}
+
+.analysis-title,
+.recommendation-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #000000;
+  margin-bottom: 15px;
 }
 
 .result-analysis,
@@ -648,7 +675,7 @@ onUnmounted(() => {
 }
 
 .analysis-value {
-  display: block;
+  display: blo8k;
   font-size: 20px;
   font-weight: 700;
 }
