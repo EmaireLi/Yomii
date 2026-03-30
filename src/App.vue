@@ -1,31 +1,40 @@
 <template>
-  <div class="yomii-app">
+  <el-container class="yomii-app">
     <!-- 左侧导航栏 -->
-    <aside class="sidebar">
+    <el-aside width="300px" class="yomii-sidebar">
       <div class="app-header">
         <h1 class="app-title">Yomii</h1>
         <p class="app-subtitle">日语学习助手</p>
       </div>
       
-      <nav class="nav-menu">
-        <button
+      <el-menu
+        :default-active="currentView"
+        @select="switchView"
+        class="nav-menu"
+        background-color="#667eea"
+        text-color="#fff"
+        active-text-color="#ffd700"
+      >
+        <el-menu-item
           v-for="item in navItems"
           :key="item.id"
-          @click="switchView(item.id)"
-          :class="['nav-item', { active: currentView === item.id }]"
+          :index="item.id"
+          class="nav-menu-item"
         >
-          <span class="nav-icon">{{ item.icon }}</span>
-          <span class="nav-label">{{ item.label }}</span>
-        </button>
-      </nav>
+          <template #title>
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span class="nav-label">{{ item.label }}</span>
+          </template>
+        </el-menu-item>
+      </el-menu>
       
       <div class="sidebar-footer">
-        <p class="footer-text">学习进度: {{ studyStreak }} 天</p>
+        <el-statistic title="学习进度" :value="studyStreak" suffix="天" />
       </div>
-    </aside>
+    </el-aside>
 
     <!-- 主内容区 -->
-    <main class="content">
+    <el-main class="yomii-content">
       <!-- 首页视图 -->
       <HomeView v-if="currentView === 'home'" />
       
@@ -40,12 +49,13 @@
       
       <!-- 作文评价视图 -->
       <EssayView v-else-if="currentView === 'essay'" />
-    </main>
-  </div>
+    </el-main>
+  </el-container>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { House, Search, DocumentCopy, Notebook, Edit } from '@element-plus/icons-vue'
 import { VIEWS } from '@/utils/constants'
 import { useStudyStats } from '@/composables/useLocalStorage'
 import HomeView from '@/components/views/HomeView.vue'
@@ -58,11 +68,11 @@ import EssayView from '@/components/views/EssayView.vue'
  * 导航菜单项
  */
 const navItems = [
-  { id: VIEWS.HOME, label: '首页', icon: '🏠' },
-  { id: VIEWS.SEARCH, label: '查词', icon: '🔍' },
-  { id: VIEWS.RECITE, label: '背单词', icon: '📚' },
-  { id: VIEWS.TEST, label: '测试', icon: '📝' },
-  { id: VIEWS.ESSAY, label: '作文评价', icon: '✍️' }
+  { id: VIEWS.HOME, label: '首页', icon: House },
+  { id: VIEWS.SEARCH, label: '查词', icon: Search },
+  { id: VIEWS.RECITE, label: '背单词', icon: DocumentCopy },
+  { id: VIEWS.TEST, label: '测试', icon: Notebook },
+  { id: VIEWS.ESSAY, label: '作文评价', icon: Edit }
 ]
 
 /**
@@ -85,221 +95,95 @@ const studyStreak = computed(() => stats.value?.currentStreak || 0)
  */
 const switchView = (viewName: string): void => {
   currentView.value = viewName
-}</script>
+}
+</script>
 
 <style scoped>
-/* 全局基础样式 */
-* {
-  box-sizing: border-box;
-}
-
-/* 应用根样式 - 桌面应用风格 */
 .yomii-app {
-  display: flex;
-  flex-direction: row;
   height: 100vh;
   width: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  color: #333;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 50%, #f0f3f8 100%);
-  overflow: hidden;
 }
 
-/* 左侧导航栏 - 桌面应用宽屏优化 */
-.sidebar {
-  width: 400px;
+.yomii-sidebar {
   background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
   color: white;
   display: flex;
   flex-direction: column;
-  padding: 45px 0;
+  padding: 30px 0 0 0;
   box-shadow: 4px 0 20px rgba(102, 126, 234, 0.25);
   overflow-y: auto;
-  position: relative;
-}
-
-/* 侧边栏背景动画 */
-.sidebar::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.sidebar > * {
-  position: relative;
-  z-index: 1;
 }
 
 .app-header {
-  padding: 0 35px;
-  margin-bottom: 50px;
+  padding: 30px 20px;
   text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 20px;
 }
 
 .app-title {
-  font-size: 42px;
+  font-size: 32px;
   font-weight: 700;
-  margin: 0 0 12px;
+  margin: 0;
   letter-spacing: 2px;
+  color: white;
 }
 
 .app-subtitle {
-  font-size: 15px;
+  font-size: 13px;
   opacity: 0.85;
-  margin: 0;
-  letter-spacing: 0.5px;
+  margin: 8px 0 0 0;
 }
 
 .nav-menu {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 0 20px;
+  border: none;
+  background-color: transparent;
 }
 
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 20px 28px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: white;
-  font-size: 18px;
-  cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  border-left: 4px solid transparent;
-  margin: 0 0px;
-  backdrop-filter: blur(10px);
-  position: relative;
-  overflow: hidden;
+.nav-menu-item {
+  margin: 8px 12px !important;
+  border-radius: 6px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
 }
 
-.nav-item::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s;
-}
-
-.nav-item:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.3);
+.nav-menu-item:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
   transform: translateX(8px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-}
-
-.nav-item:hover::before {
-  left: 100%;
-}
-
-.nav-item.active {
-  background: rgba(255, 255, 255, 0.25);
-  border-left-color: #ffd700;
-  border-color: rgba(255, 255, 255, 0.4);
-  font-weight: 600;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25), inset 0 0 10px rgba(255, 255, 255, 0.1);
-  transform: translateX(8px) scale(1.02);
 }
 
 .nav-icon {
-  font-size: 26px;
-  min-width: 26px;
+  font-size: 20px;
+  min-width: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.nav-item:hover .nav-icon {
-  transform: scale(1.2) rotate(5deg);
-  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.4));
-}
-
-.nav-item.active .nav-icon {
-  transform: scale(1.25) rotate(-5deg);
-  filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.6));
-}
-
-.nav-label {
-  white-space: nowrap;
+  margin-right: 12px;
 }
 
 .sidebar-footer {
-  padding: 30px 35px;
+  padding: 30px 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.2);
-  text-align: center;
   background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.15));
-  margin-top: auto;
+  text-align: center;
 }
 
-.footer-text {
-  margin: 0;
-  font-size: 15px;
-  opacity: 0.9;
-  font-weight: 500;
-  animation: pulse 2s ease-in-out infinite;
+.sidebar-footer :deep(.el-statistic__content) {
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
 }
 
-/* 主内容区 */
-.content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 45px 70px;
+.sidebar-footer :deep(.el-statistic__title) {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+}
+
+.yomii-content {
+  padding: 40px;
   background: linear-gradient(135deg, #f5f7fa 0%, #e9ecf1 50%, #f0f4f8 100%);
-  scroll-behavior: smooth;
-  position: relative;
-}
-
-/* 内容区背景装饰 */
-.content::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(102, 126, 234, 0.08) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.content > * {
-  position: relative;
-  z-index: 1;
-}
-
-.view-section {
-  background: #fff;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  animation: slideUp 0.3s ease;
-}
-
-h1 {
-  margin-top: 0;
-  color: #303133;
-  margin-bottom: 35px;
-  font-size: 32px;
-  font-weight: 700;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  overflow-y: auto;
 }
 
 /* 滚动条美化 */
@@ -393,7 +277,7 @@ h1 {
 }
 
 @media (max-height: 800px) {
-  .sidebar {
+  .yomii-sidebar {
     padding: 35px 0;
     width: 360px;
   }
@@ -406,7 +290,7 @@ h1 {
     font-size: 38px;
   }
 
-  .content {
+  .yomii-content {
     padding: 40px 60px;
   }
 }

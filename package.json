@@ -11,6 +11,8 @@
     "type-check": "vue-tsc --build"
   },
   "dependencies": {
+    "canvas-nest.js": "^2.0.1",
+    "element-plus": "^2.13.5",
     "vue": "^3.5.29"
   },
   "devDependencies": {
@@ -21,7 +23,6 @@
     "npm-run-all2": "^8.0.4",
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
-    "vite-plugin-vue-devtools": "^8.0.6",
     "vue-tsc": "^3.2.5"
   },
   "engines": {

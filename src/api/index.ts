@@ -5,8 +5,9 @@
  * 支持 Mock 模式和真实后端两种模型
  */
 
-import type { Word, SearchResult, QuizQuestion, WordProgress, StudyStats, Essay, EssayScore } from '@/types'
+import type { Word, SearchResult, QuizQuestion, WordProgress, StudyStats, Essay, EssayScore, StudyPlan, LearningSession } from '@/types'
 import { getRandomWords, searchWords as localSearchWords, QUIZ_QUESTIONS, WORDS_DATABASE } from '@/utils/mockData'
+import { DEFAULT_STUDY_PLAN } from '@/utils/constants'
 
 // API 配置
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
@@ -353,6 +354,186 @@ export function generateMockEssayScore(essayId: string): EssayScore {
   }
 }
 
+/**
+ * 获取学习计划列表
+ * GET /api/study-plans
+ */
+export async function getStudyPlans(): Promise<StudyPlan[]> {
+  if (USE_MOCK_API) {
+    return [DEFAULT_STUDY_PLAN]
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/study-plans`)
+  if (!response.ok) throw new Error(`获取学习计划失败: ${response.statusText}`)
+  return response.json()
+}
+
+/**
+ * 获取当前活跃的学习计划
+ * GET /api/study-plans/current
+ */
+export async function getCurrentStudyPlan(): Promise<StudyPlan> {
+  if (USE_MOCK_API) {
+    return DEFAULT_STUDY_PLAN
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/study-plans/current`)
+  if (!response.ok) throw new Error(`获取当前学习计划失败: ${response.statusText}`)
+  return response.json()
+}
+
+/**
+ * 创建新的学习计划
+ * POST /api/study-plans
+ */
+export async function createStudyPlan(plan: Omit<StudyPlan, 'id' | 'createdAt' | 'updatedAt'>): Promise<StudyPlan> {
+  if (USE_MOCK_API) {
+    return {
+      ...plan,
+      id: `plan_${Date.now()}`,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/study-plans`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(plan)
+  })
+  if (!response.ok) throw new Error(`创建学习计划失败: ${response.statusText}`)
+  return response.json()
+}
+
+/**
+ * 更新学习计划
+ * PUT /api/study-plans/:planId
+ */
+export async function updateStudyPlan(planId: string, updates: Partial<StudyPlan>): Promise<StudyPlan> {
+  if (USE_MOCK_API) {
+    return {
+      ...DEFAULT_STUDY_PLAN,
+      ...updates,
+      id: planId,
+      updatedAt: Date.now()
+    }
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates)
+  })
+  if (!response.ok) throw new Error(`更新学习计划失败: ${response.statusText}`)
+  return response.json()
+}
+
+/**
+ * 激活学习计划
+ * POST /api/study-plans/:planId/activate
+ */
+export async function activateStudyPlan(planId: string): Promise<StudyPlan> {
+  if (USE_MOCK_API) {
+    return { ...DEFAULT_STUDY_PLAN, id: planId, isActive: true }
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/activate`, {
+    method: 'POST'
+  })
+  if (!response.ok) throw new Error(`激活学习计划失败: ${response.statusText}`)
+  return response.json()
+}
+
+/**
+ * 获取待背诵的单词列表
+ * GET /api/study-plans/:planId/learn-words?date=YYYY-MM-DD
+ */
+export async function getLearnWords(planId: string, date?: string): Promise<Word[]> {
+  const targetDate = date || new Date().toISOString().split('T')[0]
+  
+  if (USE_MOCK_API) {
+    // 返回随机单词作为待背诵列表
+    return getRandomWords(10)
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/learn-words?date=${targetDate}`)
+  if (!response.ok) throw new Error(`获取待背诵单词失败: ${response.statusText}`)
+  return response.json()
+}
+
+/**
+ * 获取复习单词列表
+ * GET /api/study-plans/:planId/review-words?date=YYYY-MM-DD
+ */
+export async function getReviewWords(planId: string, date?: string): Promise<Word[]> {
+  const targetDate = date || new Date().toISOString().split('T')[0]
+  
+  if (USE_MOCK_API) {
+    // 返回随机单词作为复习列表
+    return getRandomWords(5)
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/review-words?date=${targetDate}`)
+  if (!response.ok) throw new Error(`获取复习单词失败: ${response.statusText}`)
+  return response.json()
+}
+
+/**
+ * 保存学习轮次
+ * POST /api/study-plans/:planId/sessions
+ */
+export async function saveLearningSession(planId: string, session: Omit<LearningSession, 'id'>): Promise<LearningSession> {
+  if (USE_MOCK_API) {
+    return {
+      ...session,
+      id: `session_${Date.now()}`
+    }
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/sessions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(session)
+  })
+  if (!response.ok) throw new Error(`保存学习轮次失败: ${response.statusText}`)
+  return response.json()
+}
+
+/**
+ * 获取学习轮次列表
+ * GET /api/study-plans/:planId/sessions
+ */
+export async function getLearningSessions(planId: string): Promise<LearningSession[]> {
+  if (USE_MOCK_API) {
+    return []
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/sessions`)
+  if (!response.ok) throw new Error(`获取学习轮次失败: ${response.statusText}`)
+  return response.json()
+}
+
+/**
+ * 请求加量学习（增加当天的学习量）
+ * POST /api/study-plans/:planId/add-more
+ */
+export async function requestAddMore(planId: string, additionalCount: number): Promise<{ success: boolean; moreWords: Word[] }> {
+  if (USE_MOCK_API) {
+    return {
+      success: true,
+      moreWords: getRandomWords(additionalCount)
+    }
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/add-more`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ additionalCount })
+  })
+  if (!response.ok) throw new Error(`加量学习失败: ${response.statusText}`)
+  return response.json()
+}
+
 export default {
   searchWords,
   getWord,
@@ -370,5 +551,16 @@ export default {
   submitEssayAPI,
   getEssayHistoryAPI,
   getEssayScore,
-  generateMockEssayScore
+  generateMockEssayScore,
+  // 学习计划相关
+  getStudyPlans,
+  getCurrentStudyPlan,
+  createStudyPlan,
+  updateStudyPlan,
+  activateStudyPlan,
+  getLearnWords,
+  getReviewWords,
+  saveLearningSession,
+  getLearningSessions,
+  requestAddMore
 }

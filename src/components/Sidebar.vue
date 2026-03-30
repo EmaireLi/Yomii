@@ -13,7 +13,9 @@
         :class="['nav-button', { active: currentView === item.id }]"
         :title="item.description"
       >
-        <span class="nav-icon">{{ item.icon }}</span>
+        <el-icon class="nav-icon">
+          <component :is="item.icon" />
+        </el-icon>
         <span class="nav-label">{{ item.label }}</span>
       </button>
     </nav>
@@ -33,10 +35,12 @@
     <div class="shortcuts-section">
       <h3>快捷操作</h3>
       <button @click="clearHistory" class="shortcut-btn" title="清空搜索历史">
-        🗑️ 清空历史
+        <el-icon><DeleteIcon /></el-icon>
+        <span>清空历史</span>
       </button>
       <button @click="exportData" class="shortcut-btn" title="导出学习数据">
-        💾 导出数据
+        <el-icon><DownloadIcon /></el-icon>
+        <span>导出数据</span>
       </button>
     </div>
 
@@ -49,8 +53,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { House, Search, DocumentCopy, Notebook, Delete, Download } from '@element-plus/icons-vue'
 import { VIEWS } from '@/utils/constants'
 import { useSearchHistory, useStudyStats } from '@/composables/useLocalStorage'
+
+// 使图标在模板中可用
+const DeleteIcon = Delete
+const DownloadIcon = Download
 
 const props = defineProps<{
   currentView: string
@@ -61,10 +70,10 @@ const emit = defineEmits<{
 }>()
 
 const menuItems = [
-  { id: VIEWS.HOME, label: '首页', icon: '🏠', description: '查看学习概览和统计' },
-  { id: VIEWS.SEARCH, label: '查词', icon: '🔍', description: '快速查询日语词汇' },
-  { id: VIEWS.RECITE, label: '背单词', icon: '📚', description: '闪卡式单词学习' },
-  { id: VIEWS.TEST, label: '能力测试', icon: '📝', description: '检测学习成果' }
+  { id: VIEWS.HOME, label: '首页', icon: House, description: '查看学习概览和统计' },
+  { id: VIEWS.SEARCH, label: '查词', icon: Search, description: '快速查询日语词汇' },
+  { id: VIEWS.RECITE, label: '背单词', icon: DocumentCopy, description: '闪卡式单词学习' },
+  { id: VIEWS.TEST, label: '能力测试', icon: Notebook, description: '检测学习成果' }
 ]
 
 const { clearHistory } = useSearchHistory()
@@ -142,7 +151,7 @@ const exportData = () => {
   text-align: left;
   font-size: 15px;
   cursor: pointer;
-  color: #606266;
+  color: #333333;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   font-weight: 500;
@@ -172,8 +181,12 @@ const exportData = () => {
 }
 
 .nav-icon {
-  font-size: 20px;
   flex-shrink: 0;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
 }
 
 .nav-label {
@@ -194,7 +207,7 @@ const exportData = () => {
 .progress-section h3 {
   margin: 0 0 12px;
   font-size: 13px;
-  color: #606266;
+  color: #333333;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -221,7 +234,7 @@ const exportData = () => {
 .goal-text {
   margin: 0;
   font-size: 14px;
-  color: #303133;
+  color: #000000;
   font-weight: 600;
 }
 
@@ -234,30 +247,38 @@ const exportData = () => {
 .shortcuts-section h3 {
   margin: 0 0 10px;
   font-size: 13px;
-  color: #606266;
+  color: #333333;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .shortcut-btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 12px;
   background: white;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
   font-size: 13px;
-  color: #606266;
+  color: #333333;
   cursor: pointer;
   margin-bottom: 8px;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
+  font-weight: 500;
 }
 
 .shortcut-btn:hover {
   background: #ecf5ff;
   border-color: #409eff;
   color: #409eff;
+}
+
+.shortcut-btn :deep(.el-icon) {
+  flex-shrink: 0;
+  font-size: 16px;
 }
 
 .shortcut-btn:last-child {
@@ -274,7 +295,7 @@ const exportData = () => {
 .footer-text {
   margin: 0;
   font-size: 12px;
-  color: #909399;
+  color: #222222;
   font-style: italic;
 }
 

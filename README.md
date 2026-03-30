@@ -49,11 +49,18 @@ npm run type-check
 
 ## 📖 文档导航
 
+> 📌 **推荐首先阅读**: [COMPREHENSIVE_GUIDE.md](./COMPREHENSIVE_GUIDE.md) - 综合开发指南（包含所有功能、修复和开发文档）
+
 | 文档 | 说明 |
 |------|------|
-| **[API_QUICK_REFERENCE.md](./API_QUICK_REFERENCE.md)** | 👨‍💻 API 使用快速参考（开发者必读） |
-| **[API_SPEC.md](./API_SPEC.md)** | 🔧 完整 API 规范（后端实现参考） |
-| **[UPGRADE_SUMMARY.md](./UPGRADE_SUMMARY.md)** | 📋 项目升级技术总结 |
+| **[COMPREHENSIVE_GUIDE.md](./COMPREHENSIVE_GUIDE.md)** | 📚 **综合指南**（包含全部内容，推荐阅读）|
+| **[QUICK_START.md](./QUICK_START.md)** | 🚀 快速参考和使用技巧 |
+| **[DEVELOPER.md](./DEVELOPER.md)** | 👨‍💻 开发者指南和代码规范 |
+| **[API_QUICK_REFERENCE.md](./API_QUICK_REFERENCE.md)** | 🔌 API 快速参考 |
+| **[API_SPEC.md](./API_SPEC.md)** | 🔧 完整 API 规范 |
+| **[FIXES_REPORT.md](./FIXES_REPORT.md)** | ✅ Element Plus 重构修复报告 |
+| **[PROJECT_PLAN.md](./PROJECT_PLAN.md)** | 📋 项目计划和需求 |
+| **[ELEMENT_PLUS_GUIDE.md](./ELEMENT_PLUS_GUIDE.md)** | 🎨 Element Plus 集成指南 |
 
 ## 🏗️ 项目结构
 

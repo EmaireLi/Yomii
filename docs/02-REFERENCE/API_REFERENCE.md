@@ -1,4 +1,15 @@
-# API 使用快速参考
+# 📚 API 参考文档
+
+## 快速导航
+
+- [环境配置](#环境配置)
+- [API 导入](#api-导入)
+- [常见用法](#常见用法)
+- [类型定义](#类型定义)
+- [错误处理](#错误处理)
+- [性能建议](#性能建议)
+
+---
 
 ## 环境配置
 
@@ -9,14 +20,16 @@
 VITE_USE_MOCK=true
 VITE_API_URL=http://localhost:3000/api
 
-# --或-- 
-
-# 真实后端模式（后端就绪时）
+# 或真实后端模式（后端就绪时）
 VITE_USE_MOCK=false
 VITE_API_URL=http://localhost:3000/api
 ```
 
-## API 客户端导入
+---
+
+## API 导入
+
+### API 客户端导入
 
 ```typescript
 import {
@@ -29,6 +42,11 @@ import {
   // 测试
   getQuizQuestions,     // 获取测试题目
   submitQuizAnswer,     // 提交答案
+  
+  // 作文评测
+  submitEssay,          // 提交作文进行AI评测
+  getEssayFeedback,     // 获取作文评测反馈
+  getEssayHistory,      // 获取历史作文记录
   
   // 用户数据
   updateWordProgress,   // 更新单词进度
@@ -44,6 +62,8 @@ import {
   getFavorites,         // 获取收藏列表
 } from '@/api'
 ```
+
+---
 
 ## 常见用法
 
@@ -124,7 +144,55 @@ if (result.success) {
 }
 ```
 
-### 4. 学习统计
+### 4. 作文评测（AI评估）
+
+**提交作文进行AI评测**
+```typescript
+const essayContent = '日本語を勉強することが大好きです。毎日一時間ぐらい勉強して、日本の文化に興味があります。'
+const essayLevel = 'intermediate'  // beginner | intermediate | advanced
+
+const submission = await submitEssay(essayContent, essayLevel)
+
+console.log(`作文ID: ${submission.id}`)
+console.log(`提交时间: ${submission.submittedAt}`)
+```
+
+**获取AI评测反馈**
+```typescript
+const essayId = 'essay_001'
+const feedback = await getEssayFeedback(essayId)
+
+console.log(`总分: ${feedback.totalScore}/100`)
+console.log(`语法评分: ${feedback.grammarScore}`)
+console.log(`词汇评分: ${feedback.vocabularyScore}`)
+console.log(`流畅度: ${feedback.fluencyScore}`)
+console.log(`内容评分: ${feedback.contentScore}`)
+
+// AI 反馈建议
+console.log(`AI评价: ${feedback.aiComments}`)
+console.log(`改进建议: ${feedback.suggestions.join(', ')}`)
+
+// 错误标注
+feedback.errors.forEach(error => {
+  console.log(`位置: ${error.position}`)
+  console.log(`错误: ${error.original}`)
+  console.log(`建议更正: ${error.correction}`)
+  console.log(`解释: ${error.explanation}`)
+})
+```
+
+**获取作文评测历史**
+```typescript
+const history = await getEssayHistory()
+
+history.forEach(essay => {
+  console.log(`作文: ${essay.content.substring(0, 50)}...`)
+  console.log(`得分: ${essay.totalScore}`)
+  console.log(`评测时间: ${essay.evaluatedAt}`)
+})
+```
+
+### 5. 学习统计
 
 **获取个人统计数据**
 ```typescript
@@ -136,7 +204,7 @@ console.log(`连续天数: ${stats.currentStreak}`)
 console.log(`最长连续: ${stats.longestStreak}`)
 ```
 
-### 5. 管理收藏
+### 6. 管理收藏
 
 **添加到收藏**
 ```typescript
@@ -159,6 +227,8 @@ console.log(favorites)  // [Word, Word, ...]
 await removeFromFavorites('1')
 console.log('已从收藏移除')
 ```
+
+---
 
 ## Vue 组件中的使用
 
@@ -200,39 +270,9 @@ const handleSearch = async () => {
 </template>
 ```
 
-## 切换 API 模式
+---
 
-### 当前（Mock 模式）
-```
-API 请求
-  ↓
-检查 USE_MOCK_API = true
-  ↓
-直接从 mockData.ts 返回数据
-  ↓
-完成！
-```
-
-### 之后（真实后端）
-```
-API 请求
-  ↓
-检查 USE_MOCK_API = false
-  ↓
-发送 HTTP 请求到 http://localhost:3000/api
-  ↓
-后端处理并返回 JSON
-  ↓
-完成！
-```
-
-**只需修改这一行：**
-```typescript
-// .env.local
-VITE_USE_MOCK=false  # 改为 false
-```
-
-## 类型定义速查
+## 类型定义
 
 ### Word 类型
 ```typescript
@@ -245,13 +285,6 @@ interface Word {
   partOfSpeech?: string    // 词性
   audioUrl?: string        // 发音URL
   tags?: string[]          // 标签
-}
-```
-
-### SearchResult 类型（扩展 Word）
-```typescript
-interface SearchResult extends Word {
-  relevance?: number  // 相关度 0-1
 }
 ```
 
@@ -292,7 +325,77 @@ interface QuizQuestion {
 }
 ```
 
-## 错误处理最佳实践
+### Essay 类型（作文评测）
+```typescript
+interface EssaySubmission {
+  id: string
+  content: string                    // 作文内容
+  level: 'beginner' | 'intermediate' | 'advanced'  // 难度等级
+  submittedAt: number               // 提交时间
+}
+
+interface EssayFeedback {
+  id: string
+  essayId: string
+  totalScore: number                // 总分（0-100）
+  grammarScore: number              // 语法评分
+  vocabularyScore: number           // 词汇评分
+  fluencyScore: number              // 流畅度评分
+  contentScore: number              // 内容评分
+  aiComments: string                // AI 综合评价
+  suggestions: string[]             // 改进建议列表
+  errors: EssayError[]             // 错误详情列表
+  evaluatedAt: number              // 评测时间
+}
+
+interface EssayError {
+  position: number                  // 错误位置
+  original: string                  // 原文
+  correction: string                // 建议更正
+  explanation: string               // 错误解释
+  type: 'grammar' | 'vocabulary' | 'punctuation' | 'style'
+}
+```
+
+---
+
+## 切换 API 模式
+
+### 当前（Mock 模式）
+```
+API 请求
+  ↓
+检查 USE_MOCK_API = true
+  ↓
+直接从 mockData.ts 返回数据
+  ↓
+完成！
+```
+
+### 之后（真实后端）
+```
+API 请求
+  ↓
+检查 USE_MOCK_API = false
+  ↓
+发送 HTTP 请求到 http://localhost:3000/api
+  ↓
+后端处理并返回 JSON
+  ↓
+完成！
+```
+
+**只需修改这一行：**
+```typescript
+// src/api/index.ts
+const VITE_USE_MOCK = false  // 改为 false
+```
+
+---
+
+## 错误处理
+
+### 最佳实践
 
 ```typescript
 // ❌ 不好
@@ -313,9 +416,28 @@ try {
 }
 ```
 
+### 使用 Element Plus 提示
+
+```typescript
+import { ElNotification } from 'element-plus'
+
+try {
+  const words = await searchWords('keyword')
+} catch (error) {
+  ElNotification({
+    title: '错误',
+    message: '搜索失败，请重试',
+    type: 'error'
+  })
+}
+```
+
+---
+
 ## 性能建议
 
-1. **避免重复请求**
+### 1. 避免重复请求
+
 ```typescript
 // ❌ 不好 - 重复获取同一数据
 for (let i = 0; i < 10; i++) {
@@ -329,7 +451,8 @@ for (let i = 0; i < 10; i++) {
 }
 ```
 
-2. **使用批量接口**
+### 2. 使用批量接口
+
 ```typescript
 // ❌ 不好 - 多个单词发多次请求
 for (const wordId of wordIds) {
@@ -340,7 +463,8 @@ for (const wordId of wordIds) {
 const words = await getRandomWordsAPI(wordIds.length)
 ```
 
-3. **缓存搜索结果**
+### 3. 缓存搜索结果
+
 ```typescript
 const searchCache = new Map()
 
@@ -353,6 +477,38 @@ const cachedSearch = async (keyword: string) => {
   return results
 }
 ```
+
+### 4. 使用 Composables 共享状态
+
+```typescript
+import { ref, computed } from 'vue'
+import { getStudyStats } from '@/api'
+
+export function useStudyStatsCache() {
+  const stats = ref(null)
+  const isLoading = ref(false)
+  
+  const fetchStats = async () => {
+    isLoading.value = true
+    try {
+      stats.value = await getStudyStats()
+    } finally {
+      isLoading.value = false
+    }
+  }
+  
+  const totalWords = computed(() => stats.value?.totalWordsRecited || 0)
+  
+  return {
+    stats,
+    isLoading,
+    fetchStats,
+    totalWords
+  }
+}
+```
+
+---
 
 ## 调试技巧
 
@@ -377,7 +533,4 @@ console.log(import.meta.env.VITE_API_URL)   // API 地址
 
 ---
 
-**需要更多帮助？**
-- 查看 `API_SPEC.md` 了解完整的 API 规范
-- 查看 `UPGRADE_SUMMARY.md` 了解应用架构
-- 查看各个组件源代码了解实际使用示例
+**最后更新**：2026年3月18日

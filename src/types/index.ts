@@ -91,6 +91,32 @@ export interface AppConfig {
   dailyGoal: number
 }
 
+/** 学习计划 */
+export interface StudyPlan {
+  id: string
+  name: string
+  dailyGoal: number           // 每天背诵的单词数
+  reviewRatio: number         // 复习的单词数（通常是dailyGoal的一部分）
+  createdAt: number
+  updatedAt: number
+  isActive: boolean
+}
+
+/** 学习轮次记录 */
+export interface LearningSession {
+  id: string
+  planId: string
+  date: string                // YYYY-MM-DD 格式
+  learnedWords: string[]      // 当天新学的单词ID列表
+  reviewedWords: string[]     // 当天复习的单词ID列表
+  sessionStats: {
+    knownCount: number        // 掌握的数量
+    fuzzyCount: number        // 模糊的数量
+    unknownCount: number      // 未掌握的数量
+  }
+  completedAt?: number
+}
+
 /** 用户数据 */
 export interface UserData {
   stats: StudyStats
@@ -99,4 +125,7 @@ export interface UserData {
   searchHistory: string[]
   quizResults: QuizResult[]
   config: AppConfig
+  studyPlans?: StudyPlan[]
+  currentPlan?: StudyPlan
+  learningSessions?: LearningSession[]
 }

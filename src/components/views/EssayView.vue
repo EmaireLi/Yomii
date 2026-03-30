@@ -318,12 +318,12 @@ loadEssayHistory()
 
 .editor-card h2 {
   margin-top: 0;
-  color: #667eea;
+  color: #000000;
   margin-bottom: 10px;
 }
 
 .hint {
-  color: #909399;
+  color: #333333;
   margin-bottom: 25px;
 }
 
@@ -335,7 +335,7 @@ loadEssayHistory()
   display: block;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #303133;
+  color: #000000;
 }
 
 .topic-select,
@@ -377,7 +377,7 @@ loadEssayHistory()
   margin-top: 8px;
   text-align: right;
   font-size: 12px;
-  color: #909399;
+  color: #333333;
 }
 
 .word-count .warning {
@@ -390,14 +390,14 @@ loadEssayHistory()
 }
 
 .essays-history h2 {
-  color: #303133;
+  color: #000000;
   margin-bottom: 20px;
 }
 
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #909399;
+  color: #333333;
 }
 
 .essay-item {
@@ -417,14 +417,14 @@ loadEssayHistory()
 
 .essay-header h3 {
   margin: 0 0 8px;
-  color: #303133;
+  color: #000000;
   font-size: 16px;
 }
 
 .essay-header .meta {
   margin: 0;
   font-size: 12px;
-  color: #909399;
+  color: #333333;
 }
 
 .btn-view {
@@ -484,7 +484,7 @@ loadEssayHistory()
 .score-item .score-label {
   font-size: 13px;
   font-weight: 600;
-  color: #606266;
+  color: #333333;
 }
 
 .score-bar {
@@ -515,20 +515,20 @@ loadEssayHistory()
 
 .comments-section h4 {
   margin: 0 0 10px;
-  color: #303133;
+  color: #000000;
   font-size: 14px;
 }
 
 .comment-text {
   margin: 0 0 10px;
-  color: #606266;
+  color: #333333;
   line-height: 1.6;
 }
 
 .ai-note {
   margin: 0;
   font-size: 12px;
-  color: #909399;
+  color: #222222;
   font-style: italic;
 }
 
@@ -542,12 +542,12 @@ loadEssayHistory()
 
 .essay-content-view h4 {
   margin: 0 0 10px;
-  color: #303133;
+  color: #000000;
   font-size: 14px;
 }
 
 .content-box {
-  color: #606266;
+  color: #333333;
   line-height: 1.8;
   white-space: pre-wrap;
   word-break: break-word;
@@ -571,7 +571,7 @@ loadEssayHistory()
 .tips-section ul {
   margin: 10px 0 0;
   padding-left: 20px;
-  color: #606266;
+  color: #333333;
   font-size: 14px;
   line-height: 1.8;
 }
@@ -604,5 +604,10 @@ loadEssayHistory()
 .expand-leave-to {
   opacity: 0;
   max-height: 0;
+}
+
+h1 {
+  color: #8B4513;
+  font-size: 24px;
 }
 </style>

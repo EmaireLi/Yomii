@@ -1,79 +1,83 @@
 <template>
-  <section class="view-section home-view">
-    <h1>欢迎使用 Yomii 辞书</h1>
-    <p class="desc">{{ appDescription }}</p>
+  <section class="home-view">
+    <el-card class="header-card">
+      <h1>欢迎使用 Yomii 辞书</h1>
+      <p class="desc">{{ appDescription }}</p>
+    </el-card>
 
     <!-- 快速统计 -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-number">{{ STATS.totalWordsRecited }}</div>
-        <div class="stat-label">总背词数</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">{{ STATS.todayRecited }}</div>
-        <div class="stat-label">今日背词</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">{{ STATS.currentStreak }}</div>
-        <div class="stat-label">连续天数</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">{{ STATS.longestStreak }}</div>
-        <div class="stat-label">最长连续</div>
-      </div>
-    </div>
+    <el-row :gutter="20" class="stats-section">
+      <el-col :xs="12" :sm="12" :md="6" :lg="6" class="stat-col">
+        <el-card class="stat-card">
+          <el-statistic title="总背词数" :value="STATS.totalWordsRecited" />
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="12" :md="6" :lg="6" class="stat-col">
+        <el-card class="stat-card">
+          <el-statistic title="今日背词" :value="STATS.todayRecited" />
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="12" :md="6" :lg="6" class="stat-col">
+        <el-card class="stat-card">
+          <el-statistic title="连续天数" :value="STATS.currentStreak" suffix="天" />
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="12" :md="6" :lg="6" class="stat-col">
+        <el-card class="stat-card">
+          <el-statistic title="最长连续" :value="STATS.longestStreak" suffix="天" />
+        </el-card>
+      </el-col>
+    </el-row>
 
     <!-- 团队信息 -->
-    <div class="team-info">
-      <h3>{{ teamInfo.name }}</h3>
-      <div class="team-members">
-        <div v-for="member in teamInfo.members" :key="member.id" class="member-card">
-          <span class="member-name">{{ member.name }}</span>
-          <span class="member-role">{{ member.role }}</span>
-          <span class="member-id">{{ member.id }}</span>
+    <el-card class="team-card">
+      <template #header>
+        <div class="card-header">
+          <span class="title-text">👥 {{ teamInfo.name }}</span>
         </div>
-      </div>
-    </div>
+      </template>
+      
+      <el-row :gutter="20">
+        <el-col v-for="member in teamInfo.members" :key="member.id" :xs="24" :sm="12" :md="8" :lg="6">
+          <el-card class="member-card" shadow="hover">
+            <div class="member-content">
+              <div class="member-name">{{ member.name }}</div>
+              <el-tag class="member-role">{{ member.role }}</el-tag>
+              <div class="member-id">{{ member.id }}</div>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+    </el-card>
 
     <!-- 功能导航 -->
-    <div class="features">
-      <h3>主要功能</h3>
-      <div class="feature-list">
-        <div class="feature-item">
-          <span class="feature-icon">🔍</span>
-          <div>
-            <h4>查词</h4>
-            <p>快速查询日语词汇，了解含义和用法</p>
-          </div>
+    <el-card class="features-card">
+      <template #header>
+        <div class="card-header">
+          <span class="title-text">✨ 主要功能</span>
         </div>
-        <div class="feature-item">
-          <span class="feature-icon">📚</span>
-          <div>
-            <h4>背单词</h4>
-            <p>闪卡式学习，高效掌握日语词汇</p>
+      </template>
+      
+      <el-row :gutter="20">
+        <el-col v-for="(feature, idx) in featureList" :key="idx" :xs="24" :sm="12" :md="12" :lg="6">
+          <div class="feature-item">
+            <div class="feature-icon">
+              <el-icon><component :is="feature.icon" /></el-icon>
+            </div>
+            <div class="feature-info">
+              <h4>{{ feature.title }}</h4>
+              <p>{{ feature.description }}</p>
+            </div>
           </div>
-        </div>
-        <div class="feature-item">
-          <span class="feature-icon">📝</span>
-          <div>
-            <h4>能力测试</h4>
-            <p>评估学习成果，智能题库随机出题</p>
-          </div>
-        </div>
-        <div class="feature-item">
-          <span class="feature-icon">❤️</span>
-          <div>
-            <h4>收藏管理</h4>
-            <p>保存喜欢的词汇，建立个人学习库</p>
-          </div>
-        </div>
-      </div>
-    </div>
+        </el-col>
+      </el-row>
+    </el-card>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Search, DocumentCopy, Notebook, StarFilled } from '@element-plus/icons-vue'
 import { TEAM_INFO, APP_DESCRIPTION } from '@/utils/constants'
 import { useStudyStats } from '@/composables/useLocalStorage'
 
@@ -82,139 +86,186 @@ const teamInfo = TEAM_INFO
 
 const { stats } = useStudyStats()
 const STATS = computed(() => stats.value)
+
+const featureList = [
+  {
+    icon: Search,
+    title: '查词',
+    description: '快速查询日语词汇，了解含义和用法'
+  },
+  {
+    icon: DocumentCopy,
+    title: '背单词',
+    description: '闪卡式学习，高效掌握日语词汇'
+  },
+  {
+    icon: Notebook,
+    title: '能力测试',
+    description: '评估学习成果，智能题库随机出题'
+  },
+  {
+    icon: StarFilled,
+    title: '收藏管理',
+    description: '保存喜欢的词汇，建立个人学习库'
+  }
+]
 </script>
 
 <style scoped>
-.home-view .desc {
-  font-size: 16px;
-  color: #666;
-  line-height: 1.6;
-  margin-bottom: 40px;
+.home-view {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 20px;
-  margin-bottom: 40px;
+.header-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: none;
+}
+
+.header-card h1 {
+  margin: 0 0 15px 0;
+  color: #000000;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.desc {
+  margin: 0;
+  color: #333333;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.stats-section {
+  margin: 0;
+}
+
+.stat-col {
+  width: 100%;
 }
 
 .stat-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: none;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 25px;
-  border-radius: 12px;
-  text-align: center;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s;
 }
 
-.stat-card:hover {
-  transform: translateY(-5px);
+.stat-card :deep(.el-card__body) {
+  padding: 20px;
 }
 
-.stat-number {
+.stat-card :deep(.el-statistic__title) {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.stat-card :deep(.el-statistic__content) {
+  color: white;
   font-size: 36px;
   font-weight: bold;
-  margin-bottom: 10px;
+  letter-spacing: 1px;
 }
 
-.stat-label {
-  font-size: 11px;
-  opacity: 0.9;
-}
-
-.team-info {
-  background: #f8f9fa;
-  padding: 15px;
+.team-card, .features-card {
   border-radius: 8px;
-  margin-bottom: 25px;
-  border-left: 4px solid #409eff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: none;
 }
 
-.team-info h3 {
-  margin-top: 0;
-  color: #303133;
-  margin-bottom: 12px;
-  font-size: 16px;
-}
-
-.team-members {
+.card-header {
+  padding: 0;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #000000;
 }
 
 .member-card {
-  background: white;
-  padding: 10px;
   border-radius: 6px;
-  border: 1px solid #e4e7ed;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  border: 1px solid #ebeef5;
+  transition: all 0.3s;
+}
+
+.member-card:hover {
+  border-color: #409eff;
+  transform: translateY(-2px);
+}
+
+.member-content {
+  text-align: center;
+  padding: 10px 0;
 }
 
 .member-name {
   font-weight: 600;
-  color: #303133;
+  color: #000000;
+  margin-bottom: 8px;
   font-size: 14px;
 }
 
 .member-role {
-  font-size: 12px;
-  color: #409eff;
+  margin: 8px 0;
 }
 
 .member-id {
-  font-size: 11px;
-  color: #909399;
+  font-size: 12px;
+  color: #333333;
   font-family: monospace;
-}
-
-.features h3 {
-  margin-top: 25px;
-  margin-bottom: 15px;
-  color: #303133;
-  font-size: 16px;
-}
-
-.feature-list {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
+  margin-top: 8px;
 }
 
 .feature-item {
   display: flex;
-  gap: 10px;
-  padding: 12px;
-  background: #f5f7fa;
-  border-radius: 8px;
-  transition: all 0.3s;
-  border-left: 4px solid transparent;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #eef2f8 100%);
+  border-radius: 6px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-left: 4px solid #667eea;
 }
 
 .feature-item:hover {
-  background: #ecf5ff;
-  border-left-color: #409eff;
-  transform: translateX(5px);
+  background: linear-gradient(135deg, #ecf5ff 0%, #e0eeff 100%);
+  border-left-color: #764ba2;
+  transform: translateX(6px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
 }
 
 .feature-icon {
-  font-size: 20px;
-  flex-shrink: 0;
+  min-width: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: #667eea;
 }
 
-.feature-item h4 {
-  margin: 0 0 4px;
-  color: #303133;
+.feature-info {
+  flex: 1;
+}
+
+.feature-info h4 {
+  margin: 0 0 4px 0;
+  color: #000000;
   font-size: 14px;
+  font-weight: 600;
 }
 
-.feature-item p {
+.feature-info p {
   margin: 0;
-  font-size: 12px;
-  color: #666;
+  color: #333333;
+  font-size: 13px;
+  line-height: 1.5;
 }
 </style>

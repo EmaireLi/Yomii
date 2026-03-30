@@ -1,108 +1,157 @@
 <template>
-  <section class="view-section search-view">
-    <h1>日语查词</h1>
+  <section class="search-view">
+    <el-card class="header-card">
+      <h1>日语查词</h1>
+    </el-card>
     
     <!-- 搜索框 -->
-    <div class="search-box">
-      <div class="search-input-wrapper">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="输入日语假名、汉字或中文..."
-          @keyup.enter="handleSearch"
-          class="search-input"
-        />
-        <button @click="handleSearch" class="search-btn">搜索</button>
-      </div>
-      <div v-if="searchHistory.length > 0" class="search-history">
-        <span class="history-label">最近搜索：</span>
-        <button
-          v-for="(history, idx) in searchHistory.slice(0, 5)"
-          :key="idx"
-          @click="searchQuery = history; handleSearch()"
-          class="history-tag"
-        >
-          {{ history }}
-        </button>
-      </div>
-    </div>
-
-    <!-- 搜索结果 -->
-    <div v-if="isLoading" class="loading-state">
-      <p class="loading-icon">⏳</p>
-      <p class="loading-text">搜索中...</p>
-    </div>
-
-    <div v-else-if="errorMessage" class="error-state">
-      <p class="error-icon">⚠️</p>
-      <p class="error-text">{{ errorMessage }}</p>
-    </div>
-
-    <div v-else-if="searchResult.length > 0" class="results">
-      <h3 class="result-count">找到 {{ searchResult.length }} 个结果</h3>
-      <div class="result-list">
-        <div
-          v-for="word in searchResult"
-          :key="word.id"
-          class="result-card"
-        >
-          <div class="result-header">
-            <div class="word-info">
-              <h2>{{ word.word }}</h2>
-              <p class="kana">[{{ word.kana }}]</p>
-              <p v-if="word.partOfSpeech" class="pos">{{ word.partOfSpeech }}</p>
-            </div>
-            <button
-              @click="toggleFavorite(word.id)"
-              :class="['favorite-btn', { active: isFavorited(word.id) }]"
-              title="加入收藏"
+    <el-card class="search-card">
+      <div class="search-box">
+        <el-row :gutter="10">
+          <el-col :xs="24" :sm="24" :md="20" :lg="20">
+            <el-input
+              v-model="searchQuery"
+              placeholder="输入日语假名、汉字或中文..."
+              @keyup.enter="handleSearch"
+              clearable
             >
-              ❤️
-            </button>
-          </div>
-          
-          <div class="result-body">
-            <p class="meaning"><strong>释义：</strong> {{ word.meaning }}</p>
-            <p v-if="word.example" class="example"><strong>例句：</strong> {{ word.example }}</p>
-            <div v-if="word.tags && word.tags.length > 0" class="tags">
-              <span v-for="tag in word.tags" :key="tag" class="tag">{{ tag }}</span>
-            </div>
-          </div>
-
-          <div class="result-actions">
-            <button 
-              v-if="word.audioUrl"
-              @click="playAudio(word.audioUrl)"
-              class="action-btn"
-              title="播放发音"
+              <template #prefix>
+                <span>🔍</span>
+              </template>
+            </el-input>
+          </el-col>
+          <el-col :xs="24" :sm="24" :md="4" :lg="4">
+            <el-button
+              type="primary"
+              @click="handleSearch"
+              :loading="isLoading"
+              class="search-btn"
             >
-              🔊 听发音
-            </button>
-            <button class="action-btn" @click="copyToClipboard(word.word)">
-              📋 复制
-            </button>
-          </div>
+              搜索
+            </el-button>
+          </el-col>
+        </el-row>
+        
+        <div v-if="searchHistory.length > 0" class="search-history">
+          <span class="history-label">最近搜索：</span>
+          <el-tag
+            v-for="(history, idx) in searchHistory.slice(0, 5)"
+            :key="idx"
+            @click="searchQuery = history; handleSearch()"
+            closable
+            @close="removeSearch(idx)"
+            class="history-tag"
+            style="cursor: pointer; margin-top: 8px;"
+          >
+            {{ history }}
+          </el-tag>
         </div>
       </div>
+    </el-card>
+
+    <!-- 加载中 -->
+    <el-card v-if="isLoading" class="state-card">
+      <el-empty description="搜索中..." image="search" />
+    </el-card>
+
+    <!-- 错误信息 -->
+    <el-card v-else-if="errorMessage" class="state-card">
+      <el-alert :title="errorMessage" type="error" />
+    </el-card>
+
+    <!-- 搜索结果 -->
+    <div v-else-if="searchResult.length > 0" class="results">
+      <el-card class="result-info">
+        <template #header>
+          <div class="card-header">
+            <span>找到 <el-tag>{{ searchResult.length }}</el-tag> 个结果</span>
+          </div>
+        </template>
+      </el-card>
+      
+      <el-row :gutter="20" class="result-list">
+        <el-col v-for="word in searchResult" :key="word.id" :xs="24" :md="12" :lg="12">
+          <el-card
+            class="result-card"
+            shadow="hover"
+            @mouseenter="hoveredWordId = word.id"
+            @mouseleave="hoveredWordId = null"
+          >
+            <div class="result-header">
+              <div class="word-info">
+                <h2 class="word-title">{{ word.word }}</h2>
+                <p class="kana">[{{ word.kana }}]</p>
+                <el-tag v-if="word.partOfSpeech" type="info" size="small">
+                  {{ word.partOfSpeech }}
+                </el-tag>
+              </div>
+              <el-button
+                text
+                @click="toggleFavorite(word.id)"
+                class="favorite-btn"
+                :type="isFavorited(word.id) ? 'danger' : 'info'"
+              >
+                <el-icon>
+                  <component :is="isFavorited(word.id) ? StarFilled : Star" />
+                </el-icon>
+              </el-button>
+            </div>
+            
+            <el-divider margin="16px 0" />
+            
+            <div class="result-body">
+              <p class="meaning"><strong>释义：</strong> {{ word.meaning }}</p>
+              <p v-if="word.example" class="example"><strong>例句：</strong> {{ word.example }}</p>
+              <div v-if="word.tags && word.tags.length > 0" class="tags">
+                <el-tag v-for="tag in word.tags" :key="tag" size="small">
+                  {{ tag }}
+                </el-tag>
+              </div>
+            </div>
+
+            <el-divider margin="16px 0" />
+
+            <div class="result-actions">
+              <el-button
+                v-if="word.audioUrl"
+                type="primary"
+                size="small"
+                @click="playAudio(word.audioUrl)"
+                text
+              >
+                <el-icon><VideoPlay /></el-icon>
+                <span>听发音</span>
+              </el-button>
+              <el-button
+                size="small"
+                @click="copyToClipboard(word.word)"
+                text
+              >
+                <el-icon><DocumentCopy /></el-icon>
+                <span>复制</span>
+              </el-button>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
     </div>
 
-    <!-- 空状态 -->
-    <div v-else-if="hasSearched" class="empty-state">
-      <p class="empty-icon">🔍</p>
-      <p class="empty-text">未找到相关词汇</p>
-      <p class="empty-hint">请尝试其他关键词或使用不同的搜索方式</p>
-    </div>
+    <!-- 未找到 -->
+    <el-card v-else-if="hasSearched" class="state-card">
+      <el-empty description="未找到相关词汇" />
+    </el-card>
 
     <!-- 初始状态 -->
-    <div v-else class="initial-state">
-      <p class="init-icon">📚</p>
-      <p class="init-text">输入词汇开始查询</p>
-    </div>
+    <el-card v-else class="state-card">
+      <el-empty description="输入词汇开始查询" />
+    </el-card>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
+import { ElNotification } from 'element-plus'
+import { VideoPlay, DocumentCopy, Star, StarFilled } from '@element-plus/icons-vue'
 import type { Word } from '@/types'
 import { searchWords as searchWordsAPI } from '@/api'
 import { useSearchHistory, useFavorites } from '@/composables/useLocalStorage'
@@ -112,8 +161,9 @@ const searchResult = ref<Word[]>([])
 const hasSearched = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
+const hoveredWordId = ref<string | null>(null)
 
-const { searchHistory, addSearch } = useSearchHistory()
+const { searchHistory, addSearch, removeSearch } = useSearchHistory()
 const { isFavorited, toggleFavorite } = useFavorites()
 
 /**
@@ -142,17 +192,174 @@ const handleSearch = async () => {
 
 const playAudio = (url: string) => {
   console.log('Playing audio:', url)
-  // TODO: 实现音频播放功能
+  ElNotification({
+    title: '提示',
+    message: '音频播放功能开发中',
+    type: 'info'
+  })
 }
 
 const copyToClipboard = (text: string) => {
   navigator.clipboard.writeText(text).then(() => {
-    alert('已复制: ' + text)
+    ElNotification({
+      title: '成功',
+      message: '已复制: ' + text,
+      type: 'success',
+      duration: 2000
+    })
   })
 }
 </script>
 
 <style scoped>
+.search-view {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: slideUp 0.3s ease;
+}
+
+.header-card h1 {
+  margin: 0;
+  font-size: 28px;
+  color: #000000;
+  font-weight: 700;
+}
+
+.search-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: none;
+  background: white;
+}
+
+.search-box {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.search-btn {
+  width: 100%;
+  height: 40px;
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+.search-history {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.history-label {
+  font-size: 13px;
+  color: #333333;
+}
+
+.history-tag {
+  cursor: pointer;
+  user-select: none;
+}
+
+.state-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: none;
+  color: #000000;
+}
+
+.result-info {
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: none;
+}
+
+.card-header {
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.result-list {
+  margin: 0;
+}
+
+.result-card {
+  border-radius: 8px;
+  border: 1px solid #ebeef5;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  background: white;
+  color: #000000;
+}
+
+.result-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
+  transform: translateY(-2px);
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.word-info {
+  flex: 1;
+}
+
+.word-title {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  color: #000000;
+  font-weight: 600;
+}
+
+.kana {
+  margin: 0 0 8px 0;
+  color: #333333;
+  font-size: 15px;
+}
+
+.favorite-btn {
+  font-size: 20px !important;
+  padding: 0 !important;
+}
+
+.result-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meaning, .example {
+  margin: 0;
+  color: #333333;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.result-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .search-box {
   margin-bottom: 20px;
 }
@@ -203,7 +410,7 @@ const copyToClipboard = (text: string) => {
 
 .history-label {
   font-size: 14px;
-  color: #909399;
+  color: #333333;
 }
 
 .history-tag {
@@ -227,7 +434,7 @@ const copyToClipboard = (text: string) => {
 }
 
 .result-count {
-  color: #909399;
+  color: #333333;
   margin-bottom: 20px;
 }
 
@@ -265,18 +472,18 @@ const copyToClipboard = (text: string) => {
 .word-info h2 {
   margin: 0 015px;
   font-size: 28px;
-  color: #303133;
+  color: #000000;
 }
 
 .kana {
   margin: 0 0 5px;
-  color: #606266;
+  color: #333333;
   font-size: 16px;
 }
 
 .pos {
   margin: 0;
-  color: #909399;
+  color: #333333;
   font-size: 14px;
 }
 
@@ -304,7 +511,7 @@ const copyToClipboard = (text: string) => {
 .meaning,
 .example {
   margin: 0 0 10px;
-  color: #606266;
+  color: #333333;
   line-height: 1.6;
 }
 
@@ -333,7 +540,7 @@ const copyToClipboard = (text: string) => {
 .action-btn {
   padding: 6px 15px;
   background: #f5f7fa;
-  color: #606266;
+  color: #333333;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
   cursor: pointer;
@@ -351,7 +558,7 @@ const copyToClipboard = (text: string) => {
 .initial-state {
   text-align: center;
   padding: 60px 20px;
-  color: #909399;
+  color: #333333;
 }
 
 .empty-icon,

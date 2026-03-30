@@ -294,11 +294,11 @@ onUnmounted(() => {
 .test-intro h2 {
   font-size: 20px;
   margin-bottom: 10px;
-  color: #303133;
+  color: #000000;
 }
 
 .test-intro p {
-  color: #666;
+  color: #333333;
   line-height: 1.6;
   margin-bottom: 20px;
   font-size: 14px;
@@ -313,7 +313,7 @@ onUnmounted(() => {
 
 .difficulty-selector h3 {
   margin-top: 0;
-  color: #303133;
+  color: #000000;
   font-size: 14px;
 }
 
@@ -382,7 +382,7 @@ onUnmounted(() => {
 .timer,
 .score {
   font-weight: 600;
-  color: #303133;
+  color: #000000;
 }
 
 .progress-bar {
@@ -404,14 +404,14 @@ onUnmounted(() => {
 }
 
 .question-number {
-  color: #909399;
+  color: #333333;
   margin: 0 0 10px;
   font-size: 13px;
 }
 
 .question-text {
   font-size: 18px;
-  color: #303133;
+  color: #000000;
   margin: 0 0 15px;
   line-height: 1.6;
 }
@@ -434,7 +434,7 @@ onUnmounted(() => {
 .word-kana {
   font-size: 13px;
   margin: 0;
-  color: #606266;
+  color: #333333;
 }
 
 .options {
@@ -553,7 +553,7 @@ onUnmounted(() => {
 .explanation-text,
 .correct-answer {
   margin: 8px 0;
-  color: #606266;
+  color: #333333;
   line-height: 1.6;
   font-size: 12px;
 }
@@ -621,7 +621,7 @@ onUnmounted(() => {
 .result-analysis h3,
 .result-recommendation h3 {
   margin-top: 0;
-  color: #303133;
+  color: #000000;
   font-size: 15px;
 }
 
@@ -643,7 +643,7 @@ onUnmounted(() => {
 .analysis-label {
   display: block;
   font-size: 11px;
-  color: #909399;
+  color: #333333;
   margin-bottom: 8px;
 }
 
@@ -654,7 +654,7 @@ onUnmounted(() => {
 }
 
 .recommendation-text {
-  color: #606266;
+  color: #333333;
   line-height: 1.6;
   margin: 10px 0;
   font-size: 13px;
@@ -700,7 +700,7 @@ onUnmounted(() => {
 .badge {
   font-size: 12px;
   background: #f0f9eb;
-  color: #67c23a;
+  color: #000000;
   padding: 4px 8px;
   border-radius: 4px;
 }
@@ -730,5 +730,10 @@ onUnmounted(() => {
 .expand-enter-active,
 .expand-leave-active {
   transition: all 0.3s ease;
+}
+
+h1 {
+  color: #8B4513;
+  font-size: 24px;
 }
 </style>

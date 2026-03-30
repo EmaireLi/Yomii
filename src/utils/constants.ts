@@ -36,7 +36,10 @@ export const LOCAL_STORAGE_KEYS = {
   SEARCH_HISTORY: 'yomii_search_history',
   FAVORITES: 'yomii_favorites',
   WORD_PROGRESS: 'yomii_word_progress',
-  STUDY_STATS: 'yomii_study_stats'
+  STUDY_STATS: 'yomii_study_stats',
+  STUDY_PLANS: 'yomii_study_plans',
+  CURRENT_PLAN: 'yomii_current_plan',
+  LEARNING_SESSIONS: 'yomii_learning_sessions'
 } as const
 
 export const DEFAULT_APP_CONFIG = {
@@ -44,4 +47,14 @@ export const DEFAULT_APP_CONFIG = {
   language: 'zh' as const,
   autoPlayAudio: false,
   dailyGoal: 30
+}
+
+export const DEFAULT_STUDY_PLAN = {
+  id: 'default-plan',
+  name: '默认学习计划',
+  dailyGoal: 10,              // 默认每天背10个单词
+  reviewRatio: 0.5,           // 复习为学习的50%
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+  isActive: true
 }
