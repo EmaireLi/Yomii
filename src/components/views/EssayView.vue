@@ -191,9 +191,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { ElMessage } from 'element-plus'
 import { EditPen, Promotion, Collection, Calendar, Memo, Loading, ChatDotRound, Opportunity, Document } from '@element-plus/icons-vue'
 import type { Essay, EssayScore } from '@/types'
-import { submitEssayAPI, getEssayHistoryAPI, generateMockEssayScore } from '@/api'
+import { submitEssayAPI, getEssayHistoryAPI, generateMockEssayScore, isAuthenticated } from '@/api'
 
 /**
  * 话题选项
@@ -249,6 +250,12 @@ const updateWordCount = () => {
  * 提交作文
  */
 const submitEssay = async () => {
+  if (!isAuthenticated()) {
+    ElMessage.warning('请先登录才能提交作文')
+    window.dispatchEvent(new CustomEvent('open-login-dialog'))
+    return
+  }
+  
   if (!canSubmit.value) return
 
   isSubmitting.value = true

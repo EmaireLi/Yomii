@@ -180,9 +180,10 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { Memo, Timer, Aim, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import type { QuizQuestion } from '@/types'
-import { getQuizQuestions as getQuizQuestionsAPI } from '@/api'
+import { getQuizQuestions as getQuizQuestionsAPI, isAuthenticated } from '@/api'
 
 const emit = defineEmits<{
   switchView: [view: string]
@@ -237,6 +238,12 @@ const recommendation = computed(() => {
 })
 
 const startTest = async () => {
+  if (!isAuthenticated()) {
+    ElMessage.warning('请先登录才能参加测试')
+    window.dispatchEvent(new CustomEvent('open-login-dialog'))
+    return
+  }
+  
   testStarted.value = true
   testCompleted.value = false
   currentIndex.value = 0

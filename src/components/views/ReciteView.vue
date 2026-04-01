@@ -329,11 +329,24 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import type { Word } from '@/types'
-import { getLearnWords, getReviewWords, requestAddMore as requestAddMoreAPI, saveLearningSession } from '@/api'
+import { getLearnWords, getReviewWords, requestAddMore as requestAddMoreAPI, saveLearningSession, isAuthenticated } from '@/api'
 import { useWordProgress, useStudyStats, useStudyPlan } from '@/composables/useLocalStorage'
 import { DICTIONARIES, WORD_COUNT_OPTIONS } from '@/utils/constants'
 import { Setting, Reading, EditPen, CircleClose, QuestionFilled, Check, Promotion, Warning } from '@element-plus/icons-vue'
+
+/**
+ * 检查登录状态，未登录则打开登录对话框
+ */
+function requireLogin(): boolean {
+  if (!isAuthenticated()) {
+    ElMessage.warning('请先登录才能学习')
+    window.dispatchEvent(new CustomEvent('open-login-dialog'))
+    return false
+  }
+  return true
+}
 
 // 标签
 const activeTab = ref<'learn' | 'review'>('learn')
@@ -407,6 +420,8 @@ const toggleLearningCard = () => {
 }
 
 const nextLearnWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
+  if (!requireLogin()) return
+  
   if (currentWord.value) {
     updateProgress(currentWord.value.id, status)
     incrementRecited()
@@ -467,6 +482,8 @@ const toggleReviewCard = () => {
 }
 
 const nextReviewWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
+  if (!requireLogin()) return
+  
   if (currentReviewWord.value) {
     updateProgress(currentReviewWord.value.id, status)
     incrementRecited()
@@ -522,6 +539,8 @@ const requestAddMore = async () => {
 
 // 学习计划管理
 const savePlanConfig = async () => {
+  if (!requireLogin()) return
+
   if (currentPlan.value) {
     const finalDailyGoal = customWordCount.value || currentDailyGoal.value
     updatePlan(currentPlan.value.id, {

@@ -171,10 +171,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ElNotification } from 'element-plus'
+import { ElNotification, ElMessage } from 'element-plus'
 import { Search, VideoPlay, DocumentCopy, Star, StarFilled } from '@element-plus/icons-vue'
 import type { Word } from '@/types'
-import { searchWords as searchWordsAPI } from '@/api'
+import { searchWords as searchWordsAPI, isAuthenticated } from '@/api'
 import { useSearchHistory, useFavorites } from '@/composables/useLocalStorage'
 
 const searchQuery = ref('')
@@ -185,12 +185,30 @@ const errorMessage = ref('')
 const hoveredWordId = ref<string | null>(null)
 
 const { searchHistory, addSearch, removeSearch } = useSearchHistory()
-const { isFavorited, toggleFavorite } = useFavorites()
+const { isFavorited, toggleFavorite: originalToggleFavorite } = useFavorites()
+
+/**
+ * 需要登录检查的 toggleFavorite 包装函数
+ */
+const toggleFavorite = (wordId: string) => {
+  if (!isAuthenticated()) {
+    ElMessage.warning('请先登录才能收藏词汇')
+    window.dispatchEvent(new CustomEvent('open-login-dialog'))
+    return
+  }
+  originalToggleFavorite(wordId)
+}
 
 /**
  * 执行搜索
  */
 const handleSearch = async () => {
+  if (!isAuthenticated()) {
+    ElMessage.warning('请先登录才能搜索')
+    window.dispatchEvent(new CustomEvent('open-login-dialog'))
+    return
+  }
+
   hasSearched.value = true
   errorMessage.value = ''
   
