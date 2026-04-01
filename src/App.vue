@@ -40,7 +40,10 @@
     <!-- 主内容区 -->
     <el-main class="yomii-content">
       <!-- 首页视图 -->
-      <HomeView v-if="currentView === 'home'" />
+      <HomeView v-if="currentView === 'home'" 
+        @mousemove.stop
+        @pointermove.stop
+        @touchmove.stop/>
       
       <!-- 查词视图 -->
       <SearchView v-else-if="currentView === 'search'" />
@@ -106,6 +109,7 @@ const switchView = (viewName: string): void => {
 .yomii-app {
   height: 100vh;
   width: 100%;
+  z-index: 1;
 }
 
 .yomii-sidebar {
@@ -116,6 +120,7 @@ const switchView = (viewName: string): void => {
   padding: 30px 0 0 0;
   box-shadow: 4px 0 20px rgba(102, 126, 234, 0.25);
   overflow-y: auto;
+  pointer-events: none;
 }
 
 .app-header {
@@ -150,6 +155,7 @@ const switchView = (viewName: string): void => {
   border-radius: 6px !important;
   background: rgba(255, 255, 255, 0.08) !important;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  pointer-events: auto;
 }
 
 .nav-menu-item:hover {
@@ -186,7 +192,7 @@ const switchView = (viewName: string): void => {
 
 .yomii-content {
   padding: 40px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecf1 50%, #f0f4f8 100%);
+  background: rgba(255, 255, 255, 0.65);
   overflow-y: auto;
 }
 

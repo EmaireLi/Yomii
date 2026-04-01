@@ -18,20 +18,21 @@ window.addEventListener('load', async () => {
     const CanvasNestModule = await import('canvas-nest.js')
     const CanvasNest = (CanvasNestModule && (CanvasNestModule as any).default) || CanvasNestModule
     if (typeof CanvasNest === 'function') {
-      new (CanvasNest as any)(document.body, {
-        color: '0,0,0',
-        pointColor: '0,0,0',
-        opacity: 0.8,
-        zIndex: 9999,
-        count: 100
+      new (CanvasNest as any)(document.getElementById("app"), {
+        color: '16,24,32',
+        pointColor: '16,24,32',
+        opacity: 0.95,
+        zIndex: -1,
+        count: 300,
+        pointerEvent: 'none'
       })
       
-      // 修复动画层：添加 pointer-events: none 使其不妨碍交互
-      const canvasEl = document.getElementById('c_n1')
-      if (canvasEl) {
-        canvasEl.style.pointerEvents = 'none'
-        canvasEl.style.zIndex = '9999'
-      }
+    //   // 修复动画层：添加 pointer-events: none 使其不妨碍交互
+    //   const canvasEl = document.getElementById('c_n1')
+    //   if (canvasEl) {
+    //     canvasEl.style.pointerEvents = 'none'
+    //     canvasEl.style.zIndex = '2'
+    //   }
     }
   } catch (error) {
     console.error('CanvasNest 初始化失败：', error)
