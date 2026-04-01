@@ -1,8 +1,17 @@
 <template>
   <section class="view-section test-view">
-    <h1>智能测试 <span class="badge">AI Ready</span></h1>
+    <div class="test-title"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
+      <span>智能测试</span> 
+      <span class="badge">AI Ready</span>
+    </div>
 
-    <div v-if="!testStarted" class="test-intro">
+    <div v-if="!testStarted" class="test-intro"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <el-card class="section-card">
         <template #header>
           <div class="card-header">开始测试</div>
@@ -24,9 +33,9 @@
       </div>
 
       <div class="test-info">
-        <p>📝 预计题目数量：10-15 题</p>
-        <p>⏱️ 预计耗时：10-15 分钟</p>
-        <p>🎯 题型：多选题、填空题、听力题</p>
+        <p><el-icon class="inline-icon"><Memo /></el-icon> 预计题目数量：10-15 题</p>
+        <p><el-icon class="inline-icon"><Timer /></el-icon> 预计耗时：10-15 分钟</p>
+        <p><el-icon class="inline-icon"><Aim /></el-icon> 题型：多选题、填空题、听力题</p>
       </div>
 
       <button @click="startTest" class="btn btn-start">
@@ -36,9 +45,12 @@
     </div>
 
     <!-- 测试进行中 -->
-    <div v-else-if="!testCompleted && currentQuestion">
+    <div v-else-if="!testCompleted && currentQuestion"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <div class="quiz-header">
-        <div class="timer">⏱️ {{ formatTime(timeRemaining) }}</div>
+        <div class="timer"><el-icon class="inline-icon"><Timer /></el-icon> {{ formatTime(timeRemaining) }}</div>
         <div class="score">得分: {{ score }} / {{ totalQuestions }}</div>
       </div>
 
@@ -96,7 +108,12 @@
           <div v-if="answered" class="explanation">
             <div :class="['explanation-box', isCorrect ? 'correct' : 'incorrect']">
               <p class="explanation-status">
-                {{ isCorrect ? '✓ 回答正确！' : '✗ 回答错误' }}
+                <template v-if="isCorrect">
+                  <el-icon class="inline-icon"><CircleCheck /></el-icon> 回答正确！
+                </template>
+                <template v-else>
+                  <el-icon class="inline-icon"><CircleClose /></el-icon> 回答错误
+                </template>
               </p>
               <p class="explanation-text"><strong>解析：</strong> {{ currentQuestion.explanation }}</p>
               <p v-if="!isCorrect" class="correct-answer">
@@ -109,7 +126,10 @@
     </div>
 
     <!-- 测试完成 -->
-    <div v-else-if="testCompleted" class="test-result">
+    <div v-else-if="testCompleted" class="test-result"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <el-card class="section-card">
         <template #header>
           <div class="card-header">测试完成！</div>
@@ -160,6 +180,7 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
+import { Memo, Timer, Aim, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import type { QuizQuestion } from '@/types'
 import { getQuizQuestions as getQuizQuestionsAPI } from '@/api'
 
@@ -294,6 +315,26 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.test-title {
+  color: #8B4513;
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.badge {
+  font-size: 12px;
+  background: #f0f9eb;
+  color: #000000;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+.inline-icon {
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
 .test-intro {
   max-width: 95%;
   margin: 0 auto;
@@ -724,14 +765,6 @@ onUnmounted(() => {
   background: #f0f9ff;
 }
 
-.badge {
-  font-size: 12px;
-  background: #f0f9eb;
-  color: #000000;
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -757,10 +790,5 @@ onUnmounted(() => {
 .expand-enter-active,
 .expand-leave-active {
   transition: all 0.3s ease;
-}
-
-h1 {
-  color: #8B4513;
-  font-size: 24px;
 }
 </style>

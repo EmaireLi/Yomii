@@ -1,7 +1,10 @@
 <template>
   <section class="recite-view">
     <!-- 学习计划管理区 -->
-    <el-card class="plan-card">
+    <el-card class="plan-card"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <template #header>
         <div class="card-header">
           <span>学习计划</span>
@@ -32,7 +35,13 @@
 
       <!-- 配置区 -->
       <div class="config-section">
-        <h3 class="config-title">⚙️ 调整学习计划</h3>
+        <h3 class="config-title">
+          <el-icon :size="20"
+            style="vertical-align: middle; margin-right: 8px;">
+            <Setting/>
+          </el-icon> 
+          <span>调整学习计划</span>
+        </h3>
         
         <div class="config-grid">
           <!-- 选择辞书 -->
@@ -81,8 +90,14 @@
     </el-card>
 
     <!-- 选项卡 -->
-    <el-tabs v-model="activeTab" class="study-tabs">
-      <el-tab-pane label="📚 背单词" name="learn">
+    <el-tabs v-model="activeTab" class="study-tabs"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
+      <el-tab-pane name="learn">
+      <template #label>
+        <span class="tab-label"><el-icon><Reading /></el-icon> 背单词</span>
+      </template>
       <template v-if="learnWords.length > 0 && currentWord">
         <h1>背单词 <span class="counter">{{ currentLearnIndex + 1 }} / {{ learnWords.length }}</span></h1>
         
@@ -134,13 +149,13 @@
             </button>
             <template v-else>
               <button @click="nextLearnWord('unknown')" class="btn btn-unknown">
-                ❌ 不认识
+                <el-icon><CircleClose /></el-icon> 不认识
               </button>
               <button @click="nextLearnWord('fuzzy')" class="btn btn-fuzzy">
-                🤔 模糊
+                <el-icon><QuestionFilled /></el-icon> 模糊
               </button>
               <button @click="nextLearnWord('known')" class="btn btn-known">
-                ✓ 认识
+                <el-icon><Check /></el-icon> 认识
               </button>
             </template>
           </div>
@@ -158,10 +173,10 @@
       <!-- 背单词完成状态 -->
       <div v-else-if="learnSessionCompleted" class="completion-state">
         <div class="completion-content">
-          <p class="completion-icon">🎉</p>
+          <p class="completion-icon"><el-icon><Promotion /></el-icon></p>
           <p class="completion-text">恭喜！今天的背单词任务已完成</p>
           <div class="button-group">
-            <button @click="requestAddMore" class="btn btn-primary">🚀 加量学习</button>
+            <button @click="requestAddMore" class="btn btn-primary"><el-icon><Promotion /></el-icon> 加量学习</button>
             <button @click="resetLearnSession" class="btn btn-secondary">再来一遍</button>
           </div>
         </div>
@@ -188,14 +203,17 @@
 
       <!-- 没有单词 -->
       <div v-else class="empty-state">
-        <p class="empty-icon">📭</p>
+        <p class="empty-icon"><el-icon><Warning /></el-icon></p>
         <p class="empty-text">暂无待背诵的单词</p>
         <button @click="loadLearnWords" class="btn btn-primary">重新加载</button>
       </div>
     </el-tab-pane>
 
     <!-- 复习部分 -->
-    <el-tab-pane label="📝 复习" name="review" class="tab-content">
+    <el-tab-pane name="review" class="tab-content">
+      <template #label>
+        <span class="tab-label"><el-icon><EditPen /></el-icon> 复习</span>
+      </template>
       <template v-if="reviewWords.length > 0 && currentReviewWord">
         <h1>复习 <span class="counter">{{ currentReviewIndex + 1 }} / {{ reviewWords.length }}</span></h1>
         
@@ -247,13 +265,13 @@
             </button>
             <template v-else>
               <button @click="nextReviewWord('unknown')" class="btn btn-unknown">
-                ❌ 不认识
+                <el-icon><CircleClose /></el-icon> 不认识
               </button>
               <button @click="nextReviewWord('fuzzy')" class="btn btn-fuzzy">
-                🤔 模糊
+                <el-icon><QuestionFilled /></el-icon> 模糊
               </button>
               <button @click="nextReviewWord('known')" class="btn btn-known">
-                ✓ 认识
+                <el-icon><Check /></el-icon> 认识
               </button>
             </template>
           </div>
@@ -271,7 +289,7 @@
       <!-- 复习完成状态 -->
       <div v-else-if="reviewSessionCompleted" class="completion-state">
         <div class="completion-content">
-          <p class="completion-icon">✨</p>
+          <p class="completion-icon"><el-icon><Promotion /></el-icon></p>
           <p class="completion-text">恭喜！今天的复习任务已完成</p>
           <button @click="resetReviewSession" class="btn btn-primary" style="margin-top: 20px;">
             再复习一遍
@@ -300,7 +318,7 @@
 
       <!-- 没有复习单词 -->
       <div v-else class="empty-state">
-        <p class="empty-icon">📭</p>
+        <p class="empty-icon"><el-icon><Warning /></el-icon></p>
         <p class="empty-text">暂无复习单词</p>
         <button @click="loadReviewWords" class="btn btn-primary">重新加载</button>
       </div>
@@ -315,6 +333,7 @@ import type { Word } from '@/types'
 import { getLearnWords, getReviewWords, requestAddMore as requestAddMoreAPI, saveLearningSession } from '@/api'
 import { useWordProgress, useStudyStats, useStudyPlan } from '@/composables/useLocalStorage'
 import { DICTIONARIES, WORD_COUNT_OPTIONS } from '@/utils/constants'
+import { Setting, Reading, EditPen, CircleClose, QuestionFilled, Check, Promotion, Warning } from '@element-plus/icons-vue'
 
 // 标签
 const activeTab = ref<'learn' | 'review'>('learn')
@@ -764,6 +783,12 @@ onUnmounted(() => {
   animation: fadeIn 0.3s ease;
 }
 
+.tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 h1 {
   display: flex;
   justify-content: space-between;
@@ -920,6 +945,10 @@ h1 {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 600;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn .el-icon {
+  margin-right: 0.4rem;
 }
 
 .btn:active {

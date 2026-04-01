@@ -40,10 +40,7 @@
     <!-- 主内容区 -->
     <el-main class="yomii-content">
       <!-- 首页视图 -->
-      <HomeView v-if="currentView === 'home'" 
-        @mousemove.stop
-        @pointermove.stop
-        @touchmove.stop/>
+      <HomeView v-if="currentView === 'home'" />
       
       <!-- 查词视图 -->
       <SearchView v-else-if="currentView === 'search'" />

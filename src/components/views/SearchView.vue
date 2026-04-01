@@ -1,11 +1,17 @@
 <template>
   <section class="search-view">
-    <el-card class="header-card">
+    <el-card class="header-card"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <h1>日语查词</h1>
     </el-card>
     
     <!-- 搜索框 -->
-    <el-card class="search-card">
+    <el-card class="search-card"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <div class="search-box">
         <el-row :gutter="10">
           <el-col :xs="24" :sm="24" :md="20" :lg="20">
@@ -16,7 +22,7 @@
               clearable
             >
               <template #prefix>
-                <span>🔍</span>
+                <el-icon><Search /></el-icon>
               </template>
             </el-input>
           </el-col>
@@ -50,17 +56,26 @@
     </el-card>
 
     <!-- 加载中 -->
-    <el-card v-if="isLoading" class="state-card">
+    <el-card v-if="isLoading" class="state-card"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <el-empty description="搜索中..." image="search" />
     </el-card>
 
     <!-- 错误信息 -->
-    <el-card v-else-if="errorMessage" class="state-card">
+    <el-card v-else-if="errorMessage" class="state-card"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <el-alert :title="errorMessage" type="error" />
     </el-card>
 
     <!-- 搜索结果 -->
-    <div v-else-if="searchResult.length > 0" class="results">
+    <div v-else-if="searchResult.length > 0" class="results"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <el-card class="result-info">
         <template #header>
           <div class="card-header">
@@ -137,12 +152,18 @@
     </div>
 
     <!-- 未找到 -->
-    <el-card v-else-if="hasSearched" class="state-card">
+    <el-card v-else-if="hasSearched" class="state-card"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <el-empty description="未找到相关词汇" />
     </el-card>
 
     <!-- 初始状态 -->
-    <el-card v-else class="state-card">
+    <el-card v-else class="state-card"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <el-empty description="输入词汇开始查询" />
     </el-card>
   </section>
@@ -151,7 +172,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { ElNotification } from 'element-plus'
-import { VideoPlay, DocumentCopy, Star, StarFilled } from '@element-plus/icons-vue'
+import { Search, VideoPlay, DocumentCopy, Star, StarFilled } from '@element-plus/icons-vue'
 import type { Word } from '@/types'
 import { searchWords as searchWordsAPI } from '@/api'
 import { useSearchHistory, useFavorites } from '@/composables/useLocalStorage'
