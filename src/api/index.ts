@@ -1126,15 +1126,16 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
 export async function login(data: LoginRequest): Promise<AuthResponse> {
   if (USE_MOCK_API) {
     // Mock 模式：验证输入
-    if (!data.phone || !data.password) {
-      return { success: false, message: '电话和密码不能为空', error: '验证失败' }
+    const credential = data.username || data.phone
+    if (!credential || !data.password) {
+      return { success: false, message: '用户名/电话和密码不能为空', error: '验证失败' }
     }
     // 模拟成功登录
     const mockToken = `token_${Date.now()}`
     const mockUser: User = {
       id: `user_${Date.now()}`,
-      username: data.phone.slice(-4),
-      phone: data.phone,
+      username: data.username || data.phone!.slice(-4),
+      phone: data.phone || '未提供',
       createdAt: Date.now(),
       lastLoginAt: Date.now()
     }

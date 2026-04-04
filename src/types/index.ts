@@ -199,7 +199,8 @@ export interface RegisterRequest {
 
 /** 用户登录请求 */
 export interface LoginRequest {
-  phone: string
+  username?: string  // 用户名或电话（二者选一）
+  phone?: string     // 电话号码（二者选一）
   password: string
 }
 

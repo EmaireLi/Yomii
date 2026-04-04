@@ -69,8 +69,12 @@
     <!-- 登录对话框 -->
     <el-dialog v-model="loginDialogVisible" title="登录账户" width="500px" @closed="resetLoginDialogState">
       <el-form :model="loginForm" ref="loginFormRef" @submit.prevent="handleLogin">
-        <el-form-item label="电话" :rules="[{ required: true, message: '电话不能为空' }]" prop="phone">
-          <el-input v-model="loginForm.phone" placeholder="请输入电话号码" />
+        <el-form-item label="账户" :rules="[{ required: true, message: '用户名或电话二选一' }]" prop="username">
+          <el-input 
+            v-model="loginForm.username" 
+            placeholder="请输入用户名或电话号码" 
+            clearable
+          />
         </el-form-item>
         <el-form-item label="密码" :rules="[{ required: true, message: '密码不能为空' }]" prop="password">
           <el-input v-model="loginForm.password" placeholder="请输入密码" type="password" show-password />
@@ -221,7 +225,7 @@ const loginDialogVisible = ref(false)
 const loginLoading = ref(false)
 const loginFormRef = ref<FormInstance>()
 const loginForm = ref<LoginRequest>({
-  phone: '',
+  username: '',
   password: ''
 })
 
@@ -338,14 +342,28 @@ function resetResetDialogState() {
  * 处理登录
  */
 async function handleLogin() {
-  if (!loginForm.value.phone || !loginForm.value.password) {
-    ElMessage.warning('电话和密码不能为空')
+  if (!loginForm.value.username || !loginForm.value.password) {
+    ElMessage.warning('用户名/电话和密码不能为空')
     return
   }
 
   loginLoading.value = true
   try {
-    const res = await login(loginForm.value)
+    // 根据输入内容判断是用户名还是电话
+    const credential = loginForm.value.username
+    const isPhone = /^\d+$/.test(credential) && credential.length >= 10
+    
+    const loginData: LoginRequest = {
+      password: loginForm.value.password
+    }
+    
+    if (isPhone) {
+      loginData.phone = credential
+    } else {
+      loginData.username = credential
+    }
+    
+    const res = await login(loginData)
     if (res.success) {
       ElMessage.success(res.message || '登录成功')
       checkAuthentication()
