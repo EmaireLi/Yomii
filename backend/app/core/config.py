@@ -37,8 +37,15 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24小时
     
-    # CORS 配置
-    CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    # CORS 配置 (允许前端访问)
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:5173",  # Vite 默认端口
+        "http://localhost:5174",  # Vite 备用端口
+        "http://localhost:3000",  # 前端可能使用的端口
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:3000",
+    ]
     
     # AI 服务配置
     AI_API_KEY: str = ""

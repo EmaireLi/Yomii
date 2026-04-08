@@ -10,7 +10,7 @@ import { getRandomWords, searchWords as localSearchWords, QUIZ_QUESTIONS, WORDS_
 import { DEFAULT_STUDY_PLAN } from '@/utils/constants'
 
 // API 配置
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK === 'true'
 
 /**

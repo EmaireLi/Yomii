@@ -14,7 +14,7 @@ from app.models.user import User
 from app.schemas.token import TokenPayload
 from app.services.user_service import user_service
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 
 async def get_dict_db() -> Generator[AsyncSession, None, None]:
@@ -72,7 +72,7 @@ async def get_current_active_user(
 # 可选的认证依赖（用于公开接口，但支持已登录用户）
 async def get_optional_current_user(
     db: UserDB,
-    token: Annotated[str | None, Depends(OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False))] = None
+    token: Annotated[str | None, Depends(OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False))] = None
 ) -> User | None:
     """获取当前用户（可选，未登录返回 None）"""
     if token is None:
