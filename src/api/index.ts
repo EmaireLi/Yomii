@@ -5,7 +5,7 @@
  * 支持 Mock 模式和真实后端两种模型
  */
 
-import type { Word, SearchResult, QuizQuestion, WordProgress, StudyStats, Essay, EssayScore, StudyPlan, LearningSession } from '@/types'
+import type { Word, SearchResult, QuizQuestion, WordProgress, StudyStats, Essay, EssayScore, StudyPlan, LearningSession, User, AuthResponse, RegisterRequest, LoginRequest, ResetPasswordRequest, SetNewPasswordRequest } from '@/types'
 import { getRandomWords, searchWords as localSearchWords, QUIZ_QUESTIONS, WORDS_DATABASE } from '@/utils/mockData'
 import { DEFAULT_STUDY_PLAN } from '@/utils/constants'
 
@@ -534,7 +534,175 @@ export async function requestAddMore(planId: string, additionalCount: number): P
   return response.json()
 }
 
+/**
+ * 用户注册
+ * POST /api/auth/register
+ */
+export async function register(data: RegisterRequest): Promise<AuthResponse> {
+  if (USE_MOCK_API) {
+    // Mock 模式：验证输入
+    if (!data.phone || !data.password) {
+      return { success: false, message: '电话和密码不能为空', error: '验证失败' }
+    }
+    if (data.password.length < 8) {
+      return { success: false, message: '密码至少8位', error: '密码过短' }
+    }
+    // 模拟成功注册
+    const mockToken = `token_${Date.now()}`
+    const mockUser: User = {
+      id: `user_${Date.now()}`,
+      username: data.username || '新用户',
+      phone: data.phone,
+      createdAt: Date.now(),
+      lastLoginAt: Date.now()
+    }
+    localStorage.setItem('yomii_auth_token', mockToken)
+    localStorage.setItem('yomii_user', JSON.stringify(mockUser))
+    return { success: true, message: '注册成功', token: mockToken, user: mockUser }
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  const result: AuthResponse = await response.json()
+  if (response.ok && result.token) {
+    localStorage.setItem('yomii_auth_token', result.token)
+    if (result.user) {
+      localStorage.setItem('yomii_user', JSON.stringify(result.user))
+    }
+  }
+  return result
+}
+
+/**
+ * 用户登录
+ * POST /api/auth/login
+ */
+export async function login(data: LoginRequest): Promise<AuthResponse> {
+  if (USE_MOCK_API) {
+    // Mock 模式：验证输入
+    if (!data.phone || !data.password) {
+      return { success: false, message: '电话和密码不能为空', error: '验证失败' }
+    }
+    // 模拟成功登录
+    const mockToken = `token_${Date.now()}`
+    const mockUser: User = {
+      id: `user_${Date.now()}`,
+      username: data.phone.slice(-4),
+      phone: data.phone,
+      createdAt: Date.now(),
+      lastLoginAt: Date.now()
+    }
+    localStorage.setItem('yomii_auth_token', mockToken)
+    localStorage.setItem('yomii_user', JSON.stringify(mockUser))
+    return { success: true, message: '登录成功', token: mockToken, user: mockUser }
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  const result: AuthResponse = await response.json()
+  if (response.ok && result.token) {
+    localStorage.setItem('yomii_auth_token', result.token)
+    if (result.user) {
+      localStorage.setItem('yomii_user', JSON.stringify(result.user))
+    }
+  }
+  return result
+}
+
+/**
+ * 用户登出
+ */
+export function logout(): void {
+  localStorage.removeItem('yomii_auth_token')
+  localStorage.removeItem('yomii_user')
+}
+
+/**
+ * 获取当前用户信息
+ */
+export function getCurrentUser(): User | null {
+  const userStr = localStorage.getItem('yomii_user')
+  if (!userStr) return null
+  try {
+    return JSON.parse(userStr) as User
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 获取认证令牌
+ */
+export function getAuthToken(): string | null {
+  return localStorage.getItem('yomii_auth_token')
+}
+
+/**
+ * 检查是否已登录
+ */
+export function isAuthenticated(): boolean {
+  return !!getAuthToken() && !!getCurrentUser()
+}
+
+/**
+ * 请求重置密码
+ * POST /api/auth/request-reset
+ */
+export async function requestPasswordReset(data: ResetPasswordRequest): Promise<AuthResponse> {
+  if (USE_MOCK_API) {
+    if (!data.phone) {
+      return { success: false, message: '电话不能为空', error: '验证失败' }
+    }
+    // 模拟成功请求
+    return { success: true, message: '重置码已发送到短信' }
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/auth/request-reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  return response.json()
+}
+
+/**
+ * 重置密码（使用重置码）
+ * POST /api/auth/reset-password
+ */
+export async function resetPassword(data: SetNewPasswordRequest): Promise<AuthResponse> {
+  if (USE_MOCK_API) {
+    if (!data.newPassword || data.newPassword.length < 8) {
+      return { success: false, message: '密码至少8位', error: '密码过短' }
+    }
+    // 模拟成功重置
+    return { success: true, message: '密码重置成功，请重新登录' }
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  return response.json()
+}
+
 export default {
+  // 认证相关
+  register,
+  login,
+  logout,
+  getCurrentUser,
+  getAuthToken,
+  isAuthenticated,
+  requestPasswordReset,
+  resetPassword,
+  // 单词相关
   searchWords,
   getWord,
   getRandomWordsAPI,

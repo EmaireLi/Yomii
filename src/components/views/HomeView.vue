@@ -1,12 +1,18 @@
 <template>
   <section class="home-view">
-    <el-card class="header-card">
+    <el-card class="header-card"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <h1>欢迎使用 Yomii 辞书</h1>
       <p class="desc">{{ appDescription }}</p>
     </el-card>
 
     <!-- 快速统计 -->
-    <el-row :gutter="20" class="stats-section">
+    <el-row :gutter="20" class="stats-section"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <el-col :xs="12" :sm="12" :md="6" :lg="6" class="stat-col">
         <el-card class="stat-card">
           <el-statistic title="总背词数" :value="STATS.totalWordsRecited" />
@@ -30,10 +36,19 @@
     </el-row>
 
     <!-- 团队信息 -->
-    <el-card class="team-card">
+    <el-card class="team-card"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <template #header>
         <div class="card-header">
-          <span class="title-text">👥 {{ teamInfo.name }}</span>
+          <div class="title-text">
+            <el-icon :size="20"
+              style="vertical-align: middle; margin-right: 8px;">
+              <UserFilled/>
+            </el-icon> 
+            <span>{{ teamInfo.name }}</span>
+          </div>
         </div>
       </template>
       
@@ -51,10 +66,19 @@
     </el-card>
 
     <!-- 功能导航 -->
-    <el-card class="features-card">
+    <el-card class="features-card"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <template #header>
         <div class="card-header">
-          <span class="title-text">✨ 主要功能</span>
+          <div class="title-text">
+            <el-icon :size="20"
+              style="vertical-align: middle; margin-right: 8px;">
+              <Operation/>
+            </el-icon> 
+            <span>核心功能</span>
+          </div>
         </div>
       </template>
       
@@ -77,7 +101,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Search, DocumentCopy, Notebook, StarFilled } from '@element-plus/icons-vue'
+import { Search, DocumentCopy, Notebook, StarFilled, UserFilled, Operation } from '@element-plus/icons-vue'
 import { TEAM_INFO, APP_DESCRIPTION } from '@/utils/constants'
 import { useStudyStats } from '@/composables/useLocalStorage'
 

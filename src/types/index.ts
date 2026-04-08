@@ -129,3 +129,47 @@ export interface UserData {
   currentPlan?: StudyPlan
   learningSessions?: LearningSession[]
 }
+
+/** 用户账户信息 */
+export interface User {
+  id: string
+  username: string
+  phone: string
+  createdAt: number
+  lastLoginAt: number
+}
+
+/** 用户注册请求 */
+export interface RegisterRequest {
+  username: string
+  phone: string
+  password: string
+  confirmPassword?: string
+}
+
+/** 用户登录请求 */
+export interface LoginRequest {
+  phone: string
+  password: string
+}
+
+/** 密码重置请求 */
+export interface ResetPasswordRequest {
+  phone: string
+}
+
+/** 设置新密码请求 */
+export interface SetNewPasswordRequest {
+  code: string
+  newPassword: string
+  confirmPassword?: string
+}
+
+/** 认证响应 */
+export interface AuthResponse {
+  success: boolean
+  message: string
+  token?: string
+  user?: User
+  error?: string
+}

@@ -1,12 +1,21 @@
 <template>
   <section class="view-section essay-view">
-    <h1>作文评价 <span class="badge">AI Ready</span></h1>
+    <div class="essay-view-title"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
+      <span>作文评价</span> 
+      <span class="badge">AI Ready</span>
+    </div>
 
     <!-- 编辑和提交作文 -->
-    <div v-if="!showEvaluationOnly" class="essay-editor">
+    <div v-if="!showEvaluationOnly" class="essay-editor"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <el-card class="section-card">
         <template #header>
-          <div class="card-header">✍️ 写作练习</div>
+          <div class="card-header"><el-icon class="inline-icon"><EditPen /></el-icon> 写作练习</div>
         </template>
         <p class="hint">请用日语写一篇短文，最少 200 字。支持未来 AI 自动评分。</p>
 
@@ -55,7 +64,7 @@
             :disabled="!canSubmit"
             class="btn btn-submit"
           >
-            <span v-if="!isSubmitting">📤 提交作文</span>
+            <span v-if="!isSubmitting"><el-icon class="inline-icon"><Promotion /></el-icon> 提交作文</span>
             <span v-else>提交中...</span>
           </button>
           <button @click="clearForm" class="btn btn-secondary">
@@ -66,10 +75,13 @@
     </div>
 
     <!-- 评分结果展示 -->
-    <div v-if="essays.length > 0" class="essays-history">
+    <div v-if="essays.length > 0" class="essays-history"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <el-card class="section-card">
         <template #header>
-          <div class="card-header">📋 作文历史</div>
+          <div class="card-header"><el-icon class="inline-icon"><Collection /></el-icon> 作文历史</div>
         </template>
 
       <div class="empty-state" v-if="essays.length === 0">
@@ -80,14 +92,14 @@
         <div class="essay-header">
           <div>
             <div class="essay-title">{{ essay.topic === 'custom' ? essay.title : getTopicLabel(essay.topic) }}</div>
-            <p class="meta">📅 {{ formatDate(essay.submitTime) }} | 📝 {{ essay.wordCount }} 字</p>
+            <p class="meta"><el-icon class="inline-icon"><Calendar /></el-icon> {{ formatDate(essay.submitTime) }} | <el-icon class="inline-icon"><Memo /></el-icon> {{ essay.wordCount }} 字</p>
           </div>
           <button
             @click="selectEssay(essay)"
             :class="['btn btn-view', { active: selectedEssay?.id === essay.id }]"
           >
             <span v-if="essay.score">查看评分</span>
-            <span v-else>⏳ 等待评分</span>
+            <span v-else><el-icon class="inline-icon"><Loading /></el-icon> 等待评分</span>
           </button>
         </div>
 
@@ -138,16 +150,16 @@
 
             <!-- 评论 -->
             <div class="comments-section">
-              <h4>📝 评论反馈</h4>
+              <h4><el-icon class="inline-icon"><ChatDotRound /></el-icon> 评论反馈</h4>
               <p class="comment-text">{{ essay.score.comments }}</p>
               <p class="ai-note" v-if="essay.score.aiEvaluated">
-                ✨ 本评分由 AI 系统生成（{{ formatDate(essay.score.evaluationTime) }}）
+                <el-icon class="inline-icon"><Opportunity /></el-icon> 本评分由 AI 系统生成（{{ formatDate(essay.score.evaluationTime) }}）
               </p>
             </div>
 
             <!-- 原文 -->
             <div class="essay-content-view">
-              <h4>📄 原文</h4>
+              <h4><el-icon class="inline-icon"><Document /></el-icon> 原文</h4>
               <div class="content-box">
                 {{ essay.content }}
               </div>
@@ -159,9 +171,12 @@
     </div>
 
     <!-- 提示 -->
-    <el-card class="section-card">
+    <el-card class="section-card"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <template #header>
-        <div class="card-header">💡 写作建议</div>
+        <div class="card-header"><el-icon class="inline-icon"><Opportunity /></el-icon> 写作建议</div>
       </template>
       <ul>
         <li>确保内容与选定话题相关</li>
@@ -176,8 +191,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { ElMessage } from 'element-plus'
+import { EditPen, Promotion, Collection, Calendar, Memo, Loading, ChatDotRound, Opportunity, Document } from '@element-plus/icons-vue'
 import type { Essay, EssayScore } from '@/types'
-import { submitEssayAPI, getEssayHistoryAPI, generateMockEssayScore } from '@/api'
+import { submitEssayAPI, getEssayHistoryAPI, generateMockEssayScore, isAuthenticated } from '@/api'
 
 /**
  * 话题选项
@@ -233,6 +250,12 @@ const updateWordCount = () => {
  * 提交作文
  */
 const submitEssay = async () => {
+  if (!isAuthenticated()) {
+    ElMessage.warning('请先登录才能提交作文')
+    window.dispatchEvent(new CustomEvent('open-login-dialog'))
+    return
+  }
+  
   if (!canSubmit.value) return
 
   isSubmitting.value = true
@@ -314,6 +337,21 @@ loadEssayHistory()
   animation: slideUp 0.3s ease;
 }
 
+.essay-view-title {
+  color: #8B4513;
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.badge {
+  font-size: 12px;
+  background: #f0f9eb;
+  color: #000000;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
 .section-card {
   margin-bottom: 20px;
 }
@@ -322,6 +360,11 @@ loadEssayHistory()
   font-size: 18px;
   font-weight: 600;
   color: #000000;
+}
+
+.inline-icon {
+  vertical-align: middle;
+  margin-right: 4px;
 }
 
 .hint {
@@ -602,10 +645,5 @@ loadEssayHistory()
 .expand-leave-to {
   opacity: 0;
   max-height: 0;
-}
-
-h1 {
-  color: #8B4513;
-  font-size: 24px;
 }
 </style>
