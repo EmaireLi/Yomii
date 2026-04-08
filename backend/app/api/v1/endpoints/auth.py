@@ -22,7 +22,8 @@ class UserResponse(BaseModel):
     """用户信息响应"""
     id: int
     username: str
-    email: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
     is_active: bool
 
 
@@ -97,6 +98,7 @@ async def _do_login(db, identifier: str, password: str) -> LoginResponse:
             id=user.id,
             username=user.username,
             email=user.email,
+            phone=user.phone,
             is_active=user.is_active
         )
     )
@@ -143,27 +145,36 @@ async def register(
     - **email/phone**: 邮箱或手机号
     - **password**: 密码
     """
-    # 使用 email 或 phone 作为邮箱
-    email = user_in.email or user_in.phone
-    if not email:
+    phone = user_in.phone
+    email = user_in.email
+    
+    # 至少需要一个联系方式
+    if not email and not phone:
         return RegisterResponse(
             success=False,
             message="邮箱或手机号不能为空",
             error="验证失败"
         )
     
-    # 规范化邮箱格式（如果是手机号，添加后缀）
-    if email and "@" not in email:
-        email = f"{email}@phone.local"
+    # 检查手机号是否已注册
+    if phone:
+        existing_user = await user_service.get_by_phone(db, phone)
+        if existing_user:
+            return RegisterResponse(
+                success=False,
+                message="该手机号已被注册",
+                error="手机号已存在"
+            )
     
     # 检查邮箱是否已注册
-    existing_user = await user_service.get_by_email(db, email)
-    if existing_user:
-        return RegisterResponse(
-            success=False,
-            message="该账号已被注册",
-            error="邮箱已存在"
-        )
+    if email:
+        existing_user = await user_service.get_by_email(db, email)
+        if existing_user:
+            return RegisterResponse(
+                success=False,
+                message="该邮箱已被注册",
+                error="邮箱已存在"
+            )
     
     # 检查用户名是否已使用
     existing_user = await user_service.get_by_username(db, user_in.username)
@@ -178,6 +189,7 @@ async def register(
     try:
         user_create = UserCreate(
             email=email,
+            phone=phone,
             username=user_in.username,
             password=user_in.password
         )
@@ -212,5 +224,6 @@ async def get_current_user_info(
         id=current_user.id,
         username=current_user.username,
         email=current_user.email,
+        phone=current_user.phone,
         is_active=current_user.is_active
     )

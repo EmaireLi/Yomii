@@ -8,7 +8,8 @@ from sqlmodel import SQLModel, Field
 
 class UserBase(SQLModel):
     """用户基础模型"""
-    email: str = Field(unique=True, index=True)
+    email: Optional[str] = Field(default=None, unique=True, index=True)
+    phone: Optional[str] = Field(default=None, unique=True, index=True)
     username: str = Field(unique=True, index=True)
     is_active: bool = True
     is_superuser: bool = False
@@ -26,7 +27,8 @@ class User(UserBase, table=True):
 
 class UserCreate(SQLModel):
     """用户创建模型"""
-    email: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
     username: str
     password: str
 
@@ -34,6 +36,7 @@ class UserCreate(SQLModel):
 class UserUpdate(SQLModel):
     """用户更新模型"""
     email: Optional[str] = None
+    phone: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
 

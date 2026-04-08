@@ -15,7 +15,17 @@ class UserService:
     
     async def get_by_email(self, db: AsyncSession, email: str) -> Optional[User]:
         """通过邮箱获取用户"""
+        if not email:
+            return None
         statement = select(User).where(User.email == email)
+        result = await db.exec(statement)
+        return result.first()
+    
+    async def get_by_phone(self, db: AsyncSession, phone: str) -> Optional[User]:
+        """通过手机号获取用户"""
+        if not phone:
+            return None
+        statement = select(User).where(User.phone == phone)
         result = await db.exec(statement)
         return result.first()
     
@@ -35,6 +45,7 @@ class UserService:
         """创建用户"""
         user = User(
             email=user_in.email,
+            phone=user_in.phone,
             username=user_in.username,
             hashed_password=get_password_hash(user_in.password)
         )
@@ -52,15 +63,22 @@ class UserService:
     async def authenticate(
         self,
         db: AsyncSession,
-        username_or_email: str,
+        identifier: str,
         password: str
     ) -> Optional[User]:
-        """验证用户登录 (支持用户名或邮箱)"""
-        # 先尝试邮箱登录
-        user = await self.get_by_email(db, username_or_email)
+        """验证用户登录 (支持用户名、邮箱或手机号)"""
+        user = None
+        
+        # 先尝试手机号登录
+        user = await self.get_by_phone(db, identifier)
+        
+        # 再尝试邮箱登录
         if not user:
-            # 再尝试用户名登录
-            user = await self.get_by_username(db, username_or_email)
+            user = await self.get_by_email(db, identifier)
+        
+        # 最后尝试用户名登录
+        if not user:
+            user = await self.get_by_username(db, identifier)
         
         if not user:
             return None
