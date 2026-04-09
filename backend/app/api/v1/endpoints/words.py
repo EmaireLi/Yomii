@@ -1,12 +1,14 @@
 """
 单词相关 API
 """
-from typing import List
+from typing import Annotated, List
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.core.deps import DictDB
-from app.models.word import Word, WordRead
+from app.core.deps import DictDB, UserDB, get_optional_current_user
+from app.models.favorite import SearchHistory
+from app.models.user import User
+from app.models.word import WordRead
 from app.services.word_service import word_service
 
 router = APIRouter()
@@ -15,6 +17,8 @@ router = APIRouter()
 @router.get("/search", response_model=List[WordRead])
 async def search_words(
     db: DictDB,
+    user_db: UserDB,
+    current_user: Annotated[User | None, Depends(get_optional_current_user)],
     q: str = Query(..., description="搜索关键词"),
     limit: int = Query(10, ge=1, le=100, description="返回数量限制")
 ) -> List[WordRead]:
@@ -24,10 +28,21 @@ async def search_words(
     - **q**: 搜索关键词（单词、假名或释义）
     - **limit**: 返回结果数量限制
     """
-    # TODO: 实现搜索逻辑
-    # words = await word_service.search(db, q, limit)
-    # return words
-    return []
+    words = await word_service.search(db, q, limit)
+
+    # 登录用户记录搜索历史（用于后续“最近搜索”能力扩展）
+    normalized_query = q.strip()
+    if current_user is not None and normalized_query:
+        user_db.add(
+            SearchHistory(
+                user_id=current_user.id,
+                keyword=normalized_query,
+                result_count=len(words),
+            )
+        )
+        await user_db.commit()
+
+    return words
 
 
 @router.get("/random", response_model=List[WordRead])
@@ -40,10 +55,7 @@ async def get_random_words(
     
     - **count**: 需要的随机单词数量
     """
-    # TODO: 实现随机获取逻辑
-    # words = await word_service.get_random(db, count)
-    # return words
-    return []
+    return await word_service.get_random(db, count)
 
 
 @router.get("/{word_id}", response_model=WordRead)
@@ -56,12 +68,10 @@ async def get_word(
     
     - **word_id**: 单词 ID
     """
-    # TODO: 实现获取逻辑
-    # word = await word_service.get(db, word_id)
-    # if not word:
-    #     raise HTTPException(status_code=404, detail="单词不存在")
-    # return word
-    raise HTTPException(status_code=404, detail="单词不存在")
+    word = await word_service.get(db, word_id)
+    if not word:
+        raise HTTPException(status_code=404, detail="单词不存在")
+    return word
 
 
 @router.get("/", response_model=dict)
@@ -76,7 +86,5 @@ async def get_all_words(
     - **page**: 页码
     - **limit**: 每页数量
     """
-    # TODO: 实现分页获取逻辑
-    # words, total = await word_service.get_all(db, page, limit)
-    # return {"words": words, "total": total, "page": page, "limit": limit}
-    return {"words": [], "total": 0, "page": page, "limit": limit}
+    words, total = await word_service.get_all(db, page, limit)
+    return {"words": words, "total": total, "page": page, "limit": limit}

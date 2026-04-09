@@ -109,7 +109,7 @@ Yomii 采用**双数据库架构**，将静态词典数据与动态用户数据�
 
 ---
 
-## 🗄️ MySQL 用户库 (yomii_user)
+## 🗄️ MySQL 用户库 (yomii)
 
 ### 1. users - 用户表
 
@@ -118,8 +118,9 @@ Yomii 采用**双数据库架构**，将静态词典数据与动态用户数据�
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
 | `id` | INT | PK, AUTO_INCREMENT | 主键 |
-| `username` | VARCHAR(50) | UNIQUE, NOT NULL, INDEX | 用户名 |
-| `email` | VARCHAR(100) | UNIQUE, NOT NULL, INDEX | 邮箱 |
+| `username` | VARCHAR(100) | UNIQUE, NOT NULL, INDEX | 用户名 |
+| `email` | VARCHAR(255) | UNIQUE, NULL, INDEX | 邮箱（可空） |
+| `phone` | VARCHAR(20) | UNIQUE, NULL, INDEX | 手机号（可空） |
 | `hashed_password` | VARCHAR(255) | NOT NULL | 加密后的密码 |
 | `is_active` | BOOLEAN | DEFAULT TRUE | 是否激活 |
 | `is_superuser` | BOOLEAN | DEFAULT FALSE | 是否管理员 |
@@ -135,7 +136,7 @@ Yomii 采用**双数据库架构**，将静态词典数据与动态用户数据�
 | `id` | INT | PK, AUTO_INCREMENT | 主键 |
 | `user_id` | INT | FK → users.id, INDEX | 用户ID |
 | `word_id` | INT | NOT NULL, INDEX | 单词ID (引用SQLite) |
-| `status` | ENUM | DEFAULT 'unknown' | 状态: unknown / fuzzy / known |
+| `status` | ENUM | DEFAULT 'UNKNOWN' | 状态: UNKNOWN / FUZZY / KNOWN |
 | `review_count` | INT | DEFAULT 0 | 复习次数 |
 | `correct_count` | INT | DEFAULT 0 | 正确次数 |
 | `last_reviewed_at` | DATETIME | DEFAULT NOW | 最后复习时间 |
@@ -163,11 +164,11 @@ Yomii 采用**双数据库架构**，将静态词典数据与动态用户数据�
 |------|------|------|------|
 | `id` | INT | PK, AUTO_INCREMENT | 主键 |
 | `user_id` | INT | FK → users.id, INDEX | 用户ID |
-| `keyword` | VARCHAR(100) | NOT NULL | 搜索关键词 |
+| `keyword` | VARCHAR(255) | NOT NULL | 搜索关键词 |
 | `result_count` | INT | DEFAULT 0 | 搜索结果数量 |
 | `created_at` | DATETIME | DEFAULT NOW | 搜索时间 |
 
-**索引**: `(user_id, created_at)`
+**索引**: `user_id`, `keyword`
 
 ### 5. study_stats - 学习统计表
 
@@ -207,10 +208,10 @@ Yomii 采用**双数据库架构**，将静态词典数据与动态用户数据�
 |------|------|------|------|
 | `id` | INT | PK, AUTO_INCREMENT | 主键 |
 | `user_id` | INT | FK → users.id, INDEX | 用户ID |
-| `title` | VARCHAR(200) | NOT NULL | 作文标题 |
+| `title` | VARCHAR(255) | NOT NULL | 作文标题 |
 | `content` | TEXT | NOT NULL | 作文内容 |
-| `topic` | VARCHAR(100) | NOT NULL | 作文主题 |
-| `word_count` | INT | NOT NULL | 字数 |
+| `topic` | VARCHAR(255) | DEFAULT '' | 作文主题 |
+| `word_count` | INT | DEFAULT 0 | 字数 |
 | `submit_time` | DATETIME | DEFAULT NOW | 提交时间 |
 
 ### 8. essay_scores - 作文评分表
@@ -226,7 +227,7 @@ AI 作文评测结果。
 | `vocabulary_score` | INT | NOT NULL | 词汇分 (0-100) |
 | `fluency_score` | INT | NOT NULL | 流畅度 (0-100) |
 | `coherence_score` | INT | NOT NULL | 连贯性 (0-100) |
-| `comments` | TEXT | NOT NULL | AI 评语 |
+| `comments` | TEXT | NULL | AI 评语 |
 | `ai_evaluated` | BOOLEAN | DEFAULT FALSE | 是否AI评测 |
 | `evaluation_time` | DATETIME | DEFAULT NOW | 评测时间 |
 
@@ -239,9 +240,9 @@ AI 作文评测结果。
 | `id` | INT | PK, AUTO_INCREMENT | 主键 |
 | `user_id` | INT | FK → users.id, INDEX | 用户ID |
 | `name` | VARCHAR(100) | NOT NULL | 计划名称 |
-| `daily_goal` | INT | DEFAULT 10 | 每日目标单词数 |
-| `review_ratio` | DECIMAL(3,2) | DEFAULT 0.50 | 复习比例 |
-| `is_active` | BOOLEAN | DEFAULT FALSE | 是否激活 |
+| `daily_goal` | INT | DEFAULT 20 | 每日目标单词数 |
+| `review_ratio` | FLOAT | DEFAULT 0.30 | 复习比例 |
+| `is_active` | BOOLEAN | DEFAULT TRUE | 是否激活 |
 | `created_at` | DATETIME | DEFAULT NOW | 创建时间 |
 | `updated_at` | DATETIME | DEFAULT NOW ON UPDATE | 更新时间 |
 
@@ -254,8 +255,8 @@ AI 作文评测结果。
 | `id` | INT | PK, AUTO_INCREMENT | 主键 |
 | `plan_id` | INT | FK → study_plans.id, INDEX | 计划ID |
 | `date` | DATE | NOT NULL | 学习日期 |
-| `learned_words` | JSON | NOT NULL | 新学单词ID列表 |
-| `reviewed_words` | JSON | NOT NULL | 复习单词ID列表 |
+| `learned_words` | JSON | NULL | 新学单词ID列表 |
+| `reviewed_words` | JSON | NULL | 复习单词ID列表 |
 | `known_count` | INT | DEFAULT 0 | 掌握数量 |
 | `fuzzy_count` | INT | DEFAULT 0 | 模糊数量 |
 | `unknown_count` | INT | DEFAULT 0 | 未掌握数量 |
@@ -287,22 +288,25 @@ AI 作文评测结果。
 ```sql
 -- 用户查询
 CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_phone ON users(phone);
 CREATE INDEX idx_users_username ON users(username);
 
 -- 学习进度查询
-CREATE UNIQUE INDEX idx_word_progress_user_word ON word_progress(user_id, word_id);
+CREATE UNIQUE INDEX uk_user_word ON word_progress(user_id, word_id);
 
 -- 收藏查询
-CREATE UNIQUE INDEX idx_favorites_user_word ON favorites(user_id, word_id);
+CREATE UNIQUE INDEX uk_favorites_user_word ON favorites(user_id, word_id);
 
--- 搜索历史 (按时间倒序)
-CREATE INDEX idx_search_history_user_time ON search_history(user_id, created_at DESC);
+-- 搜索历史
+CREATE INDEX idx_search_history_user_id ON search_history(user_id);
+CREATE INDEX idx_search_history_keyword ON search_history(keyword);
 
 -- 测试结果统计
-CREATE INDEX idx_quiz_results_user ON quiz_results(user_id, timestamp DESC);
+CREATE INDEX idx_quiz_results_user_id ON quiz_results(user_id);
+CREATE INDEX idx_quiz_results_question_id ON quiz_results(question_id);
 
 -- 作文列表
-CREATE INDEX idx_essays_user ON essays(user_id, submit_time DESC);
+CREATE INDEX idx_essays_user_id ON essays(user_id);
 ```
 
 ---

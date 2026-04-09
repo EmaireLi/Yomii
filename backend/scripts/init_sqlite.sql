@@ -64,27 +64,6 @@ CREATE INDEX idx_quiz_questions_difficulty ON quiz_questions(difficulty);
 CREATE INDEX idx_quiz_questions_type ON quiz_questions(type);
 
 -- ============================================================
--- 示例数据（可选）
+-- 完成提示
 -- ============================================================
-
--- 插入示例单词
-INSERT INTO words (word, kana, meaning, example, part_of_speech) VALUES
-('勉強', 'べんきょう', '学习', '毎日日本語を勉強しています。', '名詞/動詞'),
-('食べる', 'たべる', '吃', '朝ごはんを食べます。', '動詞'),
-('美しい', 'うつくしい', '美丽的', '富士山は美しいです。', '形容詞'),
-('学校', 'がっこう', '学校', '学校に行きます。', '名詞'),
-('読む', 'よむ', '读', '本を読むのが好きです。', '動詞');
-
--- 插入示例标签
-INSERT INTO word_tags (word_id, tag) VALUES
-(1, 'N5'), (1, 'JLPT'),
-(2, 'N5'), (2, 'JLPT'), (2, '動詞'),
-(3, 'N4'), (3, 'JLPT'), (3, '形容詞'),
-(4, 'N5'), (4, 'JLPT'),
-(5, 'N5'), (5, 'JLPT'), (5, '動詞');
-
--- 插入示例题目
-INSERT INTO quiz_questions (type, question, word_id, options, correct_answer, explanation, difficulty) VALUES
-('multiple-choice', '「勉強」的读音是？', 1, '["べんきょう","べんきょ","べんきゅう","べんきゅ"]', 'べんきょう', '勉強（べんきょう）是学习的意思。', 'easy'),
-('multiple-choice', '「食べる」的意思是？', 2, '["喝","吃","看","听"]', '吃', '食べる是吃的意思，是一类动词。', 'easy'),
-('fill-blank', '富士山は＿＿です。（美丽的）', 3, '["美しい","楽しい","悲しい","嬉しい"]', '美しい', '美しい是美丽的意思。', 'medium');
+SELECT '✅ Yomii SQLite 词典库初始化完成（无测试数据）' AS message;

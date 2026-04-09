@@ -13,6 +13,37 @@ import { DEFAULT_STUDY_PLAN } from '@/utils/constants'
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK === 'true'
 
+type WordApiResponse = {
+  id: string | number
+  word: string
+  kana: string
+  meaning: string
+  example: string
+  partOfSpeech?: string
+  part_of_speech?: string
+  audioUrl?: string
+  audio_url?: string
+  tags?: string[]
+}
+
+function normalizeWord(word: WordApiResponse): Word {
+  return {
+    id: String(word.id),
+    word: word.word,
+    kana: word.kana,
+    meaning: word.meaning,
+    example: word.example,
+    partOfSpeech: word.partOfSpeech ?? word.part_of_speech,
+    audioUrl: word.audioUrl ?? word.audio_url,
+    tags: word.tags ?? []
+  }
+}
+
+function getAuthHeaders(): HeadersInit {
+  const token = getAuthToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 /**
  * 搜索单词
  * GET /api/words/search?q=keyword&limit=10
@@ -22,9 +53,12 @@ export async function searchWords(keyword: string, limit: number = 10): Promise<
     return localSearchWords(keyword).slice(0, limit)
   }
   
-  const response = await fetch(`${API_BASE_URL}/words/search?q=${encodeURIComponent(keyword)}&limit=${limit}`)
+  const response = await fetch(`${API_BASE_URL}/words/search?q=${encodeURIComponent(keyword)}&limit=${limit}`, {
+    headers: getAuthHeaders()
+  })
   if (!response.ok) throw new Error(`搜索失败: ${response.statusText}`)
-  return response.json()
+  const data: WordApiResponse[] = await response.json()
+  return data.map(normalizeWord)
 }
 
 /**
@@ -39,9 +73,12 @@ export async function getWord(id: string): Promise<Word> {
     return word
   }
   
-  const response = await fetch(`${API_BASE_URL}/words/${id}`)
+  const response = await fetch(`${API_BASE_URL}/words/${id}`, {
+    headers: getAuthHeaders()
+  })
   if (!response.ok) throw new Error(`获取单词失败: ${response.statusText}`)
-  return response.json()
+  const data: WordApiResponse = await response.json()
+  return normalizeWord(data)
 }
 
 /**
@@ -53,9 +90,12 @@ export async function getRandomWordsAPI(count: number = 5): Promise<Word[]> {
     return getRandomWords(count)
   }
   
-  const response = await fetch(`${API_BASE_URL}/words/random?count=${count}`)
+  const response = await fetch(`${API_BASE_URL}/words/random?count=${count}`, {
+    headers: getAuthHeaders()
+  })
   if (!response.ok) throw new Error(`获取随机单词失败: ${response.statusText}`)
-  return response.json()
+  const data: WordApiResponse[] = await response.json()
+  return data.map(normalizeWord)
 }
 
 /**
@@ -71,9 +111,15 @@ export async function getAllWords(page: number = 1, limit: number = 20): Promise
     }
   }
   
-  const response = await fetch(`${API_BASE_URL}/words?page=${page}&limit=${limit}`)
+  const response = await fetch(`${API_BASE_URL}/words?page=${page}&limit=${limit}`, {
+    headers: getAuthHeaders()
+  })
   if (!response.ok) throw new Error(`获取单词列表失败: ${response.statusText}`)
-  return response.json()
+  const data: { words: WordApiResponse[]; total: number } = await response.json()
+  return {
+    words: data.words.map(normalizeWord),
+    total: data.total
+  }
 }
 
 /**
@@ -176,13 +222,17 @@ export async function getStudyStats(): Promise<StudyStats> {
  * 获取搜索历史
  * GET /api/user/search-history
  */
-export async function getSearchHistory(limit: number = 10): Promise<SearchResult[]> {
+export async function getSearchHistory(
+  limit: number = 10
+): Promise<Array<{ id: number; keyword: string; resultCount: number; createdAt: number }>> {
   if (USE_MOCK_API) {
     // Mock 模式直接返回空（由 localStorage 驱动）
     return []
   }
   
-  const response = await fetch(`${API_BASE_URL}/user/search-history?limit=${limit}`)
+  const response = await fetch(`${API_BASE_URL}/user/search-history?limit=${limit}`, {
+    headers: getAuthHeaders()
+  })
   if (!response.ok) throw new Error(`获取搜索历史失败: ${response.statusText}`)
   return response.json()
 }

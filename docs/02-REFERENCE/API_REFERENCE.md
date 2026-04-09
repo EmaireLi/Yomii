@@ -18,11 +18,11 @@
 ```bash
 # Mock 模式（当前推荐）
 VITE_USE_MOCK=true
-VITE_API_URL=http://localhost:3000/api
+VITE_API_URL=http://localhost:8000/api
 
 # 或真实后端模式（后端就绪时）
 VITE_USE_MOCK=false
-VITE_API_URL=http://localhost:3000/api
+VITE_API_URL=http://localhost:8000/api
 ```
 
 ---
@@ -378,17 +378,17 @@ API 请求
   ↓
 检查 USE_MOCK_API = false
   ↓
-发送 HTTP 请求到 http://localhost:3000/api
+发送 HTTP 请求到 http://localhost:8000/api
   ↓
 后端处理并返回 JSON
   ↓
 完成！
 ```
 
-**只需修改这一行：**
-```typescript
-// src/api/index.ts
-const VITE_USE_MOCK = false  // 改为 false
+**只需修改 `.env.local`：**
+```bash
+VITE_USE_MOCK=false
+VITE_API_URL=http://localhost:8000/api
 ```
 
 ---
