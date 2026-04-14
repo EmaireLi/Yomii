@@ -30,14 +30,7 @@ SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 # 1. 文本清洗函数
 # =========================
 def clean_text(text: str) -> str:
-    """
-    清洗规则：
-    1. 删除 <sub>...</sub>（包括内容）
-    2. 删除所有 HTML 标签
-    3. 合并多余空格
-    """
-
-    # 删除 sub 标签（含内容）
+    # 删除 <sub>...</sub>
     text = re.sub(r"<sub>.*?</sub>", "", text, flags=re.S)
 
     # 删除所有 HTML 标签
@@ -53,7 +46,6 @@ def clean_text(text: str) -> str:
 # 2. 解析词条
 # =========================
 def parse_entries(raw_text: str):
-    # 按 8位编号切块
     blocks = re.split(r"\n(?=\d{8})", raw_text)
 
     entries = []
@@ -62,57 +54,57 @@ def parse_entries(raw_text: str):
         if not block.strip():
             continue
 
-        # 提取 entry id
         id_match = re.match(r"(\d{8})", block)
         if not id_match:
             continue
 
-        entry_id = id_match.group(1)
-
-        # 提取 word（标题）
+        # 提取单词
         midashi = re.search(r'<div class="midashi">(.*?)</div>', block)
         word = midashi.group(1).strip() if midashi else ""
 
-        # 提取正文（所有div内容）
+        # 提取正文
         honbun_list = re.findall(r'<div.*?>(.*?)</div>', block, re.S)
         raw_meaning = "\n".join(honbun_list)
 
         # 清洗
         meaning = clean_text(raw_meaning)
 
-        # 过滤空数据
         if not word or not meaning:
             continue
 
         entries.append({
             "word": word,
-            "kana": "",                 # 按要求留空
+            "kana": "",
             "meaning": meaning,
-            "example": "",              # 按要求留空
-            "part_of_speech": None,     # 按要求留空
-            "audio_url": None,          # 按要求留空
-            "created_at": datetime.now()
+            "example": "",
+            "part_of_speech": None,
+            "audio_url": None,
+            "created_at": datetime.now(),
+
+            # 👉 固定标签
+            "tags": ["N2"]
         })
 
     return entries
 
 
 # =========================
-# 3. 写入数据库
+# 3. 写入数据库（包含 word_tags）
 # =========================
 async def insert_data(entries):
     async with SessionLocal() as session:
         async with session.begin():
 
             result = await session.execute(text("SELECT COUNT(*) FROM words"))
-            before_count = result.scalar()
-            print(f"导入前数量: {before_count}")
+            print(f"导入前数量: {result.scalar()}")
 
             BATCH_SIZE = 1000
-            success = 0
 
+            # =========================
+            # 1. 批量插入 words
+            # =========================
             for i in range(0, len(entries), BATCH_SIZE):
-                batch = entries[i:i + BATCH_SIZE]
+                batch = entries[i:i+BATCH_SIZE]
 
                 await session.execute(
                     text("""
@@ -124,14 +116,52 @@ async def insert_data(entries):
                     batch
                 )
 
-                success += len(batch)
-                print(f"已导入: {success}/{len(entries)}")
+                print(f"words已导入: {i + len(batch)}/{len(entries)}")
+
+            # =========================
+            # 2. 一次性查出 word -> id 映射
+            # =========================
+            result = await session.execute(
+                text("SELECT id, word FROM words")
+            )
+
+            rows = result.fetchall()
+            word_id_map = {row.word: row.id for row in rows}
+
+            # =========================
+            # 3. 构造 word_tags
+            # =========================
+            word_tag_rows = []
+
+            for entry in entries:
+                word_id = word_id_map.get(entry["word"])
+                if not word_id:
+                    continue
+
+                for tag in entry["tags"]:
+                    word_tag_rows.append({
+                        "word_id": word_id,
+                        "tag": tag
+                    })
+
+            # =========================
+            # 4. 批量插入 word_tags
+            # =========================
+            for i in range(0, len(word_tag_rows), BATCH_SIZE):
+                batch = word_tag_rows[i:i+BATCH_SIZE]
+
+                await session.execute(
+                    text("""
+                        INSERT INTO word_tags (word_id, tag)
+                        VALUES (:word_id, :tag)
+                    """),
+                    batch
+                )
+
+                print(f"tags已导入: {i + len(batch)}/{len(word_tag_rows)}")
 
             result = await session.execute(text("SELECT COUNT(*) FROM words"))
-            after_count = result.scalar()
-
-            print(f"导入后数量: {after_count}")
-
+            print(f"导入后数量: {result.scalar()}")
 
 # =========================
 # 4. 主函数
