@@ -143,14 +143,36 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
 export function searchWords(query: string): Word[] {
   if (!query.trim()) return []
   
-  const lowerQuery = query.toLowerCase()
-  
-  return WORDS_DATABASE.filter(word => 
-    word.word.includes(query) ||
-    word.kana.includes(query) ||
-    word.japaneseMeaning.toLowerCase().includes(lowerQuery) ||
-    word.chineseMeaning.toLowerCase().includes(lowerQuery)
-  )
+  const normalizedQuery = query.trim()
+  const lowerQuery = normalizedQuery.toLowerCase()
+  const getPriority = (word: Word): number => {
+    if (word.word === normalizedQuery) return 0
+    if (word.word.startsWith(normalizedQuery)) return 1
+    if (word.word.includes(normalizedQuery)) return 2
+
+    const chineseMeaning = word.chineseMeaning.toLowerCase()
+    if (chineseMeaning === lowerQuery) return 3
+    if (chineseMeaning.includes(lowerQuery)) return 4
+
+    const japaneseMeaning = word.japaneseMeaning.toLowerCase()
+    if (japaneseMeaning === lowerQuery) return 5
+    if (japaneseMeaning.includes(lowerQuery)) return 6
+
+    if (word.kana === normalizedQuery) return 7
+    if (word.kana.startsWith(normalizedQuery)) return 8
+    if (word.kana.includes(normalizedQuery)) return 9
+    return 10
+  }
+
+  return WORDS_DATABASE
+    .map((word, index) => ({ word, index }))
+    .filter(({ word }) => getPriority(word) < 10)
+    .sort((a, b) => {
+      const priorityDiff = getPriority(a.word) - getPriority(b.word)
+      if (priorityDiff !== 0) return priorityDiff
+      return a.index - b.index
+    })
+    .map(({ word }) => word)
 }
 
 /**

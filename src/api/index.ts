@@ -151,19 +151,53 @@ function assertApiResponse(response: Response, action: string): void {
 
 /**
  * 搜索单词
- * GET /api/words/search?q=keyword&limit=10
+ * GET /api/words/search?q=keyword&page=1&limit=10
  */
-export async function searchWords(keyword: string, limit: number = 10): Promise<SearchResult[]> {
+export async function searchWords(
+  keyword: string,
+  page: number = 1,
+  limit: number = 10
+): Promise<{ words: SearchResult[]; total: number; page: number; limit: number }> {
+  const safePage = Math.max(1, page)
+  const safeLimit = Math.min(100, Math.max(1, limit))
+
   if (USE_MOCK_API) {
-    return localSearchWords(keyword).slice(0, limit)
+    const allWords = localSearchWords(keyword)
+    const start = (safePage - 1) * safeLimit
+    return {
+      words: allWords.slice(start, start + safeLimit),
+      total: allWords.length,
+      page: safePage,
+      limit: safeLimit
+    }
   }
   
-  const response = await fetch(`${API_BASE_URL}/words/search?q=${encodeURIComponent(keyword)}&limit=${limit}`, {
+  const response = await fetch(
+    `${API_BASE_URL}/words/search?q=${encodeURIComponent(keyword)}&page=${safePage}&limit=${safeLimit}`,
+    {
     headers: getAuthHeaders()
-  })
-  if (!response.ok) throw new Error(`搜索失败: ${response.statusText}`)
-  const data: WordApiResponse[] = await response.json()
-  return data.map(normalizeWord)
+    }
+  )
+  assertApiResponse(response, '搜索')
+  const payload = await response.json() as
+    | { words?: WordApiResponse[]; total?: number; page?: number; limit?: number }
+    | WordApiResponse[]
+
+  if (Array.isArray(payload)) {
+    return {
+      words: payload.map(normalizeWord),
+      total: payload.length,
+      page: safePage,
+      limit: safeLimit
+    }
+  }
+
+  return {
+    words: (payload.words ?? []).map(normalizeWord),
+    total: payload.total ?? 0,
+    page: payload.page ?? safePage,
+    limit: payload.limit ?? safeLimit
+  }
 }
 
 /**

@@ -14,7 +14,7 @@
       @touchmove.stop>
       <div class="search-box">
         <el-row :gutter="10">
-          <el-col :xs="24" :sm="24" :md="20" :lg="20">
+          <el-col :xs="24" :sm="24" :md="16" :lg="16">
             <el-input
               v-model="searchQuery"
               placeholder="输入日语假名、汉字或中文..."
@@ -26,7 +26,21 @@
               </template>
             </el-input>
           </el-col>
-          <el-col :xs="24" :sm="24" :md="4" :lg="4">
+          <el-col :xs="24" :sm="12" :md="4" :lg="4">
+            <el-select
+              v-model="searchLimit"
+              class="limit-select"
+              @change="handleLimitChange"
+            >
+              <el-option
+                v-for="option in limitOptions"
+                :key="option"
+                :label="`${option} 条/页`"
+                :value="option"
+              />
+            </el-select>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="4" :lg="4">
             <el-button
               type="primary"
               @click="handleSearch"
@@ -79,7 +93,10 @@
       <el-card class="result-info">
         <template #header>
           <div class="card-header">
-            <span>找到 <el-tag>{{ searchResult.length }}</el-tag> 个结果</span>
+            <span>
+              共 <el-tag>{{ searchTotal }}</el-tag> 个结果，
+              第 <el-tag>{{ searchPage }}</el-tag> / <el-tag>{{ totalPages }}</el-tag> 页
+            </span>
           </div>
         </template>
       </el-card>
@@ -150,6 +167,17 @@
           </el-card>
         </el-col>
       </el-row>
+
+      <div class="pagination-wrapper" v-if="searchTotal > searchLimit">
+        <el-pagination
+          background
+          layout="prev, pager, next, jumper"
+          :current-page="searchPage"
+          :page-size="searchLimit"
+          :total="searchTotal"
+          @current-change="handlePageChange"
+        />
+      </div>
     </div>
 
     <!-- 未找到 -->
@@ -171,7 +199,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { ElNotification, ElMessage } from 'element-plus'
 import { Search, VideoPlay, DocumentCopy, Star, StarFilled } from '@element-plus/icons-vue'
 import type { Word } from '@/types'
@@ -180,10 +208,18 @@ import { useSearchHistory, useFavorites } from '@/composables/useLocalStorage'
 
 const searchQuery = ref('')
 const searchResult = ref<Word[]>([])
+const searchPage = ref(1)
+const searchLimit = ref(10)
+const searchTotal = ref(0)
+const limitOptions = [10, 20, 50, 100]
 const hasSearched = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const hoveredWordId = ref<string | null>(null)
+const totalPages = computed(() => {
+  if (searchTotal.value === 0) return 1
+  return Math.ceil(searchTotal.value / searchLimit.value)
+})
 
 const { searchHistory, addSearch, removeSearch } = useSearchHistory()
 const { isFavorited, toggleFavorite: originalToggleFavorite } = useFavorites()
@@ -203,6 +239,25 @@ const toggleFavorite = (wordId: string) => {
 /**
  * 执行搜索
  */
+const loadSearchPage = async (saveHistory: boolean = false) => {
+  isLoading.value = true
+  try {
+    const payload = await searchWordsAPI(searchQuery.value, searchPage.value, searchLimit.value)
+    searchResult.value = payload.words
+    searchTotal.value = payload.total
+    searchPage.value = payload.page
+    if (saveHistory) {
+      addSearch(searchQuery.value)
+    }
+  } catch (error: any) {
+    errorMessage.value = error.message || '搜索失败，请稍后重试'
+    searchResult.value = []
+    searchTotal.value = 0
+  } finally {
+    isLoading.value = false
+  }
+}
+
 const handleSearch = async () => {
   if (!isAuthenticated()) {
     ElMessage.warning('请先登录才能搜索')
@@ -215,19 +270,24 @@ const handleSearch = async () => {
   
   if (!searchQuery.value.trim()) {
     searchResult.value = []
+    searchTotal.value = 0
+    searchPage.value = 1
     return
   }
-  
-  isLoading.value = true
-  try {
-    searchResult.value = await searchWordsAPI(searchQuery.value)
-    addSearch(searchQuery.value)
-  } catch (error: any) {
-    errorMessage.value = error.message || '搜索失败，请稍后重试'
-    searchResult.value = []
-  } finally {
-    isLoading.value = false
-  }
+
+  searchPage.value = 1
+  await loadSearchPage(true)
+}
+
+const handlePageChange = async (page: number) => {
+  searchPage.value = page
+  await loadSearchPage(false)
+}
+
+const handleLimitChange = async () => {
+  if (!hasSearched.value || !searchQuery.value.trim()) return
+  searchPage.value = 1
+  await loadSearchPage(false)
 }
 
 const playAudio = (url: string) => {
@@ -286,6 +346,10 @@ const copyToClipboard = (text: string) => {
   border-radius: 4px;
 }
 
+.limit-select {
+  width: 100%;
+}
+
 .search-history {
   display: flex;
   align-items: center;
@@ -330,6 +394,12 @@ const copyToClipboard = (text: string) => {
 
 .result-list {
   margin: 0;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
 }
 
 .result-card {

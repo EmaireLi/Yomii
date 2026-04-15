@@ -14,35 +14,37 @@ from app.services.word_service import word_service
 router = APIRouter()
 
 
-@router.get("/search", response_model=List[WordRead])
+@router.get("/search", response_model=dict)
 async def search_words(
     db: DictDB,
     user_db: UserDB,
     current_user: Annotated[User | None, Depends(get_optional_current_user)],
     q: str = Query(..., description="搜索关键词"),
+    page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(10, ge=1, le=100, description="返回数量限制")
-) -> List[WordRead]:
+) -> dict:
     """
     搜索单词
     
     - **q**: 搜索关键词（单词、假名或释义）
-    - **limit**: 返回结果数量限制
+    - **page**: 页码
+    - **limit**: 每页数量
     """
-    words = await word_service.search(db, q, limit)
+    words, total = await word_service.search(db, q, page, limit)
 
     # 登录用户记录搜索历史（用于后续“最近搜索”能力扩展）
     normalized_query = q.strip()
-    if current_user is not None and normalized_query:
+    if current_user is not None and normalized_query and page == 1:
         user_db.add(
             SearchHistory(
                 user_id=current_user.id,
                 keyword=normalized_query,
-                result_count=len(words),
+                result_count=total,
             )
         )
         await user_db.commit()
 
-    return words
+    return {"words": words, "total": total, "page": page, "limit": limit}
 
 
 @router.get("/random", response_model=List[WordRead])
