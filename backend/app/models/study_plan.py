@@ -11,6 +11,7 @@ class StudyPlanBase(SQLModel):
     name: str
     daily_goal: int = 10
     review_ratio: float = 0.5
+    dictionary_id: str = "common"
     is_active: bool = False
 
 
@@ -48,6 +49,7 @@ class StudyPlanCreate(SQLModel):
     name: str
     daily_goal: int = 10
     review_ratio: float = 0.5
+    dictionary_id: str = "common"
 
 
 class StudyPlanUpdate(SQLModel):
@@ -55,6 +57,7 @@ class StudyPlanUpdate(SQLModel):
     name: Optional[str] = None
     daily_goal: Optional[int] = None
     review_ratio: Optional[float] = None
+    dictionary_id: Optional[str] = None
     is_active: Optional[bool] = None
 
 

@@ -47,9 +47,106 @@ function normalizeWord(word: WordApiResponse): Word {
   }
 }
 
-function getAuthHeaders(): HeadersInit {
+type StudyPlanApiResponse = {
+  id: string | number
+  name: string
+  dailyGoal?: number
+  daily_goal?: number
+  reviewRatio?: number
+  review_ratio?: number
+  dictionaryId?: string
+  dictionary_id?: string
+  createdAt?: number
+  created_at?: string
+  updatedAt?: number
+  updated_at?: string
+  isActive?: boolean
+  is_active?: boolean
+}
+
+type LearningSessionApiResponse = {
+  id: string | number
+  planId?: string | number
+  plan_id?: string | number
+  date: string
+  learnedWords?: string[]
+  learned_words?: string[]
+  reviewedWords?: string[]
+  reviewed_words?: string[]
+  sessionStats?: {
+    knownCount?: number
+    fuzzyCount?: number
+    unknownCount?: number
+  }
+  known_count?: number
+  fuzzy_count?: number
+  unknown_count?: number
+  completedAt?: number | null
+  completed_at?: string | null
+}
+
+function parseTimestamp(value?: number | string | null): number {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    const ms = Date.parse(value)
+    return Number.isNaN(ms) ? 0 : ms
+  }
+  return 0
+}
+
+function normalizeStudyPlan(plan: StudyPlanApiResponse): StudyPlan {
+  return {
+    id: String(plan.id),
+    name: plan.name,
+    dailyGoal: plan.dailyGoal ?? plan.daily_goal ?? 10,
+    reviewRatio: plan.reviewRatio ?? plan.review_ratio ?? 0.5,
+    dictionaryId: plan.dictionaryId ?? plan.dictionary_id ?? 'common',
+    createdAt: plan.createdAt ?? parseTimestamp(plan.created_at),
+    updatedAt: plan.updatedAt ?? parseTimestamp(plan.updated_at),
+    isActive: plan.isActive ?? plan.is_active ?? false
+  }
+}
+
+function normalizeLearningSession(session: LearningSessionApiResponse): LearningSession {
+  const normalizedSessionStats = session.sessionStats
+    ? {
+        knownCount: session.sessionStats.knownCount ?? 0,
+        fuzzyCount: session.sessionStats.fuzzyCount ?? 0,
+        unknownCount: session.sessionStats.unknownCount ?? 0
+      }
+    : {
+        knownCount: session.known_count ?? 0,
+        fuzzyCount: session.fuzzy_count ?? 0,
+        unknownCount: session.unknown_count ?? 0
+      }
+
+  return {
+    id: String(session.id),
+    planId: String(session.planId ?? session.plan_id ?? ''),
+    date: session.date,
+    learnedWords: session.learnedWords ?? session.learned_words ?? [],
+    reviewedWords: session.reviewedWords ?? session.reviewed_words ?? [],
+    sessionStats: normalizedSessionStats,
+    completedAt: session.completedAt ?? parseTimestamp(session.completed_at)
+  }
+}
+
+function getAuthHeaders(): Record<string, string> {
   const token = getAuthToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+function assertApiResponse(response: Response, action: string): void {
+  if (response.status === 401) {
+    logout()
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('open-login-dialog'))
+    }
+    throw new Error('登录状态已失效，请重新登录')
+  }
+  if (!response.ok) {
+    throw new Error(`${action}失败: ${response.statusText}`)
+  }
 }
 
 /**
@@ -421,9 +518,12 @@ export async function getStudyPlans(): Promise<StudyPlan[]> {
     return [DEFAULT_STUDY_PLAN]
   }
   
-  const response = await fetch(`${API_BASE_URL}/study-plans`)
-  if (!response.ok) throw new Error(`获取学习计划失败: ${response.statusText}`)
-  return response.json()
+  const response = await fetch(`${API_BASE_URL}/study-plans`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取学习计划')
+  const data: StudyPlanApiResponse[] = await response.json()
+  return data.map(normalizeStudyPlan)
 }
 
 /**
@@ -435,32 +535,47 @@ export async function getCurrentStudyPlan(): Promise<StudyPlan> {
     return DEFAULT_STUDY_PLAN
   }
   
-  const response = await fetch(`${API_BASE_URL}/study-plans/current`)
-  if (!response.ok) throw new Error(`获取当前学习计划失败: ${response.statusText}`)
-  return response.json()
+  const response = await fetch(`${API_BASE_URL}/study-plans/current`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取当前学习计划')
+  const data: StudyPlanApiResponse = await response.json()
+  return normalizeStudyPlan(data)
 }
 
 /**
  * 创建新的学习计划
  * POST /api/study-plans
  */
-export async function createStudyPlan(plan: Omit<StudyPlan, 'id' | 'createdAt' | 'updatedAt'>): Promise<StudyPlan> {
+export async function createStudyPlan(plan: {
+  name: string
+  dailyGoal: number
+  reviewRatio: number
+  dictionaryId?: string
+}): Promise<StudyPlan> {
   if (USE_MOCK_API) {
     return {
       ...plan,
       id: `plan_${Date.now()}`,
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      isActive: true
     }
   }
   
   const response = await fetch(`${API_BASE_URL}/study-plans`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(plan)
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({
+      name: plan.name,
+      daily_goal: plan.dailyGoal,
+      review_ratio: plan.reviewRatio,
+      dictionary_id: plan.dictionaryId ?? 'common'
+    })
   })
-  if (!response.ok) throw new Error(`创建学习计划失败: ${response.statusText}`)
-  return response.json()
+  assertApiResponse(response, '创建学习计划')
+  const data: StudyPlanApiResponse = await response.json()
+  return normalizeStudyPlan(data)
 }
 
 /**
@@ -479,11 +594,18 @@ export async function updateStudyPlan(planId: string, updates: Partial<StudyPlan
   
   const response = await fetch(`${API_BASE_URL}/study-plans/${planId}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates)
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({
+      name: updates.name,
+      daily_goal: updates.dailyGoal,
+      review_ratio: updates.reviewRatio,
+      dictionary_id: updates.dictionaryId,
+      is_active: updates.isActive
+    })
   })
-  if (!response.ok) throw new Error(`更新学习计划失败: ${response.statusText}`)
-  return response.json()
+  assertApiResponse(response, '更新学习计划')
+  const data: StudyPlanApiResponse = await response.json()
+  return normalizeStudyPlan(data)
 }
 
 /**
@@ -496,10 +618,12 @@ export async function activateStudyPlan(planId: string): Promise<StudyPlan> {
   }
   
   const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/activate`, {
-    method: 'POST'
+    method: 'POST',
+    headers: getAuthHeaders()
   })
-  if (!response.ok) throw new Error(`激活学习计划失败: ${response.statusText}`)
-  return response.json()
+  assertApiResponse(response, '激活学习计划')
+  const data: StudyPlanApiResponse = await response.json()
+  return normalizeStudyPlan(data)
 }
 
 /**
@@ -514,9 +638,12 @@ export async function getLearnWords(planId: string, date?: string): Promise<Word
     return getRandomWords(10)
   }
   
-  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/learn-words?date=${targetDate}`)
-  if (!response.ok) throw new Error(`获取待背诵单词失败: ${response.statusText}`)
-  return response.json()
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/learn-words?date=${targetDate}`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取待背诵单词')
+  const data: WordApiResponse[] = await response.json()
+  return data.map(normalizeWord)
 }
 
 /**
@@ -531,9 +658,12 @@ export async function getReviewWords(planId: string, date?: string): Promise<Wor
     return getRandomWords(5)
   }
   
-  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/review-words?date=${targetDate}`)
-  if (!response.ok) throw new Error(`获取复习单词失败: ${response.statusText}`)
-  return response.json()
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/review-words?date=${targetDate}`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取复习单词')
+  const data: WordApiResponse[] = await response.json()
+  return data.map(normalizeWord)
 }
 
 /**
@@ -550,11 +680,19 @@ export async function saveLearningSession(planId: string, session: Omit<Learning
   
   const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/sessions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(session)
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({
+      date: session.date,
+      learned_words: session.learnedWords,
+      reviewed_words: session.reviewedWords,
+      known_count: session.sessionStats.knownCount,
+      fuzzy_count: session.sessionStats.fuzzyCount,
+      unknown_count: session.sessionStats.unknownCount
+    })
   })
-  if (!response.ok) throw new Error(`保存学习轮次失败: ${response.statusText}`)
-  return response.json()
+  assertApiResponse(response, '保存学习轮次')
+  const data: LearningSessionApiResponse = await response.json()
+  return normalizeLearningSession(data)
 }
 
 /**
@@ -566,9 +704,12 @@ export async function getLearningSessions(planId: string): Promise<LearningSessi
     return []
   }
   
-  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/sessions`)
-  if (!response.ok) throw new Error(`获取学习轮次失败: ${response.statusText}`)
-  return response.json()
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/sessions`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取学习轮次')
+  const data: LearningSessionApiResponse[] = await response.json()
+  return data.map(normalizeLearningSession)
 }
 
 /**
@@ -583,13 +724,16 @@ export async function requestAddMore(planId: string, additionalCount: number): P
     }
   }
   
-  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/add-more`, {
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/add-more?additional_count=${additionalCount}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ additionalCount })
+    headers: getAuthHeaders()
   })
-  if (!response.ok) throw new Error(`加量学习失败: ${response.statusText}`)
-  return response.json()
+  assertApiResponse(response, '加量学习')
+  const data: { success: boolean; moreWords: WordApiResponse[] } = await response.json()
+  return {
+    success: data.success,
+    moreWords: (data.moreWords || []).map(normalizeWord)
+  }
 }
 
 /**

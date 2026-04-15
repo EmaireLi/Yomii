@@ -109,6 +109,19 @@ def _drop_tables_if_exist(sync_conn, table_names: set[str]) -> None:
         table.drop(sync_conn)
 
 
+def _migrate_study_plans_table_columns(sync_conn) -> None:
+    """为 study_plans 表补齐新字段。"""
+    inspector = inspect(sync_conn)
+    if "study_plans" not in inspector.get_table_names():
+        return
+
+    column_names = {column["name"] for column in inspector.get_columns("study_plans")}
+    if "dictionary_id" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE study_plans ADD COLUMN dictionary_id VARCHAR(64) NOT NULL DEFAULT 'common'"
+        )
+
+
 def _migrate_words_table_meaning_columns(sync_conn) -> None:
     """将 words.meaning 迁移为 japanese_meaning，并补齐 chinese_meaning。"""
     inspector = inspect(sync_conn)
@@ -172,6 +185,7 @@ async def create_mysql_tables():
             {"words", "word_tags", "quiz_questions"},
         )
         await conn.run_sync(_create_selected_tables, mysql_tables)
+        await conn.run_sync(_migrate_study_plans_table_columns)
 
 
 async def create_db_and_tables():

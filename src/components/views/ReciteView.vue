@@ -332,9 +332,18 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import type { Word } from '@/types'
-import { getLearnWords, getReviewWords, requestAddMore as requestAddMoreAPI, saveLearningSession, isAuthenticated } from '@/api'
-import { useWordProgress, useStudyStats, useStudyPlan } from '@/composables/useLocalStorage'
+import type { StudyPlan, Word } from '@/types'
+import {
+  createStudyPlan,
+  getCurrentStudyPlan,
+  getLearnWords,
+  getReviewWords,
+  requestAddMore as requestAddMoreAPI,
+  saveLearningSession,
+  updateStudyPlan as updateStudyPlanAPI,
+  isAuthenticated
+} from '@/api'
+import { useWordProgress, useStudyStats } from '@/composables/useLocalStorage'
 import { DICTIONARIES, WORD_COUNT_OPTIONS } from '@/utils/constants'
 import { Setting, Reading, EditPen, CircleClose, QuestionFilled, Check, Promotion, Warning } from '@element-plus/icons-vue'
 
@@ -354,7 +363,7 @@ function requireLogin(): boolean {
 const activeTab = ref<'learn' | 'review'>('learn')
 
 // 学习计划管理
-const { currentPlan, updatePlan, addPlan, activatePlan } = useStudyPlan()
+const currentPlan = ref<StudyPlan | null>(null)
 const dictionaries = DICTIONARIES
 const wordCountOptions = WORD_COUNT_OPTIONS
 const selectedDictionaryId = ref<string>('common')
@@ -368,8 +377,9 @@ const selectedDictionary = computed(() => {
 
 // 计算当前辞书的名称
 const currentDictionaryName = computed(() => {
-  if (currentPlan.value && (currentPlan.value as any).dictionaryId) {
-    const dict = dictionaries.find(d => d.id === (currentPlan.value as any).dictionaryId)
+  const plan = currentPlan.value
+  if (plan?.dictionaryId) {
+    const dict = dictionaries.find(d => d.id === plan.dictionaryId)
     return dict ? dict.name : '常用词典'
   }
   return '常用词典'
@@ -455,8 +465,16 @@ const nextLearnWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
 }
 
 const loadLearnWords = async () => {
+  if (!isAuthenticated()) {
+    learnWords.value = []
+    return
+  }
+
   isLoading.value = true
   try {
+    if (!currentPlan.value) {
+      await loadStudyPlan()
+    }
     if (currentPlan.value) {
       learnWords.value = await getLearnWords(currentPlan.value.id)
     }
@@ -496,13 +514,36 @@ const nextReviewWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
 
     if (currentReviewIndex.value >= reviewWords.value.length) {
       reviewSessionCompleted.value = true
+      if (currentPlan.value) {
+        const today = new Date().toISOString().split('T')[0] || ''
+        await saveLearningSession(currentPlan.value.id, {
+          planId: currentPlan.value.id,
+          date: today,
+          learnedWords: [],
+          reviewedWords: reviewWords.value.map(w => w.id),
+          sessionStats: {
+            knownCount: reviewSessionStats.known,
+            fuzzyCount: reviewSessionStats.fuzzy,
+            unknownCount: reviewSessionStats.unknown
+          },
+          completedAt: Date.now()
+        })
+      }
     }
   }
 }
 
 const loadReviewWords = async () => {
+  if (!isAuthenticated()) {
+    reviewWords.value = []
+    return
+  }
+
   isLoading.value = true
   try {
+    if (!currentPlan.value) {
+      await loadStudyPlan()
+    }
     if (currentPlan.value) {
       reviewWords.value = await getReviewWords(currentPlan.value.id)
     }
@@ -526,6 +567,8 @@ const resetReviewSession = async () => {
 
 // 加量学习
 const requestAddMore = async () => {
+  if (!requireLogin()) return
+
   try {
     if (currentPlan.value) {
       const result = await requestAddMoreAPI(currentPlan.value.id, 5)
@@ -539,21 +582,47 @@ const requestAddMore = async () => {
   }
 }
 
+const loadStudyPlan = async () => {
+  if (!isAuthenticated()) {
+    currentPlan.value = null
+    return
+  }
+
+  try {
+    currentPlan.value = await getCurrentStudyPlan()
+    selectedDictionaryId.value = currentPlan.value.dictionaryId || 'common'
+    currentDailyGoal.value = currentPlan.value.dailyGoal
+  } catch (error) {
+    console.error('Failed to load current study plan:', error)
+    currentPlan.value = null
+  }
+}
+
 // 学习计划管理
 const savePlanConfig = async () => {
   if (!requireLogin()) return
 
-  if (currentPlan.value) {
-    const finalDailyGoal = customWordCount.value || currentDailyGoal.value
-    updatePlan(currentPlan.value.id, {
-      name: currentPlan.value.name,
-      dailyGoal: finalDailyGoal,
-      reviewRatio: currentPlan.value.reviewRatio,
-      dictionaryId: selectedDictionaryId.value
-    } as any)
-  } else {
-    const newPlan = addPlan('默认学习计划', currentDailyGoal.value, 0.5)
-    activatePlan(newPlan.id)
+  const finalDailyGoal = customWordCount.value || currentDailyGoal.value
+
+  try {
+    if (currentPlan.value) {
+      currentPlan.value = await updateStudyPlanAPI(currentPlan.value.id, {
+        name: currentPlan.value.name,
+        dailyGoal: finalDailyGoal,
+        reviewRatio: currentPlan.value.reviewRatio,
+        dictionaryId: selectedDictionaryId.value
+      })
+    } else {
+      currentPlan.value = await createStudyPlan({
+        name: '默认学习计划',
+        dailyGoal: finalDailyGoal,
+        reviewRatio: 0.5,
+        dictionaryId: selectedDictionaryId.value
+      })
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.message || '保存学习计划失败')
+    return
   }
 
   // 重新加载单词
@@ -563,7 +632,7 @@ const savePlanConfig = async () => {
 
 const resetPlanConfig = () => {
   if (currentPlan.value) {
-    selectedDictionaryId.value = (currentPlan.value as any).dictionaryId || 'common'
+    selectedDictionaryId.value = currentPlan.value.dictionaryId || 'common'
     currentDailyGoal.value = currentPlan.value.dailyGoal
     customWordCount.value = null
   }
@@ -603,13 +672,11 @@ const handleKeyboard = (event: KeyboardEvent) => {
 }
 
 onMounted(() => {
-  loadLearnWords()
-  loadReviewWords()
-  
-  // 初始化计划配置
-  if (currentPlan.value) {
-    selectedDictionaryId.value = (currentPlan.value as any).dictionaryId || 'common'
-    currentDailyGoal.value = currentPlan.value.dailyGoal
+  if (isAuthenticated()) {
+    loadStudyPlan().then(() => {
+      loadLearnWords()
+      loadReviewWords()
+    })
   }
 
   window.addEventListener('keydown', handleKeyboard)
