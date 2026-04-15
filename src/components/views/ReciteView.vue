@@ -21,7 +21,7 @@
         </el-col>
         <el-col :xs="24" :sm="8">
           <div class="plan-item-new">
-            <div class="plan-label">经日目标</div>
+            <div class="plan-label">今日目标</div>
             <div class="plan-value">{{ currentDailyGoal }} 个单词</div>
           </div>
         </el-col>
