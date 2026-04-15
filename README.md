@@ -8,7 +8,7 @@
 - 📚 **闪卡背诵** - 科学的间隔重复法帮助记忆
 - 📝 **分级测试** - 三级难度的实用考试模式
 - 📊 **学习统计** - 实时追踪学习进度和连续学习天数
-- 💾 **本地存储** - 无需注册，数据安全保存在本地
+- 💾 **本地缓存 + 账号体系** - 支持登录后跨设备使用，关键数据持久化到后端
 - 🔄 **API 就绪** - 架构支持无缝接入后端服务
 - ✨ **现代化 UI** - 炫酷视觉效果和流畅动画
 
@@ -54,13 +54,13 @@ npm run type-check
 | 文档 | 说明 |
 |------|------|
 | **[COMPREHENSIVE_GUIDE.md](./COMPREHENSIVE_GUIDE.md)** | 📚 **综合指南**（包含全部内容，推荐阅读）|
-| **[QUICK_START.md](./QUICK_START.md)** | 🚀 快速参考和使用技巧 |
-| **[DEVELOPER.md](./DEVELOPER.md)** | 👨‍💻 开发者指南和代码规范 |
-| **[API_QUICK_REFERENCE.md](./API_QUICK_REFERENCE.md)** | 🔌 API 快速参考 |
-| **[API_SPEC.md](./API_SPEC.md)** | 🔧 完整 API 规范 |
-| **[FIXES_REPORT.md](./FIXES_REPORT.md)** | ✅ Element Plus 重构修复报告 |
+| **[快速开始](./docs/01-GETTING_STARTED/QUICK_START.md)** | 🚀 项目启动与常见操作 |
+| **[开发指南](./docs/03-DEVELOPMENT/DEVELOPER_GUIDE.md)** | 👨‍💻 开发规范与工程实践 |
+| **[API 参考](./docs/02-REFERENCE/API_REFERENCE.md)** | 🔌 前后端 API 调用说明 |
+| **[数据库设计](./docs/DATABASE_DESIGN.md)** | 🗄️ 双数据库模型与表结构说明 |
+| **[重构验收](./docs/04-REFACTORING/FIXES_VERIFICATION.md)** | ✅ Element Plus 重构修复验证 |
 | **[PROJECT_PLAN.md](./PROJECT_PLAN.md)** | 📋 项目计划和需求 |
-| **[ELEMENT_PLUS_GUIDE.md](./ELEMENT_PLUS_GUIDE.md)** | 🎨 Element Plus 集成指南 |
+| **[功能清单](./docs/PROJECT_PLAN_REQUIRED_FEATURES.md)** | 🎯 按计划书整理的实现范围 |
 
 ## 🏗️ 项目结构
 
@@ -146,31 +146,32 @@ VITE_API_URL=http://api.example.com/api
 |------|------|------|
 | **词汇** | 搜索 | `GET /words/search?q=keyword` |
 | | 详情 | `GET /words/:id` |
-| | 列表 | `GET /words?page=1&limit=20` |
+| | 列表 | `GET /words/?skip=0&limit=20` |
 | | 随机 | `GET /words/random?count=10` |
 | **测试** | 获取题目 | `GET /quiz/questions?difficulty=medium&count=10` |
-| | 提交答案 | `POST /quiz/answer` |
-| **进度** | 更新单词进度 | `POST /progress/word/:id` |
-| | 获取统计 | `GET /progress/stats` |
-| | 获取历史 | `GET /progress/history?limit=20` |
-| **收藏** | 添加收藏 | `POST /favorites` |
-| | 移除收藏 | `DELETE /favorites/:id` |
-| | 获取列表 | `GET /favorites` |
+| | 提交答案 | `POST /quiz/submit` |
+| **用户** | 更新单词进度 | `POST /user/progress/:wordId` |
+| | 获取统计 | `GET /user/stats` |
+| | 搜索历史 | `GET /user/search-history` |
+| | 添加收藏 | `POST /user/favorites/:wordId` |
+| | 移除收藏 | `DELETE /user/favorites/:wordId` |
+| | 获取收藏 | `GET /user/favorites` |
+| **认证** | 注册/登录 | `POST /auth/register`, `POST /auth/login` |
 
-👉 详见 [API_SPEC.md](./API_SPEC.md) 了解完整规范
+👉 详见 [API 参考文档](./docs/02-REFERENCE/API_REFERENCE.md) 与后端 Swagger(`/api/docs`)
 
 ## 💾 智能数据持久化
 
-应用自动保存用户数据到浏览器 localStorage，无需配置：
+应用同时使用浏览器 localStorage 与后端数据库进行持久化：
 
 | 数据类型 | 说明 | 自动保存 |
 |---------|------|---------|
-| 🔍 **搜索历史** | 最近 20 条搜索记录 | ✅ 自动 |
-| ⭐ **收藏列表** | 用户收藏的单词 | ✅ 自动 |
-| 📊 **学习统计** | 背词数、连续天数、最长记录 | ✅ 自动 |
-| 📈 **单词进度** | 每个单词的学习状态 | ✅ 自动 |
+| 🔐 **登录态** | Token 与基础用户信息（前端缓存） | ✅ 自动 |
+| 🔍 **搜索历史** | 已登录用户搜索记录（后端 MySQL） | ✅ 自动 |
+| ⭐ **收藏列表** | 用户收藏的单词（后端 MySQL） | ✅ 自动 |
+| 📈 **单词进度** | 每个单词学习状态（后端 MySQL） | ✅ 自动 |
 
-**完全离线可用，数据安全私密！**
+**离线时可使用 Mock 数据，在线时可与后端账号数据同步。**
 
 ## 🎨 设计亮点
 

@@ -1,12 +1,15 @@
 """
 用户相关 API
 """
-from typing import List
+from typing import Annotated, List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Query
+from sqlmodel import select
 
-from app.core.deps import UserDB
+from app.core.deps import UserDB, get_current_active_user
+from app.models.favorite import SearchHistory
 from app.models.progress import WordProgress, WordProgressCreate
+from app.models.user import User
 from app.models.word import Word
 
 router = APIRouter()
@@ -64,11 +67,28 @@ async def update_word_progress(
 @router.get("/search-history", response_model=List[dict])
 async def get_search_history(
     db: UserDB,
-    limit: int = 10
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    limit: int = Query(10, ge=1, le=100)
 ) -> List[dict]:
     """获取搜索历史 (从 MySQL 用户数据库)"""
-    # TODO: 实现搜索历史逻辑
-    return []
+    statement = (
+        select(SearchHistory)
+        .where(SearchHistory.user_id == current_user.id)
+        .order_by(SearchHistory.created_at.desc())
+        .limit(limit)
+    )
+    result = await db.exec(statement)
+    records = result.all()
+
+    return [
+        {
+            "id": record.id,
+            "keyword": record.keyword,
+            "resultCount": record.result_count,
+            "createdAt": int(record.created_at.timestamp() * 1000),
+        }
+        for record in records
+    ]
 
 
 @router.get("/favorites", response_model=List[dict])

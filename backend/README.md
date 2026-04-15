@@ -23,12 +23,13 @@
 │  │   SQLite (词典库)    │    │     MySQL (用户行为库)       │ │
 │  ├─────────────────────┤    ├─────────────────────────────┤ │
 │  │ • words             │    │ • users                     │ │
-│  │ • word_tags         │    │ • word_progress             │ │
-│  │ • quiz_questions    │    │ • quiz_results              │ │
-│  │                     │    │ • essays                    │ │
-│  │ 📁 data/dictionary.db│    │ • essay_scores              │ │
-│  │                     │    │ • study_plans               │ │
-│  │                     │    │ • learning_sessions         │ │
+│  │ • word_tags         │    │ • favorites                 │ │
+│  │ • quiz_questions    │    │ • search_history            │ │
+│  │                     │    │ • word_progress             │ │
+│  │ 📁 data/dictionary.db│    │ • study_stats               │ │
+│  │                     │    │ • quiz_results              │ │
+│  │                     │    │ • essays / essay_scores     │ │
+│  │                     │    │ • study_plans / sessions    │ │
 │  └─────────────────────┘    └─────────────────────────────┘ │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -94,15 +95,15 @@ docker run -d \
 ### 4. 运行应用
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 3000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 SQLite 数据库会自动在 `data/dictionary.db` 创建。
 
 ### 5. 访问 API 文档
 
-- Swagger UI: http://localhost:3000/api/docs
-- ReDoc: http://localhost:3000/api/redoc
+- Swagger UI: http://localhost:8000/api/docs
+- ReDoc: http://localhost:8000/api/redoc
 
 ## 数据库说明
 
@@ -113,7 +114,7 @@ SQLite 数据库会自动在 `data/dictionary.db` 创建。
 
 ### MySQL (用户行为数据)
 - 存放用户生成的数据，支持高并发
-- 表: `users`, `word_progress`, `quiz_results`, `essays`, `essay_scores`, `study_plans`, `learning_sessions`
+- 表: `users`, `favorites`, `search_history`, `word_progress`, `study_stats`, `quiz_results`, `essays`, `essay_scores`, `study_plans`, `learning_sessions`
 
 ## 许可证
 
