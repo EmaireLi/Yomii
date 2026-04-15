@@ -6,7 +6,8 @@ uvicorn[standard]>=0.27.0
 sqlmodel>=0.0.16
 aiosqlite>=0.19.0
 aiomysql>=0.2.0
-alembic>=1.13.0
+greenlet>=3.0.0
+# alembic>=1.13.0  # 暂未使用迁移脚本
 sqlalchemy>=2.0.49
 
 # 认证
@@ -15,10 +16,10 @@ passlib[bcrypt]>=1.7.4
 python-multipart>=0.0.9
 
 # HTTP 客户端
-httpx>=0.26.0
+httpx>=0.26.0,<0.28.0
 
 # AI/大模型集成
-openai>=1.12.0
+# openai>=1.12.0  # 当前代码未直接使用 OpenAI SDK（使用 httpx 调用）
 
 # 工具
 pydantic>=2.6.0
