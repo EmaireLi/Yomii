@@ -8,8 +8,9 @@
 from typing import AsyncGenerator
 from pathlib import Path
 
-from sqlmodel import SQLModel, MetaData
+from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy import MetaData, Table, func, inspect, select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
 from sqlalchemy.orm import sessionmaker
 
@@ -49,33 +50,105 @@ mysql_session_maker = sessionmaker(
 )
 
 
-# ==================== 元数据定义 ====================
-# 词典数据元数据 (SQLite)
-dictionary_metadata = MetaData()
+def _model_tables(*models: type[SQLModel]) -> list[Table]:
+    """从模型类提取表对象"""
+    return [model.__table__ for model in models]
 
-# 用户数据元数据 (MySQL)
-user_metadata = MetaData()
+
+def _create_selected_tables(sync_conn, tables: list[Table]) -> None:
+    """仅创建指定表"""
+    SQLModel.metadata.create_all(sync_conn, tables=tables)
+
+
+def _drop_non_dictionary_tables(sync_conn, allowed_table_names: set[str]) -> None:
+    """
+    清理 SQLite 中非词典表（仅在空表时删除）。
+    若检测到非词典表包含数据，则抛错阻止误删。
+    """
+    existing_table_names = set(inspect(sync_conn).get_table_names())
+    extra_table_names = sorted(
+        table_name
+        for table_name in existing_table_names
+        if table_name not in allowed_table_names and not table_name.startswith("sqlite_")
+    )
+    if not extra_table_names:
+        return
+
+    temp_metadata = MetaData()
+    extra_tables = {
+        table_name: Table(table_name, temp_metadata, autoload_with=sync_conn)
+        for table_name in extra_table_names
+    }
+
+    non_empty_tables: list[str] = []
+    for table_name, table in extra_tables.items():
+        row_count = sync_conn.execute(select(func.count()).select_from(table)).scalar_one()
+        if row_count > 0:
+            non_empty_tables.append(f"{table_name}({row_count})")
+
+    if non_empty_tables:
+        tables_text = ", ".join(non_empty_tables)
+        raise RuntimeError(
+            f"SQLite 中存在含数据的非词典表，已停止自动清理: {tables_text}"
+        )
+
+    for table_name in extra_table_names:
+        extra_tables[table_name].drop(sync_conn)
+
+
+def _drop_tables_if_exist(sync_conn, table_names: set[str]) -> None:
+    """删除数据库中指定名称的表（若存在）。"""
+    existing_table_names = set(inspect(sync_conn).get_table_names())
+    matched_table_names = sorted(existing_table_names.intersection(table_names))
+    if not matched_table_names:
+        return
+
+    temp_metadata = MetaData()
+    for table_name in matched_table_names:
+        table = Table(table_name, temp_metadata, autoload_with=sync_conn)
+        table.drop(sync_conn)
 
 
 async def create_sqlite_tables():
     """创建 SQLite 表 (词典数据)"""
     from app.models.word import Word, WordTag
     from app.models.quiz import QuizQuestion
-    
+    sqlite_tables = _model_tables(Word, WordTag, QuizQuestion)
+    allowed_table_names = {table.name for table in sqlite_tables}
+
     async with sqlite_engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+        await conn.run_sync(_drop_non_dictionary_tables, allowed_table_names)
+        await conn.run_sync(_create_selected_tables, sqlite_tables)
 
 
 async def create_mysql_tables():
     """创建 MySQL 表 (用户行为数据)"""
     from app.models.user import User
     from app.models.progress import WordProgress
+    from app.models.favorite import Favorite, SearchHistory
+    from app.models.stats import StudyStats
     from app.models.quiz import QuizResult
     from app.models.essay import Essay, EssayScore
     from app.models.study_plan import StudyPlan, LearningSession
-    
+    mysql_tables = _model_tables(
+        User,
+        WordProgress,
+        Favorite,
+        SearchHistory,
+        StudyStats,
+        QuizResult,
+        Essay,
+        EssayScore,
+        StudyPlan,
+        LearningSession,
+    )
+
     async with mysql_engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+        await conn.run_sync(
+            _drop_tables_if_exist,
+            {"words", "word_tags", "quiz_questions"},
+        )
+        await conn.run_sync(_create_selected_tables, mysql_tables)
 
 
 async def create_db_and_tables():

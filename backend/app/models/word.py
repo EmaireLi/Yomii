@@ -46,4 +46,4 @@ class WordCreate(WordBase):
 class WordRead(WordBase):
     """单词读取模型"""
     id: int
-    tags: List[str] = []
+    tags: List[str] = Field(default_factory=list)

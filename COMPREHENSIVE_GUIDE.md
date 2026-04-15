@@ -31,7 +31,7 @@
 - 📚 **闪卡背诵** - 科学的间隔重复法帮助记忆
 - 📝 **分级测试** - 三级难度的实用考试模式
 - 📊 **学习统计** - 实时追踪学习进度和连续学习天数
-- 💾 **本地存储** - 无需注册，数据安全保存在本地
+- 💾 **本地缓存 + 账号数据** - 支持登录后持久化学习数据
 - 🔄 **API 就绪** - 架构支持无缝接入后端服务
 - ✨ **现代化 UI** - 使用 Element Plus 组件库，炫酷视觉效果和流畅动画
 
@@ -162,20 +162,13 @@ yomii/
 ├── env.d.ts                                   # 环境变量类型定义
 │
 ├── README.md                                  # 项目说明（简版）
-├── QUICK_START.md                             # 快速参考指南
-├── DEVELOPER.md                               # 开发者指南
+├── docs/01-GETTING_STARTED/QUICK_START.md     # 快速参考指南
+├── docs/03-DEVELOPMENT/DEVELOPER_GUIDE.md     # 开发者指南
 ├── PROJECT_PLAN.md                            # 项目计划书
-├── API_SPEC.md                                # 完整 API 规范
-├── API_QUICK_REFERENCE.md                     # API 快速参考
-├── UPGRADE_SUMMARY.md                         # 升级技术总结
-├── IMPROVEMENTS.md                            # 改进建议
-├── VERIFICATION.md                            # 验证清单
-│
-├── ELEMENT_PLUS_GUIDE.md                      # Element Plus 集成指南
-├── ELEMENT_UI_REFACTOR.md                     # Element UI 重构文档
-├── REFACTOR_SUMMARY.md                        # Element Plus 重构总结
-├── VERIFICATION_CHECKLIST.md                  # 重构验证清单
-├── FIXES_REPORT.md                            # 修复报告（详细）
+├── docs/02-REFERENCE/API_REFERENCE.md         # API 参考
+├── docs/DATABASE_DESIGN.md                    # 双数据库设计
+├── docs/04-REFACTORING/ELEMENT_PLUS_MIGRATION.md # Element Plus 重构文档
+├── docs/04-REFACTORING/FIXES_VERIFICATION.md  # 重构验证清单
 │
 └── COMPREHENSIVE_GUIDE.md                     # 本文件（综合指南）
 ```
@@ -610,23 +603,23 @@ GET /api/words/{id}
 // Response: Word
 
 // 获取词汇列表（分页）
-GET /api/words/list?page=1&pageSize=20
-// Response: { data: Word[], total: number }
+GET /api/words/?skip=0&limit=20
+// Response: Word[]
 ```
 
 #### 学习数据
 
 ```typescript
 // 获取学习统计
-GET /api/study/stats
+GET /api/user/stats
 // Response: StudyStats
 
 // 获取词汇进度
-GET /api/study/progress/{wordId}
+GET /api/user/progress
 // Response: WordProgress
 
 // 更新学习状态
-POST /api/study/progress
+POST /api/user/progress/{wordId}
 // Body: { wordId: string, status: 'known' | 'fuzzy' | 'unknown' }
 ```
 
@@ -634,33 +627,29 @@ POST /api/study/progress
 
 ```typescript
 // 获取测试题目
-GET /api/questions/random?difficulty=medium&count=10
+GET /api/quiz/questions?difficulty=medium&count=10
 // Response: Question[]
 
 // 提交测试答案
-POST /api/questions/submit
+POST /api/quiz/submit
 // Body: { questionId: string, answer: string }
-
-// 获取成绩报告
-GET /api/results/{resultId}
-// Response: TestResult
 ```
 
 #### 收藏和历史
 
 ```typescript
 // 获取收藏词汇
-GET /api/favorites
+GET /api/user/favorites
 // Response: Word[]
 
 // 添加收藏
-POST /api/favorites/{wordId}
+POST /api/user/favorites/{wordId}
 
 // 删除收藏
-DELETE /api/favorites/{wordId}
+DELETE /api/user/favorites/{wordId}
 
 // 获取搜索历史
-GET /api/history
+GET /api/user/search-history
 // Response: string[]
 ```
 
@@ -1274,11 +1263,11 @@ git commit -m "docs: 更新文档"
 
 **相关文档** (详细信息):
 - [README.md](./README.md) - 项目简介
-- [QUICK_START.md](./QUICK_START.md) - 快速参考
-- [DEVELOPER.md](./DEVELOPER.md) - 完整开发指南
-- [API_SPEC.md](./API_SPEC.md) - 完整 API 规范
+- [docs/01-GETTING_STARTED/QUICK_START.md](./docs/01-GETTING_STARTED/QUICK_START.md) - 快速参考
+- [docs/03-DEVELOPMENT/DEVELOPER_GUIDE.md](./docs/03-DEVELOPMENT/DEVELOPER_GUIDE.md) - 完整开发指南
+- [docs/02-REFERENCE/API_REFERENCE.md](./docs/02-REFERENCE/API_REFERENCE.md) - API 参考
 - [PROJECT_PLAN.md](./PROJECT_PLAN.md) - 项目计划
-- [FIXES_REPORT.md](./FIXES_REPORT.md) - 详细修复报告
+- [docs/04-REFACTORING/FIXES_VERIFICATION.md](./docs/04-REFACTORING/FIXES_VERIFICATION.md) - 重构修复验证
 
 **快速链接**:
 - 🚀 [启动开发服务器](#快速开始)

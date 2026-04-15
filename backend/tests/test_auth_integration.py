@@ -321,7 +321,7 @@ async def test_login_with_phone(client: AsyncClient):
     response = await client.post(
         "/api/v1/auth/login",
         json={
-            "phone": "13800138000@phone.local",  # 需要完整邮箱格式
+            "phone": "13800138000",
             "password": "password123"
         }
     )
