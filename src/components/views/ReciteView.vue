@@ -22,7 +22,7 @@
         <el-col :xs="24" :sm="8">
           <div class="plan-item-new">
             <div class="plan-label">今日目标</div>
-            <div class="plan-value">{{ currentDailyGoal }} 个单词</div>
+            <div class="plan-value">{{ currentPlan.dailyGoal }} 个单词</div>
           </div>
         </el-col>
         <el-col :xs="24" :sm="8">
@@ -33,60 +33,143 @@
         </el-col>
       </el-row>
 
-      <!-- 配置区 -->
-      <div class="config-section">
-        <h3 class="config-title">
-          <el-icon :size="20"
-            style="vertical-align: middle; margin-right: 8px;">
-            <Setting/>
-          </el-icon> 
-          <span>调整学习计划</span>
-        </h3>
-        
-        <div class="config-grid">
-          <!-- 选择辞书 -->
-          <div class="config-item">
-            <label class="config-label">选择辞书</label>
-            <select v-model="selectedDictionaryId" class="config-select">
-              <option v-for="dict in dictionaries" :key="dict.id" :value="dict.id">
-                {{ dict.name }} ({{ dict.wordCount }} 个单词)
-              </option>
-            </select>
-            <div class="dict-description" v-if="selectedDictionary">
-              {{ selectedDictionary.description }}
-            </div>
-          </div>
-
-          <!-- 选择单词数量 -->
-          <div class="config-item">
-            <label class="config-label">每日学习单词数</label>
-            <div class="word-count-options">
-              <button
-                v-for="count in wordCountOptions"
-                :key="count"
-                @click="currentDailyGoal = count"
-                :class="['word-count-btn', { active: currentDailyGoal === count }]"
-              >
-                {{ count }}
-              </button>
-            </div>
-            <input
-              v-model.number="customWordCount"
-              type="number"
-              class="custom-input"
-              placeholder="或输入自定义数量"
-              min="1"
-              max="100"
-              @change="updateCustomWordCount"
+      <div class="plan-switch-row">
+        <div class="plan-switch-label">切换当前学习计划</div>
+        <div class="plan-switch-controls">
+          <el-select
+            v-model="selectedPlanId"
+            class="plan-switch-select"
+            placeholder="请选择学习计划"
+            @change="handlePlanSwitch"
+          >
+            <el-option
+              v-for="plan in studyPlans"
+              :key="plan.id"
+              :label="`${plan.name}（${plan.dailyGoal}词/天）`"
+              :value="plan.id"
             />
-          </div>
-        </div>
-
-        <div class="config-actions">
-          <button @click="savePlanConfig" class="btn btn-primary">保存配置</button>
-          <button @click="resetPlanConfig" class="btn btn-secondary">重置</button>
+          </el-select>
+          <el-tag type="info" effect="plain">{{ studyPlans.length }} 个计划</el-tag>
         </div>
       </div>
+
+      <el-collapse v-model="planPanelOpenNames" class="plan-collapse">
+        <el-collapse-item name="edit">
+          <template #title>
+            <div class="config-title-row">
+              <el-icon><Setting /></el-icon>
+              <span>调整当前计划</span>
+            </div>
+          </template>
+
+          <div class="config-grid">
+            <div class="config-item">
+              <label class="config-label">选择辞书</label>
+              <select v-model="selectedDictionaryId" class="config-select">
+                <option v-for="dict in dictionaries" :key="dict.id" :value="dict.id">
+                  {{ dict.name }} ({{ dict.wordCount }} 个单词)
+                </option>
+              </select>
+              <div class="dict-description" v-if="selectedDictionary">
+                {{ selectedDictionary.description }}
+              </div>
+            </div>
+
+            <div class="config-item">
+              <label class="config-label">每日学习单词数</label>
+              <div class="word-count-options">
+                <button
+                  v-for="count in wordCountOptions"
+                  :key="count"
+                  @click="currentDailyGoal = count"
+                  :class="['word-count-btn', { active: currentDailyGoal === count }]"
+                >
+                  {{ count }}
+                </button>
+              </div>
+              <input
+                v-model.number="customWordCount"
+                type="number"
+                class="custom-input"
+                placeholder="或输入自定义数量"
+                min="1"
+                max="100"
+                @change="updateCustomWordCount"
+              />
+            </div>
+          </div>
+
+          <div class="config-actions">
+            <button @click="savePlanConfig" class="btn btn-primary">保存配置</button>
+            <button @click="resetPlanConfig" class="btn btn-secondary">重置</button>
+          </div>
+        </el-collapse-item>
+
+        <el-collapse-item name="create">
+          <template #title>
+            <div class="config-title-row">
+              <el-icon><Setting /></el-icon>
+              <span>新增学习计划</span>
+            </div>
+          </template>
+
+          <div class="config-grid">
+            <div class="config-item">
+              <label class="config-label">计划名称</label>
+              <input v-model="newPlanName" type="text" class="custom-input" placeholder="请输入计划名称" />
+            </div>
+
+            <div class="config-item">
+              <label class="config-label">选择辞书</label>
+              <select v-model="newPlanDictionaryId" class="config-select">
+                <option v-for="dict in dictionaries" :key="dict.id" :value="dict.id">
+                  {{ dict.name }} ({{ dict.wordCount }} 个单词)
+                </option>
+              </select>
+              <div class="dict-description" v-if="newSelectedDictionary">
+                {{ newSelectedDictionary.description }}
+              </div>
+            </div>
+
+            <div class="config-item">
+              <label class="config-label">每日学习单词数</label>
+              <div class="word-count-options">
+                <button
+                  v-for="count in wordCountOptions"
+                  :key="`new-${count}`"
+                  @click="newPlanDailyGoal = count"
+                  :class="['word-count-btn', { active: newPlanDailyGoal === count }]"
+                >
+                  {{ count }}
+                </button>
+              </div>
+              <input
+                v-model.number="newPlanDailyGoal"
+                type="number"
+                class="custom-input"
+                min="1"
+                max="100"
+              />
+            </div>
+
+            <div class="config-item">
+              <label class="config-label">复习比例（0-1）</label>
+              <input
+                v-model.number="newPlanReviewRatio"
+                type="number"
+                class="custom-input"
+                min="0"
+                max="1"
+                step="0.1"
+              />
+            </div>
+          </div>
+
+          <div class="config-actions">
+            <button @click="createNewPlanConfig" class="btn btn-primary">创建并切换</button>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
     </el-card>
 
     <!-- 选项卡 -->
@@ -334,10 +417,11 @@ import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { StudyPlan, Word } from '@/types'
 import {
+  activateStudyPlan,
   createStudyPlan,
-  getCurrentStudyPlan,
   getLearnWords,
   getReviewWords,
+  getStudyPlans,
   requestAddMore as requestAddMoreAPI,
   saveLearningSession,
   updateStudyPlan as updateStudyPlanAPI,
@@ -345,7 +429,7 @@ import {
 } from '@/api'
 import { useWordProgress, useStudyStats } from '@/composables/useLocalStorage'
 import { DICTIONARIES, WORD_COUNT_OPTIONS } from '@/utils/constants'
-import { Setting, Reading, EditPen, CircleClose, QuestionFilled, Check, Promotion, Warning } from '@element-plus/icons-vue'
+import { Setting, Reading, CircleClose, QuestionFilled, Check, Promotion, Warning } from '@element-plus/icons-vue'
 
 /**
  * 检查登录状态，未登录则打开登录对话框
@@ -363,16 +447,27 @@ function requireLogin(): boolean {
 const activeTab = ref<'learn' | 'review'>('learn')
 
 // 学习计划管理
+const studyPlans = ref<StudyPlan[]>([])
 const currentPlan = ref<StudyPlan | null>(null)
+const selectedPlanId = ref('')
 const dictionaries = DICTIONARIES
 const wordCountOptions = WORD_COUNT_OPTIONS
+const planPanelOpenNames = ref<string[]>([])
 const selectedDictionaryId = ref<string>('common')
 const currentDailyGoal = ref(10)
 const customWordCount = ref<number | null>(null)
+const newPlanName = ref('新学习计划')
+const newPlanDictionaryId = ref<string>('common')
+const newPlanDailyGoal = ref(10)
+const newPlanReviewRatio = ref(0.5)
 
 // 计算当前选中的辞书
 const selectedDictionary = computed(() => {
   return dictionaries.find(d => d.id === selectedDictionaryId.value)
+})
+
+const newSelectedDictionary = computed(() => {
+  return dictionaries.find(d => d.id === newPlanDictionaryId.value)
 })
 
 // 计算当前辞书的名称
@@ -473,7 +568,7 @@ const loadLearnWords = async () => {
   isLoading.value = true
   try {
     if (!currentPlan.value) {
-      await loadStudyPlan()
+      await loadStudyPlans()
     }
     if (currentPlan.value) {
       learnWords.value = await getLearnWords(currentPlan.value.id)
@@ -542,7 +637,7 @@ const loadReviewWords = async () => {
   isLoading.value = true
   try {
     if (!currentPlan.value) {
-      await loadStudyPlan()
+      await loadStudyPlans()
     }
     if (currentPlan.value) {
       reviewWords.value = await getReviewWords(currentPlan.value.id)
@@ -582,52 +677,117 @@ const requestAddMore = async () => {
   }
 }
 
-const loadStudyPlan = async () => {
+const loadStudyPlans = async () => {
   if (!isAuthenticated()) {
+    studyPlans.value = []
     currentPlan.value = null
+    selectedPlanId.value = ''
     return
   }
 
   try {
-    currentPlan.value = await getCurrentStudyPlan()
-    selectedDictionaryId.value = currentPlan.value.dictionaryId || 'common'
-    currentDailyGoal.value = currentPlan.value.dailyGoal
+    studyPlans.value = await getStudyPlans()
+    currentPlan.value = studyPlans.value.find(plan => plan.isActive) || studyPlans.value[0] || null
+    if (currentPlan.value) {
+      selectedPlanId.value = currentPlan.value.id
+      selectedDictionaryId.value = currentPlan.value.dictionaryId || 'common'
+      currentDailyGoal.value = currentPlan.value.dailyGoal
+    }
   } catch (error) {
-    console.error('Failed to load current study plan:', error)
+    console.error('Failed to load study plans:', error)
+    studyPlans.value = []
     currentPlan.value = null
+    selectedPlanId.value = ''
+  }
+}
+
+const handlePlanSwitch = async (planId: string) => {
+  if (!requireLogin()) return
+  if (!planId || (currentPlan.value && currentPlan.value.id === planId)) return
+
+  try {
+    await activateStudyPlan(planId)
+    await loadStudyPlans()
+    await resetLearnSession()
+    await resetReviewSession()
+    ElMessage.success('已切换学习计划')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '切换学习计划失败')
   }
 }
 
 // 学习计划管理
 const savePlanConfig = async () => {
   if (!requireLogin()) return
+  if (!currentPlan.value) {
+    ElMessage.warning('请先创建学习计划')
+    return
+  }
 
   const finalDailyGoal = customWordCount.value || currentDailyGoal.value
+  if (finalDailyGoal < 1) {
+    ElMessage.warning('每日学习单词数至少为 1')
+    return
+  }
 
   try {
-    if (currentPlan.value) {
-      currentPlan.value = await updateStudyPlanAPI(currentPlan.value.id, {
-        name: currentPlan.value.name,
-        dailyGoal: finalDailyGoal,
-        reviewRatio: currentPlan.value.reviewRatio,
-        dictionaryId: selectedDictionaryId.value
-      })
-    } else {
-      currentPlan.value = await createStudyPlan({
-        name: '默认学习计划',
-        dailyGoal: finalDailyGoal,
-        reviewRatio: 0.5,
-        dictionaryId: selectedDictionaryId.value
-      })
-    }
+    await updateStudyPlanAPI(currentPlan.value.id, {
+      name: currentPlan.value.name,
+      dailyGoal: finalDailyGoal,
+      reviewRatio: currentPlan.value.reviewRatio,
+      dictionaryId: selectedDictionaryId.value
+    })
+    await loadStudyPlans()
   } catch (error: any) {
     ElMessage.error(error?.message || '保存学习计划失败')
     return
   }
 
-  // 重新加载单词
-  await loadLearnWords()
-  await loadReviewWords()
+  await resetLearnSession()
+  await resetReviewSession()
+  ElMessage.success('学习计划已更新')
+}
+
+const createNewPlanConfig = async () => {
+  if (!requireLogin()) return
+
+  const name = newPlanName.value.trim()
+  if (!name) {
+    ElMessage.warning('请输入学习计划名称')
+    return
+  }
+  if (newPlanDailyGoal.value < 1) {
+    ElMessage.warning('每日学习单词数至少为 1')
+    return
+  }
+  if (newPlanReviewRatio.value < 0 || newPlanReviewRatio.value > 1) {
+    ElMessage.warning('复习比例应在 0 到 1 之间')
+    return
+  }
+
+  try {
+    const newPlan = await createStudyPlan({
+      name,
+      dailyGoal: newPlanDailyGoal.value,
+      reviewRatio: newPlanReviewRatio.value,
+      dictionaryId: newPlanDictionaryId.value
+    })
+    await activateStudyPlan(newPlan.id)
+    await loadStudyPlans()
+
+    newPlanName.value = '新学习计划'
+    newPlanDictionaryId.value = 'common'
+    newPlanDailyGoal.value = 10
+    newPlanReviewRatio.value = 0.5
+    planPanelOpenNames.value = []
+  } catch (error: any) {
+    ElMessage.error(error?.message || '创建学习计划失败')
+    return
+  }
+
+  await resetLearnSession()
+  await resetReviewSession()
+  ElMessage.success('新学习计划已创建并切换')
 }
 
 const resetPlanConfig = () => {
@@ -673,7 +833,7 @@ const handleKeyboard = (event: KeyboardEvent) => {
 
 onMounted(() => {
   if (isAuthenticated()) {
-    loadStudyPlan().then(() => {
+    loadStudyPlans().then(() => {
       loadLearnWords()
       loadReviewWords()
     })
@@ -718,6 +878,44 @@ onUnmounted(() => {
   font-size: 18px;
   font-weight: 700;
   color: #000000;
+}
+
+.plan-switch-row {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.plan-switch-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.plan-switch-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.plan-switch-select {
+  width: 320px;
+  max-width: 100%;
+}
+
+.plan-collapse {
+  margin-top: 16px;
+}
+
+.config-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #000000;
+  font-weight: 600;
 }
 
 /* 配置区 */
