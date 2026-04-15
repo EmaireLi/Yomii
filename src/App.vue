@@ -1,7 +1,10 @@
 <template>
   <el-container class="yomii-app">
     <!-- 左侧导航栏 -->
-    <el-aside width="300px" class="yomii-sidebar">
+    <el-aside width="300px" class="yomii-sidebar"
+      @mousemove.stop
+      @pointermove.stop
+      @touchmove.stop>
       <div class="app-header">
         <h1 class="app-title">Yomii</h1>
         <p class="app-subtitle">日语学习助手</p>
@@ -64,7 +67,7 @@
     </el-main>
 
     <!-- 登录对话框 -->
-    <el-dialog v-model="loginDialogVisible" title="登录账户" width="500px">
+    <el-dialog v-model="loginDialogVisible" title="登录账户" width="500px" @closed="resetLoginDialogState">
       <el-form :model="loginForm" ref="loginFormRef" @submit.prevent="handleLogin">
         <el-form-item label="电话" :rules="[{ required: true, message: '电话不能为空' }]" prop="phone">
           <el-input v-model="loginForm.phone" placeholder="请输入电话号码" />
@@ -85,7 +88,7 @@
     </el-dialog>
 
     <!-- 注册对话框 -->
-    <el-dialog v-model="registerDialogVisible" title="创建新账户" width="500px">
+    <el-dialog v-model="registerDialogVisible" title="创建新账户" width="500px" @closed="resetRegisterDialogState">
       <el-form :model="registerForm" ref="registerFormRef">
         <el-form-item label="用户名" :rules="[{ required: true, message: '用户名不能为空' }]" prop="username">
           <el-input v-model="registerForm.username" placeholder="请输入用户名" />
@@ -109,7 +112,7 @@
     </el-dialog>
 
     <!-- 找回密码对话框 -->
-    <el-dialog v-model="resetDialogVisible" title="重置密码" width="500px">
+    <el-dialog v-model="resetDialogVisible" title="重置密码" width="500px" @closed="resetResetDialogState">
       <el-steps :active="resetStep" align-center>
         <el-step title="验证电话" />
         <el-step title="设置新密码" />
@@ -170,6 +173,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import type { FormInstance } from 'element-plus'
 import { House, Search, DocumentCopy, Notebook, Edit, CircleCheckFilled, CircleClose } from '@element-plus/icons-vue'
 import { VIEWS } from '@/utils/constants'
 import { useStudyStats } from '@/composables/useLocalStorage'
@@ -214,6 +218,7 @@ const currentUser = ref<User | null>(null)
  */
 const loginDialogVisible = ref(false)
 const loginLoading = ref(false)
+const loginFormRef = ref<FormInstance>()
 const loginForm = ref<LoginRequest>({
   phone: '',
   password: ''
@@ -224,6 +229,7 @@ const loginForm = ref<LoginRequest>({
  */
 const registerDialogVisible = ref(false)
 const registerLoading = ref(false)
+const registerFormRef = ref<FormInstance>()
 const registerForm = ref<RegisterRequest>({
   username: '',
   phone: '',
@@ -275,7 +281,7 @@ function checkAuthentication() {
  * 打开登录对话框
  */
 function openLoginDialog() {
-  loginForm.value = { phone: '', password: '' }
+  resetLoginDialogState()
   loginDialogVisible.value = true
 }
 
@@ -283,7 +289,7 @@ function openLoginDialog() {
  * 打开注册对话框
  */
 function openRegisterDialog() {
-  registerForm.value = { username: '', phone: '', password: '', confirmPassword: '' }
+  resetRegisterDialogState()
   registerDialogVisible.value = true
 }
 
@@ -291,10 +297,39 @@ function openRegisterDialog() {
  * 打开重置密码对话框
  */
 function openResetDialog() {
-  resetForm.value = { phone: '', code: '', newPassword: '', confirmPassword: '' }
-  resetStep.value = 0
+  resetResetDialogState()
   resetDialogVisible.value = true
   loginDialogVisible.value = false
+}
+
+/**
+ * 重置登录对话框状态
+ */
+function resetLoginDialogState() {
+  ElMessage.closeAll()
+  loginLoading.value = false
+  loginForm.value = { phone: '', password: '' }
+  loginFormRef.value?.clearValidate()
+}
+
+/**
+ * 重置注册对话框状态
+ */
+function resetRegisterDialogState() {
+  ElMessage.closeAll()
+  registerLoading.value = false
+  registerForm.value = { username: '', phone: '', password: '', confirmPassword: '' }
+  registerFormRef.value?.clearValidate()
+}
+
+/**
+ * 重置找回密码对话框状态
+ */
+function resetResetDialogState() {
+  ElMessage.closeAll()
+  resetLoading.value = false
+  resetStep.value = 0
+  resetForm.value = { phone: '', code: '', newPassword: '', confirmPassword: '' }
 }
 
 /**
@@ -477,7 +512,6 @@ function navigateTo(viewName: string) {
   padding: 30px 0 0 0;
   box-shadow: 4px 0 20px rgba(102, 126, 234, 0.25);
   overflow-y: auto;
-  pointer-events: none;
 }
 
 .app-header {
@@ -790,6 +824,54 @@ function navigateTo(viewName: string) {
   margin: 0;
   font-size: 16px;
   color: #333;
+}
+
+:deep(.el-dialog) .el-form:first-child {
+  margin-top: 20px;
+}
+
+/* 对话框表单输入框样式 */
+:deep(.el-dialog) .el-form-item {
+  margin-bottom: 20px;
+}
+
+:deep(.el-dialog) .el-form-item__label {
+  width: 90px !important;
+  text-align: left !important;
+  color: #333;
+  font-weight: 500;
+  padding-left: 10px !important;
+  justify-content: flex-start !important;
+}
+
+:deep(.el-dialog) .el-form-item__content {
+  margin-left: 0 !important;
+}
+
+:deep(.el-dialog) .el-input {
+  width: 100%;
+}
+
+:deep(.el-dialog) .el-input__inner {
+  border: none !important;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  padding: 8px 0 !important;
+  font-size: 14px;
+  transition: all 0.3s ease !important;
+}
+
+:deep(.el-dialog) .el-input__inner:focus {
+  box-shadow: none !important;
+}
+
+:deep(.el-dialog) .el-input__inner::placeholder {
+  color: #bfbfbf;
+}
+
+:deep(.el-dialog) .el-input__prefix,
+:deep(.el-dialog) .el-input__suffix {
+  background-color: transparent !important;
 }
 
 @media (max-height: 800px) {
