@@ -17,7 +17,11 @@ type WordApiResponse = {
   id: string | number
   word: string
   kana: string
-  meaning: string
+  japaneseMeaning?: string
+  japanese_meaning?: string
+  chineseMeaning?: string
+  chinese_meaning?: string
+  meaning?: string
   example: string
   partOfSpeech?: string
   part_of_speech?: string
@@ -27,11 +31,15 @@ type WordApiResponse = {
 }
 
 function normalizeWord(word: WordApiResponse): Word {
+  const japaneseMeaning = word.japaneseMeaning ?? word.japanese_meaning ?? word.meaning ?? ''
+  const chineseMeaning = word.chineseMeaning ?? word.chinese_meaning ?? ''
+
   return {
     id: String(word.id),
     word: word.word,
     kana: word.kana,
-    meaning: word.meaning,
+    japaneseMeaning,
+    chineseMeaning,
     example: word.example,
     partOfSpeech: word.partOfSpeech ?? word.part_of_speech,
     audioUrl: word.audioUrl ?? word.audio_url,

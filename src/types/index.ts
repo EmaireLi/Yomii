@@ -7,7 +7,8 @@ export interface Word {
   id: string
   word: string
   kana: string
-  meaning: string
+  japaneseMeaning: string
+  chineseMeaning: string
   example: string
   partOfSpeech?: string
   audioUrl?: string

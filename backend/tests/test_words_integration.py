@@ -78,7 +78,8 @@ async def test_search_words_with_tags(client: AsyncClient):
         word = Word(
             word="勉強",
             kana="べんきょう",
-            meaning="学习",
+            japanese_meaning="学ぶこと",
+            chinese_meaning="学习",
             example="毎日日本語を勉強します。",
             part_of_speech="名词",
         )
@@ -140,7 +141,8 @@ async def test_search_writes_history_for_authenticated_user(client: AsyncClient)
         word = Word(
             word="図書館",
             kana="としょかん",
-            meaning="图书馆",
+            japanese_meaning="本を読む場所",
+            chinese_meaning="图书馆",
             example="図書館で本を借りました。",
         )
         session.add(word)

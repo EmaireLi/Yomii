@@ -115,7 +115,8 @@
             <el-divider margin="16px 0" />
             
             <div class="result-body">
-              <p class="meaning"><strong>释义：</strong> {{ word.meaning }}</p>
+              <p class="meaning"><strong>中文释义：</strong> {{ word.chineseMeaning || '暂无' }}</p>
+              <p class="meaning"><strong>日文释义：</strong> {{ word.japaneseMeaning }}</p>
               <p v-if="word.example" class="example"><strong>例句：</strong> {{ word.example }}</p>
               <div v-if="word.tags && word.tags.length > 0" class="tags">
                 <el-tag v-for="tag in word.tags" :key="tag" size="small">

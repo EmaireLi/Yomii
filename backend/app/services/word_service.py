@@ -38,7 +38,8 @@ class WordService:
             id=word.id or 0,
             word=word.word,
             kana=word.kana,
-            meaning=word.meaning,
+            japanese_meaning=word.japanese_meaning,
+            chinese_meaning=word.chinese_meaning,
             example=word.example,
             part_of_speech=word.part_of_speech,
             audio_url=word.audio_url,
@@ -62,7 +63,8 @@ class WordService:
                 or_(
                     Word.word.contains(normalized_keyword),
                     Word.kana.contains(normalized_keyword),
-                    Word.meaning.contains(normalized_keyword),
+                    Word.japanese_meaning.contains(normalized_keyword),
+                    Word.chinese_meaning.contains(normalized_keyword),
                 )
             )
             .order_by(Word.id.asc())
@@ -136,7 +138,8 @@ class WordService:
         word = Word(
             word=word_in.word,
             kana=word_in.kana,
-            meaning=word_in.meaning,
+            japanese_meaning=word_in.japanese_meaning,
+            chinese_meaning=word_in.chinese_meaning,
             example=word_in.example,
             part_of_speech=word_in.part_of_speech,
             audio_url=word_in.audio_url,

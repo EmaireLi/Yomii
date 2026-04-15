@@ -125,7 +125,8 @@
             <transition name="flip">
               <div v-if="showLearningMeaning" class="card-back">
                 <hr class="divider" />
-                <p class="meaning-text">{{ currentWord.meaning }}</p>
+                <p class="meaning-text">中文：{{ currentWord.chineseMeaning || '暂无' }}</p>
+                <p class="meaning-text">日文：{{ currentWord.japaneseMeaning }}</p>
                 <p v-if="currentWord.partOfSpeech" class="pos">
                   {{ currentWord.partOfSpeech }}
                 </p>
@@ -241,7 +242,8 @@
             <transition name="flip">
               <div v-if="showReviewMeaning" class="card-back">
                 <hr class="divider" />
-                <p class="meaning-text">{{ currentReviewWord.meaning }}</p>
+                <p class="meaning-text">中文：{{ currentReviewWord.chineseMeaning || '暂无' }}</p>
+                <p class="meaning-text">日文：{{ currentReviewWord.japaneseMeaning }}</p>
                 <p v-if="currentReviewWord.partOfSpeech" class="pos">
                   {{ currentReviewWord.partOfSpeech }}
                 </p>

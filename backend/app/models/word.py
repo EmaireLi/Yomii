@@ -10,7 +10,8 @@ class WordBase(SQLModel):
     """单词基础模型"""
     word: str = Field(index=True)
     kana: str
-    meaning: str
+    japanese_meaning: str
+    chinese_meaning: str = ""
     example: str
     part_of_speech: Optional[str] = None
     audio_url: Optional[str] = None

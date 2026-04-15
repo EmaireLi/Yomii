@@ -9,7 +9,8 @@ export const WORDS_DATABASE: Word[] = [
     id: '1',
     word: '辞書',
     kana: 'じしょ',
-    meaning: 'n. 词典，字典',
+    japaneseMeaning: '言葉の意味や使い方を調べるための本。',
+    chineseMeaning: '词典，字典',
     example: '新しい辞書を買いました。(买了一本新词典。)',
     partOfSpeech: 'noun',
     tags: ['初级', '常用']
@@ -18,7 +19,8 @@ export const WORDS_DATABASE: Word[] = [
     id: '2',
     word: '勉強',
     kana: 'べんきょう',
-    meaning: 'n./vs. 学习，用功',
+    japaneseMeaning: '知識を身につけるために学ぶこと。',
+    chineseMeaning: '学习，用功',
     example: '今日の勉強は楽しかった。(今天的学习很愉快。)',
     partOfSpeech: 'noun, verb',
     tags: ['初级', '日常']
@@ -27,7 +29,8 @@ export const WORDS_DATABASE: Word[] = [
     id: '3',
     word: '桜',
     kana: 'さくら',
-    meaning: 'n. 樱花',
+    japaneseMeaning: '春に咲く、日本を代表する花。',
+    chineseMeaning: '樱花',
     example: '春になると桜が咲きます。(春天樱花开放。)',
     partOfSpeech: 'noun',
     tags: ['初级', '四季']
@@ -36,7 +39,8 @@ export const WORDS_DATABASE: Word[] = [
     id: '4',
     word: '世界',
     kana: 'せかい',
-    meaning: 'n. 世界',
+    japaneseMeaning: '地球全体、または社会全体。',
+    chineseMeaning: '世界',
     example: '世界中の人々。(世界各地的人们。)',
     partOfSpeech: 'noun',
     tags: ['中级', '地理']
@@ -45,7 +49,8 @@ export const WORDS_DATABASE: Word[] = [
     id: '5',
     word: '友達',
     kana: 'ともだち',
-    meaning: 'n. 朋友，伙伴',
+    japaneseMeaning: '親しく付き合う相手。',
+    chineseMeaning: '朋友，伙伴',
     example: '良い友達がいます。(有好朋友。)',
     partOfSpeech: 'noun',
     tags: ['初级', '人际']
@@ -54,7 +59,8 @@ export const WORDS_DATABASE: Word[] = [
     id: '6',
     word: '家族',
     kana: 'かぞく',
-    meaning: 'n. 家族，家人',
+    japaneseMeaning: '同じ家で生活する身近な人たち。',
+    chineseMeaning: '家族，家人',
     example: '大きな家族です。(是个大家族。)',
     partOfSpeech: 'noun',
     tags: ['初级', '家庭']
@@ -63,7 +69,8 @@ export const WORDS_DATABASE: Word[] = [
     id: '7',
     word: '学校',
     kana: 'がっこう',
-    meaning: 'n. 学校',
+    japaneseMeaning: '勉強するための教育機関。',
+    chineseMeaning: '学校',
     example: '学校に行きます。(去学校。)',
     partOfSpeech: 'noun',
     tags: ['初级', '教育']
@@ -72,7 +79,8 @@ export const WORDS_DATABASE: Word[] = [
     id: '8',
     word: '仕事',
     kana: 'しごと',
-    meaning: 'n. 工作，职业',
+    japaneseMeaning: '職業として行う業務や作業。',
+    chineseMeaning: '工作，职业',
     example: '毎日仕事に頑張ります。(每天努力工作。)',
     partOfSpeech: 'noun',
     tags: ['中级', '职业']
@@ -81,7 +89,8 @@ export const WORDS_DATABASE: Word[] = [
     id: '9',
     word: '食べる',
     kana: 'たべる',
-    meaning: 'v. 吃',
+    japaneseMeaning: '食物を口に入れて飲み込む。',
+    chineseMeaning: '吃',
     example: 'ご飯を食べます。(吃饭。)',
     partOfSpeech: 'verb',
     tags: ['初级', '动词']
@@ -90,7 +99,8 @@ export const WORDS_DATABASE: Word[] = [
     id: '10',
     word: '美しい',
     kana: 'うつくしい',
-    meaning: 'adj. 美丽的，漂亮的',
+    japaneseMeaning: '見た目や心がきれいで魅力がある。',
+    chineseMeaning: '美丽的，漂亮的',
     example: '美しい景色。(美丽的风景。)',
     partOfSpeech: 'adjective',
     tags: ['中级', '形容词']
@@ -138,7 +148,8 @@ export function searchWords(query: string): Word[] {
   return WORDS_DATABASE.filter(word => 
     word.word.includes(query) ||
     word.kana.includes(query) ||
-    word.meaning.toLowerCase().includes(lowerQuery)
+    word.japaneseMeaning.toLowerCase().includes(lowerQuery) ||
+    word.chineseMeaning.toLowerCase().includes(lowerQuery)
   )
 }
 
