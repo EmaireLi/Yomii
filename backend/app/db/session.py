@@ -109,6 +109,41 @@ def _drop_tables_if_exist(sync_conn, table_names: set[str]) -> None:
         table.drop(sync_conn)
 
 
+def _migrate_study_plans_table_columns(sync_conn) -> None:
+    """为 study_plans 表补齐新字段。"""
+    inspector = inspect(sync_conn)
+    if "study_plans" not in inspector.get_table_names():
+        return
+
+    column_names = {column["name"] for column in inspector.get_columns("study_plans")}
+    if "dictionary_id" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE study_plans ADD COLUMN dictionary_id VARCHAR(64) NOT NULL DEFAULT 'common'"
+        )
+
+
+def _migrate_words_table_meaning_columns(sync_conn) -> None:
+    """将 words.meaning 迁移为 japanese_meaning，并补齐 chinese_meaning。"""
+    inspector = inspect(sync_conn)
+    if "words" not in inspector.get_table_names():
+        return
+
+    def get_word_columns() -> set[str]:
+        return {column["name"] for column in inspect(sync_conn).get_columns("words")}
+
+    column_names = get_word_columns()
+    if "meaning" in column_names and "japanese_meaning" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE words RENAME COLUMN meaning TO japanese_meaning"
+        )
+        column_names = get_word_columns()
+
+    if "chinese_meaning" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE words ADD COLUMN chinese_meaning VARCHAR NOT NULL DEFAULT ''"
+        )
+
+
 async def create_sqlite_tables():
     """创建 SQLite 表 (词典数据)"""
     from app.models.word import Word, WordTag
@@ -118,6 +153,7 @@ async def create_sqlite_tables():
 
     async with sqlite_engine.begin() as conn:
         await conn.run_sync(_drop_non_dictionary_tables, allowed_table_names)
+        await conn.run_sync(_migrate_words_table_meaning_columns)
         await conn.run_sync(_create_selected_tables, sqlite_tables)
 
 
@@ -149,6 +185,7 @@ async def create_mysql_tables():
             {"words", "word_tags", "quiz_questions"},
         )
         await conn.run_sync(_create_selected_tables, mysql_tables)
+        await conn.run_sync(_migrate_study_plans_table_columns)
 
 
 async def create_db_and_tables():

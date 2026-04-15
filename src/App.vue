@@ -200,7 +200,7 @@ const route = useRoute()
 /**
  * 学习统计 Hook
  */
-const { stats } = useStudyStats()
+const { stats, syncStudyStats } = useStudyStats()
 
 /**
  * 学习连续天数
@@ -270,6 +270,7 @@ function checkAuthentication() {
     if (user) {
       currentUser.value = user
       isLoggedIn.value = true
+      void syncStudyStats()
     }
   } else {
     isLoggedIn.value = false

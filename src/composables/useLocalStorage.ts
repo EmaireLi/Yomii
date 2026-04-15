@@ -5,6 +5,7 @@
 import { ref, watch } from 'vue'
 import type { UserData, StudyPlan, LearningSession } from '@/types'
 import { DEFAULT_APP_CONFIG, LOCAL_STORAGE_KEYS, DEFAULT_STUDY_PLAN } from '@/utils/constants'
+import { getStudyStats, isAuthenticated } from '@/api'
 
 /**
  * 从localStorage中读取数据
@@ -129,24 +130,84 @@ export function useStudyStats() {
     getStorageItem(LOCAL_STORAGE_KEYS.STUDY_STATS, defaultStats)
   )
 
+  const toDayStartMs = (timestamp: number): number => {
+    if (!timestamp) return 0
+    const date = new Date(timestamp)
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+  }
+
+  const dayDiff = (fromTimestamp: number, toTimestamp: number): number => {
+    if (!fromTimestamp || !toTimestamp) return 0
+    const oneDayMs = 24 * 60 * 60 * 1000
+    const from = toDayStartMs(fromTimestamp)
+    const to = toDayStartMs(toTimestamp)
+    return Math.floor((to - from) / oneDayMs)
+  }
+
+  const normalizeDailyStats = () => {
+    const lastStudyDate = stats.value.lastStudyDate
+    if (!lastStudyDate) return
+
+    const diff = dayDiff(lastStudyDate, Date.now())
+    if (diff >= 1) {
+      stats.value.todayLearned = 0
+      stats.value.todayRecited = 0
+    }
+    if (diff > 1) {
+      stats.value.currentStreak = 0
+    }
+  }
+
+  normalizeDailyStats()
+
   const incrementRecited = () => {
-    const today = new Date().toDateString()
-    const lastDate = new Date(stats.value.lastStudyDate).toDateString()
-    
+    const now = Date.now()
+    const lastStudyDate = stats.value.lastStudyDate
+    const isSameDay = toDayStartMs(lastStudyDate) === toDayStartMs(now)
+
+    if (!isSameDay) {
+      stats.value.todayLearned = 0
+      stats.value.todayRecited = 0
+    }
+
     stats.value.totalWordsRecited++
     stats.value.todayRecited++
-    
-    if (today === lastDate) {
-      // 同一天，延长连续天数逻辑在这里处理
-    } else {
-      stats.value.lastStudyDate = Date.now()
+
+    if (!lastStudyDate) {
       stats.value.currentStreak = 1
+    } else if (!isSameDay) {
+      const diff = dayDiff(lastStudyDate, now)
+      if (diff === 1) {
+        stats.value.currentStreak += 1
+      } else if (diff > 1) {
+        stats.value.currentStreak = 1
+      }
     }
+
+    stats.value.longestStreak = Math.max(
+      stats.value.longestStreak,
+      stats.value.currentStreak
+    )
+    stats.value.lastStudyDate = now
   }
 
   const resetDailyStats = () => {
     stats.value.todayLearned = 0
     stats.value.todayRecited = 0
+  }
+
+  const syncStudyStats = async () => {
+    if (!isAuthenticated()) return
+    try {
+      const remoteStats = await getStudyStats()
+      stats.value = {
+        ...defaultStats,
+        ...remoteStats
+      }
+      normalizeDailyStats()
+    } catch (error) {
+      console.error('Failed to sync study stats:', error)
+    }
   }
 
   watch(
@@ -160,7 +221,8 @@ export function useStudyStats() {
   return {
     stats,
     incrementRecited,
-    resetDailyStats
+    resetDailyStats,
+    syncStudyStats
   }
 }
 

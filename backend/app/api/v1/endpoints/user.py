@@ -11,25 +11,33 @@ from app.models.favorite import SearchHistory
 from app.models.progress import WordProgress, WordProgressCreate
 from app.models.user import User
 from app.models.word import Word
+from app.services.stats_service import study_stats_service
 
 router = APIRouter()
 
 
 @router.get("/stats", response_model=dict)
 async def get_study_stats(
-    db: UserDB
+    db: UserDB,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> dict:
     """获取学习统计 (从 MySQL 用户数据库)"""
-    # TODO: 实现统计逻辑
-    return {
-        "totalWordsLearned": 0,
-        "totalWordsRecited": 0,
-        "todayLearned": 0,
-        "todayRecited": 0,
-        "currentStreak": 0,
-        "longestStreak": 0,
-        "lastStudyDate": 0
-    }
+    if current_user.id is None:
+        return {
+            "totalWordsLearned": 0,
+            "totalWordsRecited": 0,
+            "todayLearned": 0,
+            "todayRecited": 0,
+            "currentStreak": 0,
+            "longestStreak": 0,
+            "lastStudyDate": 0,
+        }
+
+    stats, is_created = await study_stats_service.get_or_create(db, current_user.id)
+    if is_created:
+        await db.commit()
+        await db.refresh(stats)
+    return study_stats_service.to_response(stats)
 
 
 @router.get("/progress", response_model=List[dict])

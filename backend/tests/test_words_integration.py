@@ -65,10 +65,10 @@ async def client(test_app: FastAPI):
 
 @pytest.mark.asyncio
 async def test_search_words_empty(client: AsyncClient):
-    """空词库搜索应返回空数组"""
+    """空词库搜索应返回空分页结果"""
     response = await client.get("/api/v1/words/search?q=不存在&limit=10")
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"words": [], "total": 0, "page": 1, "limit": 10}
 
 
 @pytest.mark.asyncio
@@ -78,7 +78,8 @@ async def test_search_words_with_tags(client: AsyncClient):
         word = Word(
             word="勉強",
             kana="べんきょう",
-            meaning="学习",
+            japanese_meaning="学ぶこと",
+            chinese_meaning="学习",
             example="毎日日本語を勉強します。",
             part_of_speech="名词",
         )
@@ -92,11 +93,14 @@ async def test_search_words_with_tags(client: AsyncClient):
     response = await client.get("/api/v1/words/search?q=勉強&limit=10")
     assert response.status_code == 200
 
-    data = response.json()
-    assert len(data) == 1
-    assert data[0]["word"] == "勉強"
-    assert data[0]["kana"] == "べんきょう"
-    assert "N5" in data[0]["tags"]
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["page"] == 1
+    assert payload["limit"] == 10
+    assert len(payload["words"]) == 1
+    assert payload["words"][0]["word"] == "勉強"
+    assert payload["words"][0]["kana"] == "べんきょう"
+    assert "N5" in payload["words"][0]["tags"]
 
 
 @pytest.mark.asyncio
@@ -109,6 +113,125 @@ async def test_get_all_words_pagination(client: AsyncClient):
     assert "total" in data
     assert data["page"] == 1
     assert data["limit"] == 20
+
+
+@pytest.mark.asyncio
+async def test_search_words_pagination(client: AsyncClient):
+    """搜索接口支持分页和自定义 limit"""
+    async with test_session_maker() as session:
+        words = [
+            Word(
+                word="勉強A",
+                kana="べんきょうえー",
+                japanese_meaning="学ぶことA",
+                chinese_meaning="学习A",
+                example="例句A",
+            ),
+            Word(
+                word="勉強B",
+                kana="べんきょうびー",
+                japanese_meaning="学ぶことB",
+                chinese_meaning="学习B",
+                example="例句B",
+            ),
+            Word(
+                word="勉強C",
+                kana="べんきょうしー",
+                japanese_meaning="学ぶことC",
+                chinese_meaning="学习C",
+                example="例句C",
+            ),
+        ]
+        session.add_all(words)
+        await session.commit()
+
+    response = await client.get("/api/v1/words/search?q=勉強&page=2&limit=1")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 3
+    assert payload["page"] == 2
+    assert payload["limit"] == 1
+    assert len(payload["words"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_search_words_priority_order(client: AsyncClient):
+    """搜索结果优先级：word > chinese_meaning > japanese_meaning > kana"""
+    keyword = "priority-key"
+    async with test_session_maker() as session:
+        words = [
+            Word(
+                word="かなのみ",
+                kana=f"{keyword}-kana",
+                japanese_meaning="仅假名命中",
+                chinese_meaning="仅假名命中",
+                example="例句1",
+            ),
+            Word(
+                word="日文释义命中",
+                kana="にほんご",
+                japanese_meaning=f"{keyword} in japanese meaning",
+                chinese_meaning="日文释义命中",
+                example="例句2",
+            ),
+            Word(
+                word="中文释义命中",
+                kana="ちゅうぶん",
+                japanese_meaning="中文释义命中",
+                chinese_meaning=f"{keyword} 在中文释义",
+                example="例句3",
+            ),
+            Word(
+                word=f"{keyword}-word",
+                kana="たんご",
+                japanese_meaning="词条本体命中",
+                chinese_meaning="词条本体命中",
+                example="例句4",
+            ),
+        ]
+        session.add_all(words)
+        await session.commit()
+
+    response = await client.get(f"/api/v1/words/search?q={keyword}&page=1&limit=10")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 4
+    assert [item["word"] for item in payload["words"]] == [
+        f"{keyword}-word",
+        "中文释义命中",
+        "日文释义命中",
+        "かなのみ",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_search_words_exact_match_first(client: AsyncClient):
+    """同字段内精确匹配应优先于包含匹配（例如 エロ 优先于 イエロー）"""
+    async with test_session_maker() as session:
+        words = [
+            Word(
+                word="イエロー",
+                kana="いえろー",
+                japanese_meaning="yellow",
+                chinese_meaning="黄色",
+                example="例句1",
+            ),
+            Word(
+                word="エロ",
+                kana="えろ",
+                japanese_meaning="erotic",
+                chinese_meaning="情色",
+                example="例句2",
+            ),
+        ]
+        session.add_all(words)
+        await session.commit()
+
+    response = await client.get("/api/v1/words/search?q=エロ&page=1&limit=10")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 2
+    assert [item["word"] for item in payload["words"]][:2] == ["エロ", "イエロー"]
 
 
 @pytest.mark.asyncio
@@ -140,7 +263,8 @@ async def test_search_writes_history_for_authenticated_user(client: AsyncClient)
         word = Word(
             word="図書館",
             kana="としょかん",
-            meaning="图书馆",
+            japanese_meaning="本を読む場所",
+            chinese_meaning="图书馆",
             example="図書館で本を借りました。",
         )
         session.add(word)
@@ -148,7 +272,7 @@ async def test_search_writes_history_for_authenticated_user(client: AsyncClient)
 
     response = await client.get("/api/v1/words/search?q=図書館&limit=10", headers=headers)
     assert response.status_code == 200
-    assert len(response.json()) == 1
+    assert len(response.json()["words"]) == 1
 
     history_response = await client.get("/api/v1/user/search-history?limit=10", headers=headers)
     assert history_response.status_code == 200

@@ -4,7 +4,7 @@
 from collections import defaultdict
 from typing import List, Optional
 
-from sqlalchemy import func, or_
+from sqlalchemy import case, func, or_
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 
@@ -38,7 +38,8 @@ class WordService:
             id=word.id or 0,
             word=word.word,
             kana=word.kana,
-            meaning=word.meaning,
+            japanese_meaning=word.japanese_meaning,
+            chinese_meaning=word.chinese_meaning,
             example=word.example,
             part_of_speech=word.part_of_speech,
             audio_url=word.audio_url,
@@ -49,23 +50,49 @@ class WordService:
         self,
         db: AsyncSession,
         keyword: str,
+        page: int = 1,
         limit: int = 10
-    ) -> List[WordRead]:
+    ) -> tuple[List[WordRead], int]:
         """搜索单词"""
         normalized_keyword = keyword.strip()
         if not normalized_keyword:
-            return []
+            return [], 0
+
+        offset = (page - 1) * limit
+
+        search_filter = or_(
+            Word.word.contains(normalized_keyword),
+            Word.kana.contains(normalized_keyword),
+            Word.japanese_meaning.contains(normalized_keyword),
+            Word.chinese_meaning.contains(normalized_keyword),
+        )
+
+        count_statement = select(func.count()).select_from(Word).where(search_filter)
+        total_result = await db.exec(count_statement)
+        total = total_result.one()
+
+        # 搜索结果优先级：
+        # 1) 精确匹配优先于前缀/包含匹配
+        # 2) 字段优先级：word > chinese_meaning > japanese_meaning > kana
+        match_priority = case(
+            (Word.word == normalized_keyword, 0),
+            (Word.word.startswith(normalized_keyword), 1),
+            (Word.word.contains(normalized_keyword), 2),
+            (Word.chinese_meaning == normalized_keyword, 3),
+            (Word.chinese_meaning.contains(normalized_keyword), 4),
+            (Word.japanese_meaning == normalized_keyword, 5),
+            (Word.japanese_meaning.contains(normalized_keyword), 6),
+            (Word.kana == normalized_keyword, 7),
+            (Word.kana.startswith(normalized_keyword), 8),
+            (Word.kana.contains(normalized_keyword), 9),
+            else_=10,
+        )
 
         statement = (
             select(Word)
-            .where(
-                or_(
-                    Word.word.contains(normalized_keyword),
-                    Word.kana.contains(normalized_keyword),
-                    Word.meaning.contains(normalized_keyword),
-                )
-            )
-            .order_by(Word.id.asc())
+            .where(search_filter)
+            .order_by(match_priority.asc(), Word.id.asc())
+            .offset(offset)
             .limit(limit)
         )
         result = await db.exec(statement)
@@ -75,7 +102,10 @@ class WordService:
             db,
             [word.id for word in words if word.id is not None],
         )
-        return [self._to_word_read(word, tags_map.get(word.id or 0, [])) for word in words]
+        return (
+            [self._to_word_read(word, tags_map.get(word.id or 0, [])) for word in words],
+            total,
+        )
     
     async def get(self, db: AsyncSession, word_id: int) -> Optional[WordRead]:
         """获取单词详情"""
@@ -136,7 +166,8 @@ class WordService:
         word = Word(
             word=word_in.word,
             kana=word_in.kana,
-            meaning=word_in.meaning,
+            japanese_meaning=word_in.japanese_meaning,
+            chinese_meaning=word_in.chinese_meaning,
             example=word_in.example,
             part_of_speech=word_in.part_of_speech,
             audio_url=word_in.audio_url,

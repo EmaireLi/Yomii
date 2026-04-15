@@ -67,15 +67,16 @@ def parse_entries(raw_text: str):
         raw_meaning = "\n".join(honbun_list)
 
         # 清洗
-        meaning = clean_text(raw_meaning)
+        japanese_meaning = clean_text(raw_meaning)
 
-        if not word or not meaning:
+        if not word or not japanese_meaning:
             continue
 
         entries.append({
             "word": word,
             "kana": "",
-            "meaning": meaning,
+            "japanese_meaning": japanese_meaning,
+            "chinese_meaning": "",
             "example": "",
             "part_of_speech": None,
             "audio_url": None,
@@ -109,9 +110,9 @@ async def insert_data(entries):
                 await session.execute(
                     text("""
                         INSERT INTO words
-                        (word, kana, meaning, example, part_of_speech, audio_url, created_at)
+                        (word, kana, japanese_meaning, chinese_meaning, example, part_of_speech, audio_url, created_at)
                         VALUES
-                        (:word, :kana, :meaning, :example, :part_of_speech, :audio_url, :created_at)
+                        (:word, :kana, :japanese_meaning, :chinese_meaning, :example, :part_of_speech, :audio_url, :created_at)
                     """),
                     batch
                 )

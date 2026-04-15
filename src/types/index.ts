@@ -7,7 +7,8 @@ export interface Word {
   id: string
   word: string
   kana: string
-  meaning: string
+  japaneseMeaning: string
+  chineseMeaning: string
   example: string
   partOfSpeech?: string
   audioUrl?: string
@@ -97,6 +98,7 @@ export interface StudyPlan {
   name: string
   dailyGoal: number           // 每天背诵的单词数
   reviewRatio: number         // 复习的单词数（通常是dailyGoal的一部分）
+  dictionaryId?: string
   createdAt: number
   updatedAt: number
   isActive: boolean
