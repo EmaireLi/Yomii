@@ -1,30 +1,33 @@
-# FastAPI 核心
+# FastAPI core
 fastapi>=0.110.0
 uvicorn[standard]>=0.27.0
 
-# 数据库
+# Database
 sqlmodel>=0.0.16
 aiosqlite>=0.19.0
 aiomysql>=0.2.0
-alembic>=1.13.0
+greenlet>=3.0.0
+# alembic>=1.13.0  # The migration script has not been used yet
+sqlalchemy>=2.0.49
 
-# 认证
+# Auth
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
+bcrypt==4.0.1
 python-multipart>=0.0.9
 
-# HTTP 客户端
-httpx>=0.26.0
+# HTTP client
+httpx>=0.26.0,<0.28.0
 
-# AI/大模型集成
+# AI integration
 openai>=1.12.0
 
-# 工具
+# Utilities
 pydantic>=2.6.0
 pydantic-settings>=2.1.0
 python-dotenv>=1.0.1
 
-# 开发/测试
+# Dev/Test
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
 anyio>=4.0.0
