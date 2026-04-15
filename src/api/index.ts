@@ -352,8 +352,10 @@ export async function getStudyStats(): Promise<StudyStats> {
     }
   }
   
-  const response = await fetch(`${API_BASE_URL}/user/stats`)
-  if (!response.ok) throw new Error(`获取学习统计失败: ${response.statusText}`)
+  const response = await fetch(`${API_BASE_URL}/user/stats`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取学习统计')
   return response.json()
 }
 

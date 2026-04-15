@@ -1,7 +1,7 @@
 """
 学习计划相关 API
 """
-from datetime import datetime
+from datetime import date, datetime
 import json
 from typing import Annotated, Any, List
 
@@ -20,6 +20,7 @@ from app.models.study_plan import (
 )
 from app.models.user import User
 from app.models.word import Word, WordRead, WordTag
+from app.services.stats_service import study_stats_service
 
 router = APIRouter()
 
@@ -68,6 +69,13 @@ def _parse_json_word_ids(raw: str) -> list[str]:
         return []
     except (TypeError, ValueError):
         return []
+
+
+def _parse_session_date(raw_date: str) -> date:
+    try:
+        return datetime.strptime(raw_date, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="date 必须是 YYYY-MM-DD 格式") from exc
 
 
 def _to_session_response(session: LearningSession) -> dict[str, Any]:
@@ -449,6 +457,7 @@ async def save_learning_session(
 ) -> dict:
     """保存学习轮次，并同步单词学习进度"""
     plan = await _resolve_user_plan(db, current_user, plan_id)
+    study_date = _parse_session_date(session_in.date)
 
     now = datetime.utcnow()
     session = LearningSession(
@@ -484,6 +493,22 @@ async def save_learning_session(
             progress.review_count += 1
             progress.last_reviewed_at = now
         db.add(progress)
+
+    recited_count = (
+        max(0, session_in.known_count)
+        + max(0, session_in.fuzzy_count)
+        + max(0, session_in.unknown_count)
+    )
+    learned_count = len(session_in.learned_words)
+    if current_user.id is not None:
+        stats, _ = await study_stats_service.get_or_create(db, current_user.id)
+        study_stats_service.apply_learning_activity(
+            stats,
+            study_date=study_date,
+            recited_count=recited_count,
+            learned_count=learned_count,
+        )
+        db.add(stats)
 
     plan.updated_at = now
     db.add(plan)

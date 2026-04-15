@@ -1,6 +1,7 @@
 """
 学习计划相关集成测试 (使用 SQLite 内存数据库)
 """
+from datetime import date, timedelta
 from typing import AsyncGenerator
 
 import pytest
@@ -200,3 +201,49 @@ async def test_save_session_and_get_review_words(client: AsyncClient):
     sessions = sessions_response.json()
     assert len(sessions) >= 1
     assert sessions[0]["sessionStats"]["knownCount"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_study_stats_streak_updates_with_sessions(client: AsyncClient):
+    current_response = await client.get("/api/v1/study-plans/current")
+    assert current_response.status_code == 200
+    plan_id = current_response.json()["id"]
+
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    today = date.today().isoformat()
+
+    first_session_response = await client.post(
+        f"/api/v1/study-plans/{plan_id}/sessions",
+        json={
+            "date": yesterday,
+            "learned_words": ["1", "2"],
+            "reviewed_words": [],
+            "known_count": 1,
+            "fuzzy_count": 1,
+            "unknown_count": 0,
+        },
+    )
+    assert first_session_response.status_code == 200
+
+    second_session_response = await client.post(
+        f"/api/v1/study-plans/{plan_id}/sessions",
+        json={
+            "date": today,
+            "learned_words": [],
+            "reviewed_words": ["3"],
+            "known_count": 1,
+            "fuzzy_count": 0,
+            "unknown_count": 0,
+        },
+    )
+    assert second_session_response.status_code == 200
+
+    stats_response = await client.get("/api/v1/user/stats")
+    assert stats_response.status_code == 200
+    stats = stats_response.json()
+    assert stats["totalWordsLearned"] == 2
+    assert stats["totalWordsRecited"] == 3
+    assert stats["todayLearned"] == 0
+    assert stats["todayRecited"] == 1
+    assert stats["currentStreak"] == 2
+    assert stats["longestStreak"] == 2

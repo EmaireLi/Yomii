@@ -504,7 +504,7 @@ const reviewSessionStats = reactive({
 
 // 其他功能
 const { updateProgress } = useWordProgress()
-const { incrementRecited } = useStudyStats()
+const { incrementRecited, syncStudyStats } = useStudyStats()
 const isLoading = ref(false)
 
 // 计算属性
@@ -554,6 +554,7 @@ const nextLearnWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
           },
           completedAt: Date.now()
         })
+        await syncStudyStats()
       }
     }
   }
@@ -623,6 +624,7 @@ const nextReviewWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
           },
           completedAt: Date.now()
         })
+        await syncStudyStats()
       }
     }
   }
