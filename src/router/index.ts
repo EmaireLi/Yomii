@@ -4,6 +4,7 @@ import { isAuthenticated, getCurrentUser } from '@/api'
 import HomeView from '@/components/views/HomeView.vue'
 import SearchView from '@/components/views/SearchView.vue'
 import ReciteView from '@/components/views/ReciteView.vue'
+import FavoritesView from '@/components/views/FavoritesView.vue'
 import TestView from '@/components/views/TestView.vue'
 import EssayView from '@/components/views/EssayView.vue'
 
@@ -30,6 +31,12 @@ const routes = [
     name: 'recite',
     component: ReciteView,
     meta: { requiresAuth: false, title: '背单词' }
+  },
+  {
+    path: '/favorites',
+    name: 'favorites',
+    component: FavoritesView,
+    meta: { requiresAuth: false, title: '我的收藏' }
   },
   {
     path: '/test',

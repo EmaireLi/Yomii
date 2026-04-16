@@ -542,12 +542,15 @@ async def request_add_more(
     current_user: Annotated[User, Depends(get_current_active_user)],
     plan_id: str,
     additional_count: int = Query(5, ge=1, le=20, description="额外学习数量"),
+    exclude_word_ids: Annotated[list[int], Query()] = [],
 ) -> dict:
     """请求加量学习（返回额外单词）"""
     plan = await _resolve_user_plan(user_db, current_user, plan_id)
+    exclude_ids = {word_id for word_id in exclude_word_ids if word_id > 0}
     words = await _pick_random_words(
         dict_db=dict_db,
         limit=additional_count,
         dictionary_id=plan.dictionary_id,
+        exclude_ids=exclude_ids,
     )
     return {"success": True, "moreWords": [word.model_dump() for word in words]}

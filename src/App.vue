@@ -174,7 +174,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-import { House, Search, DocumentCopy, Notebook, Edit, CircleCheckFilled, CircleClose } from '@element-plus/icons-vue'
+import { House, Search, DocumentCopy, Notebook, Edit, Star, CircleCheckFilled, CircleClose } from '@element-plus/icons-vue'
 import { VIEWS } from '@/utils/constants'
 import { useStudyStats } from '@/composables/useLocalStorage'
 import { login, register, logout, getCurrentUser, isAuthenticated, requestPasswordReset, resetPassword } from '@/api'
@@ -187,6 +187,7 @@ const navItems = [
   { id: VIEWS.HOME, label: '首页', icon: House },
   { id: VIEWS.SEARCH, label: '查词', icon: Search },
   { id: VIEWS.RECITE, label: '背单词', icon: DocumentCopy },
+  { id: VIEWS.FAVORITES, label: '我的收藏', icon: Star },
   { id: VIEWS.TEST, label: '测试', icon: Notebook },
   { id: VIEWS.ESSAY, label: '作文评价', icon: Edit }
 ]

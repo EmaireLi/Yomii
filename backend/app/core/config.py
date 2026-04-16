@@ -46,6 +46,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5174",
         "http://127.0.0.1:3000",
     ]
+    # 开发环境下允许 localhost / 127.0.0.1 的任意端口
+    CORS_ORIGIN_REGEX: str = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
     
     # AI 服务配置
     AI_API_KEY: str = ""

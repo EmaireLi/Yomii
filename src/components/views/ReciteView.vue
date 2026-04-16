@@ -181,7 +181,7 @@
       <template #label>
         <span class="tab-label"><el-icon><Reading /></el-icon> 背单词</span>
       </template>
-      <template v-if="learnWords.length > 0 && currentWord">
+      <template v-if="learnWords.length > 0 && currentWord && !learnSessionCompleted">
         <h1>背单词 <span class="counter">{{ currentLearnIndex + 1 }} / {{ learnWords.length }}</span></h1>
         
         <!-- 进度条 -->
@@ -189,68 +189,114 @@
           <div class="progress" :style="{ width: learnProgressPercent + '%' }"></div>
         </div>
 
+        <!-- 学习进度 -->
+        <div class="mark-progress">
+          <span class="progress-primary">已背完 {{ learnWordsMarkedCount }} / {{ learnWords.length }} 个单词</span>
+          <span v-if="learnRemainingCount > 0" class="warn-text">未背单词位置（点击跳转）：</span>
+          <div v-if="learnRemainingCount > 0" class="remaining-list">
+            <button
+              v-for="item in learnUnmarkedItems"
+              :key="item.word.id"
+              class="remaining-chip"
+              :class="{ active: currentWord && currentWord.id === item.word.id }"
+              @click="jumpToLearnWord(item.word.id)"
+            >
+              {{ item.position }}. {{ item.word.word }}
+            </button>
+          </div>
+          <span v-else class="done-text">全部单词已完成标记</span>
+        </div>
+
         <!-- 闪卡 -->
         <div class="flashcard">
-          <!-- 正面 -->
-          <div class="card-face">
-            <div class="card-content">
-              <h2 class="word-text">{{ currentWord.word }}</h2>
-              <p class="kana-text" v-if="showLearningMeaning">[{{ currentWord.kana }}]</p>
-            </div>
+          <!-- 3D 翻转容器 -->
+          <div class="flip-container" :class="{ flipped: showLearningMeaning, 'no-flip': skipFlipAnimation }">
+            <!-- 卡片正面 -->
+            <div class="flip-inner">
+              <!-- 正面 -->
+              <div class="card-face">
+                <!-- 状态标签 -->
+                <div v-if="learnWordStatus" class="status-badge" :class="`status-${learnWordStatus}`">
+                  {{ { unknown: '不认识', fuzzy: '模糊', known: '认识' }[learnWordStatus] }}
+                </div>
 
-            <!-- 翻转提示 -->
-            <div v-if="!showLearningMeaning" class="flip-hint" @click="toggleLearningCard">
-              <p>点击或按空格键</p>
-              <p class="hint-text">查看释义</p>
-            </div>
+                <div class="card-content">
+                  <h2 class="word-text">{{ currentWord.word }}</h2>
+                  <p class="kana-text" v-if="showLearningMeaning">[{{ currentWord.kana }}]</p>
+                </div>
+                
+                <!-- 收藏按钮 -->
+                <div class="favorite-btn-container">
+                  <button
+                    @click="toggleFavorite(currentWord.id)"
+                    class="favorite-btn"
+                    :class="{ active: isFavorited(currentWord.id) }"
+                  >
+                    <el-icon>
+                      <component :is="isFavorited(currentWord.id) ? StarFilled : Star" />
+                    </el-icon>
+                  </button>
+                </div>
 
-            <!-- 背面 -->
-            <transition name="flip">
-              <div v-if="showLearningMeaning" class="card-back">
-                <hr class="divider" />
-                <p class="meaning-text">中文：{{ currentWord.chineseMeaning || '暂无' }}</p>
-                <p class="meaning-text">日文：{{ currentWord.japaneseMeaning }}</p>
-                <p v-if="currentWord.partOfSpeech" class="pos">
-                  {{ currentWord.partOfSpeech }}
-                </p>
-                <div v-if="currentWord.example" class="example-box">
-                  <p class="example-label">例句：</p>
-                  <p class="example-text">{{ currentWord.example }}</p>
+                <!-- 翻转提示 -->
+                <div v-if="!showLearningMeaning" class="flip-hint" @click="toggleLearningCard">
+                  <p>点击或按空格键</p>
+                  <p class="hint-text">查看释义</p>
                 </div>
               </div>
-            </transition>
-          </div>
 
-          <!-- 学习状态信息 -->
-          <div v-if="showLearningMeaning" class="study-info">
-            <p>选择您对这个词汇的掌握程度</p>
+              <!-- 背面 -->
+              <div class="card-back">
+                <div class="back-content">
+                  <hr class="divider" />
+                  <p class="meaning-text">中文：{{ currentWord.chineseMeaning || '暂无' }}</p>
+                  <p class="meaning-text">日文：{{ currentWord.japaneseMeaning }}</p>
+                  <p v-if="currentWord.partOfSpeech" class="pos">
+                    {{ currentWord.partOfSpeech }}
+                  </p>
+                  <div v-if="currentWord.example" class="example-box">
+                    <p class="example-label">例句：</p>
+                    <p class="example-text">{{ currentWord.example }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <!-- 操作按钮 -->
-          <div class="actions">
-            <button v-if="!showLearningMeaning" @click="toggleLearningCard" class="btn btn-primary">
-              查看释义 (Space)
-            </button>
-            <template v-else>
-              <button @click="nextLearnWord('unknown')" class="btn btn-unknown">
-                <el-icon><CircleClose /></el-icon> 不认识
-              </button>
-              <button @click="nextLearnWord('fuzzy')" class="btn btn-fuzzy">
-                <el-icon><QuestionFilled /></el-icon> 模糊
-              </button>
-              <button @click="nextLearnWord('known')" class="btn btn-known">
-                <el-icon><Check /></el-icon> 认识
-              </button>
-            </template>
-          </div>
+        <!-- 操作按钮 -->
+        <div class="actions">
+          <button 
+            @click="prevLearnWord" 
+            class="btn btn-secondary"
+            :class="{ 'btn-disabled': currentLearnIndex === 0 }"
+          >
+            <el-icon><ArrowLeft /></el-icon> 上一个
+          </button>
+          <button @click="toggleLearningCard" class="btn btn-primary">
+            查看释义 (Space)
+          </button>
+          <button 
+            @click="skipLearnWord" 
+            class="btn btn-secondary"
+            :class="{ 'btn-disabled': currentLearnIndex === learnWords.length - 1 }"
+          >
+            下一个 <el-icon><ArrowRight /></el-icon>
+          </button>
+          <button @click="nextLearnWord('unknown')" class="btn btn-unknown">
+            <el-icon><CircleClose /></el-icon> 不认识
+          </button>
+          <button @click="nextLearnWord('fuzzy')" class="btn btn-fuzzy">
+            <el-icon><QuestionFilled /></el-icon> 模糊
+          </button>
+          <button @click="nextLearnWord('known')" class="btn btn-known">
+            <el-icon><Check /></el-icon> 认识
+          </button>
+        </div>
 
-          <!-- 快捷键提示 -->
-          <div class="keyboard-hints">
-            <span v-if="!showLearningMeaning" class="hint">按 Space 翻转卡片</span>
-            <template v-else>
-              <span class="hint">1: 不认识 | 2: 模糊 | 3: 认识</span>
-            </template>
-          </div>
+        <!-- 快捷键提示 -->
+        <div class="keyboard-hints">
+          <span class="hint">← → 切换卡片 | Space 查看释义 | 1: 不认识 | 2: 模糊 | 3: 认识</span>
         </div>
       </template>
 
@@ -298,7 +344,7 @@
       <template #label>
         <span class="tab-label"><el-icon><EditPen /></el-icon> 复习</span>
       </template>
-      <template v-if="reviewWords.length > 0 && currentReviewWord">
+      <template v-if="reviewWords.length > 0 && currentReviewWord && !reviewSessionCompleted">
         <h1>复习 <span class="counter">{{ currentReviewIndex + 1 }} / {{ reviewWords.length }}</span></h1>
         
         <!-- 进度条 -->
@@ -306,68 +352,95 @@
           <div class="progress" :style="{ width: reviewProgressPercent + '%' }"></div>
         </div>
 
+        <!-- 复习进度 -->
+        <div class="mark-progress">
+          <span class="progress-primary">已背完 {{ reviewWordsMarkedCount }} / {{ reviewWords.length }} 个单词</span>
+          <span v-if="reviewRemainingCount > 0" class="warn-text">未复习单词：{{ reviewRemainingWordsText }}</span>
+          <span v-else class="done-text">全部单词已完成标记</span>
+        </div>
+
         <!-- 闪卡 -->
         <div class="flashcard">
-          <!-- 正面 -->
-          <div class="card-face">
-            <div class="card-content">
-              <h2 class="word-text">{{ currentReviewWord.word }}</h2>
-              <p class="kana-text" v-if="showReviewMeaning">[{{ currentReviewWord.kana }}]</p>
-            </div>
+          <!-- 3D 翻转容器 -->
+          <div class="flip-container" :class="{ flipped: showReviewMeaning, 'no-flip': skipFlipAnimation }">
+            <!-- 卡片正面 -->
+            <div class="flip-inner">
+              <!-- 正面 -->
+              <div class="card-face">
+                <!-- 状态标签 -->
+                <div v-if="reviewWordStatus" class="status-badge" :class="`status-${reviewWordStatus}`">
+                  {{ { unknown: '不认识', fuzzy: '模糊', known: '认识' }[reviewWordStatus] }}
+                </div>
 
-            <!-- 翻转提示 -->
-            <div v-if="!showReviewMeaning" class="flip-hint" @click="toggleReviewCard">
-              <p>点击或按空格键</p>
-              <p class="hint-text">查看释义</p>
-            </div>
+                <div class="card-content">
+                  <h2 class="word-text">{{ currentReviewWord.word }}</h2>
+                  <p class="kana-text" v-if="showReviewMeaning">[{{ currentReviewWord.kana }}]</p>
+                </div>
 
-            <!-- 背面 -->
-            <transition name="flip">
-              <div v-if="showReviewMeaning" class="card-back">
-                <hr class="divider" />
-                <p class="meaning-text">中文：{{ currentReviewWord.chineseMeaning || '暂无' }}</p>
-                <p class="meaning-text">日文：{{ currentReviewWord.japaneseMeaning }}</p>
-                <p v-if="currentReviewWord.partOfSpeech" class="pos">
-                  {{ currentReviewWord.partOfSpeech }}
-                </p>
-                <div v-if="currentReviewWord.example" class="example-box">
-                  <p class="example-label">例句：</p>
-                  <p class="example-text">{{ currentReviewWord.example }}</p>
+                <!-- 翻转提示 -->
+                <div v-if="!showReviewMeaning" class="flip-hint" @click="toggleReviewCard">
+                  <p>点击或按空格键</p>
+                  <p class="hint-text">查看释义</p>
                 </div>
               </div>
-            </transition>
-          </div>
 
-          <!-- 学习状态信息 -->
-          <div v-if="showReviewMeaning" class="study-info">
-            <p>选择您对这个词汇的掌握程度</p>
+              <!-- 背面 -->
+              <div class="card-back">
+                <div class="back-content">
+                  <hr class="divider" />
+                  <p class="meaning-text">中文：{{ currentReviewWord.chineseMeaning || '暂无' }}</p>
+                  <p class="meaning-text">日文：{{ currentReviewWord.japaneseMeaning }}</p>
+                  <p v-if="currentReviewWord.partOfSpeech" class="pos">
+                    {{ currentReviewWord.partOfSpeech }}
+                  </p>
+                  <div v-if="currentReviewWord.example" class="example-box">
+                    <p class="example-label">例句：</p>
+                    <p class="example-text">{{ currentReviewWord.example }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <!-- 操作按钮 -->
-          <div class="actions">
-            <button v-if="!showReviewMeaning" @click="toggleReviewCard" class="btn btn-primary">
-              查看释义 (Space)
-            </button>
-            <template v-else>
-              <button @click="nextReviewWord('unknown')" class="btn btn-unknown">
-                <el-icon><CircleClose /></el-icon> 不认识
-              </button>
-              <button @click="nextReviewWord('fuzzy')" class="btn btn-fuzzy">
-                <el-icon><QuestionFilled /></el-icon> 模糊
-              </button>
-              <button @click="nextReviewWord('known')" class="btn btn-known">
-                <el-icon><Check /></el-icon> 认识
-              </button>
-            </template>
-          </div>
+        <!-- 学习状态信息 -->
+        <div v-if="showReviewMeaning" class="study-info">
+          <p>{{ autoFlipCountdown > 0 ? `${autoFlipCountdown}秒后自动翻回` : '选择您对这个词汇的掌握程度' }}</p>
+        </div>
 
-          <!-- 快捷键提示 -->
-          <div class="keyboard-hints">
-            <span v-if="!showReviewMeaning" class="hint">按 Space 翻转卡片</span>
-            <template v-else>
-              <span class="hint">1: 不认识 | 2: 模糊 | 3: 认识</span>
-            </template>
-          </div>
+        <!-- 操作按钮 -->
+        <div class="actions">
+          <button
+            @click="prevReviewWord"
+            class="btn btn-secondary"
+            :class="{ 'btn-disabled': currentReviewIndex === 0 }"
+          >
+            <el-icon><ArrowLeft /></el-icon> 上一个
+          </button>
+          <button @click="toggleReviewCard" class="btn btn-primary">
+            查看释义 (Space)
+          </button>
+          <button
+            @click="skipReviewWord"
+            class="btn btn-secondary"
+            :class="{ 'btn-disabled': currentReviewIndex === reviewWords.length - 1 }"
+          >
+            下一个 <el-icon><ArrowRight /></el-icon>
+          </button>
+          <button @click="nextReviewWord('unknown')" class="btn btn-unknown">
+            <el-icon><CircleClose /></el-icon> 不认识
+          </button>
+          <button @click="nextReviewWord('fuzzy')" class="btn btn-fuzzy">
+            <el-icon><QuestionFilled /></el-icon> 模糊
+          </button>
+          <button @click="nextReviewWord('known')" class="btn btn-known">
+            <el-icon><Check /></el-icon> 认识
+          </button>
+        </div>
+
+        <!-- 快捷键提示 -->
+        <div class="keyboard-hints">
+          <span class="hint">← → 切换卡片 | Space 查看释义 | 1: 不认识 | 2: 模糊 | 3: 认识</span>
         </div>
       </template>
 
@@ -427,9 +500,9 @@ import {
   updateStudyPlan as updateStudyPlanAPI,
   isAuthenticated
 } from '@/api'
-import { useWordProgress, useStudyStats } from '@/composables/useLocalStorage'
+import { useWordProgress, useStudyStats, useFavorites } from '@/composables/useLocalStorage'
 import { DICTIONARIES, WORD_COUNT_OPTIONS } from '@/utils/constants'
-import { Setting, Reading, CircleClose, QuestionFilled, Check, Promotion, Warning } from '@element-plus/icons-vue'
+import { Setting, Reading, CircleClose, QuestionFilled, Check, Promotion, Warning, Star, StarFilled, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 
 /**
  * 检查登录状态，未登录则打开登录对话框
@@ -482,9 +555,12 @@ const currentDictionaryName = computed(() => {
 
 // 背单词数据
 const learnWords = ref<Word[]>([])
+const learnSessionPoolWords = ref<Word[]>([])
 const currentLearnIndex = ref(0)
 const showLearningMeaning = ref(false)
+const skipFlipAnimation = ref(false)
 const learnSessionCompleted = ref(false)
+const learnWordStatusMap = ref<Map<string, 'unknown' | 'fuzzy' | 'known'>>(new Map())
 const learnSessionStats = reactive({
   known: 0,
   fuzzy: 0,
@@ -496,6 +572,9 @@ const reviewWords = ref<Word[]>([])
 const currentReviewIndex = ref(0)
 const showReviewMeaning = ref(false)
 const reviewSessionCompleted = ref(false)
+const reviewWordStatusMap = ref<Map<string, 'unknown' | 'fuzzy' | 'known'>>(new Map())
+const autoFlipCountdown = ref(0)
+const autoFlipTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const reviewSessionStats = reactive({
   known: 0,
   fuzzy: 0,
@@ -505,20 +584,98 @@ const reviewSessionStats = reactive({
 // 其他功能
 const { updateProgress } = useWordProgress()
 const { incrementRecited, syncStudyStats } = useStudyStats()
+const { isFavorited, toggleFavorite: originalToggleFavorite } = useFavorites()
 const isLoading = ref(false)
+
+/**
+ * 需要登录检查的 toggleFavorite 包装函数
+ */
+const toggleFavorite = async (wordId: string) => {
+  if (!isAuthenticated()) {
+    ElMessage.warning('请先登录才能收藏词汇')
+    window.dispatchEvent(new CustomEvent('open-login-dialog'))
+    return
+  }
+  try {
+    await originalToggleFavorite(wordId)
+    const isFav = isFavorited(wordId)
+    ElMessage.success(isFav ? '已收藏' : '已取消收藏')
+  } catch (error: any) {
+    ElMessage.error(error.message || '操作失败')
+  }
+}
 
 // 计算属性
 const currentWord = computed(() => learnWords.value[currentLearnIndex.value] || null)
 const currentReviewWord = computed(() => reviewWords.value[currentReviewIndex.value] || null)
 
+const learnWordStatus = computed(() => {
+  if (!currentWord.value) return null
+  return learnWordStatusMap.value.get(currentWord.value.id) || null
+})
+
+const reviewWordStatus = computed(() => {
+  if (!currentReviewWord.value) return null
+  return reviewWordStatusMap.value.get(currentReviewWord.value.id) || null
+})
+
+// 检查是否所有单词都已标记
+const learnWordsAllMarked = computed(() => {
+  if (learnWords.value.length === 0) return false
+  return learnWords.value.every(word => learnWordStatusMap.value.has(word.id))
+})
+
+const reviewWordsAllMarked = computed(() => {
+  if (reviewWords.value.length === 0) return false
+  return reviewWords.value.every(word => reviewWordStatusMap.value.has(word.id))
+})
+
+const learnUnmarkedWords = computed(() => {
+  return learnWords.value.filter(word => !learnWordStatusMap.value.has(word.id))
+})
+
+const learnUnmarkedItems = computed(() => {
+  return learnWords.value
+    .map((word, index) => ({ word, position: index + 1 }))
+    .filter(item => !learnWordStatusMap.value.has(item.word.id))
+})
+
+const reviewUnmarkedWords = computed(() => {
+  return reviewWords.value.filter(word => !reviewWordStatusMap.value.has(word.id))
+})
+
+const learnRemainingCount = computed(() => learnUnmarkedWords.value.length)
+const reviewRemainingCount = computed(() => reviewUnmarkedWords.value.length)
+
+const learnRemainingWordsText = computed(() => {
+  const words = learnUnmarkedWords.value.map(word => word.word)
+  if (words.length <= 6) return words.join('、')
+  return `${words.slice(0, 6).join('、')} 等${words.length}个`
+})
+
+const reviewRemainingWordsText = computed(() => {
+  const words = reviewUnmarkedWords.value.map(word => word.word)
+  if (words.length <= 6) return words.join('、')
+  return `${words.slice(0, 6).join('、')} 等${words.length}个`
+})
+
+// 获取已标记单词的数量
+const learnWordsMarkedCount = computed(() => {
+  return learnWordStatusMap.value.size
+})
+
+const reviewWordsMarkedCount = computed(() => {
+  return reviewWordStatusMap.value.size
+})
+
 const learnProgressPercent = computed(() => {
   if (learnWords.value.length === 0) return 0
-  return (currentLearnIndex.value / learnWords.value.length) * 100
+  return (learnWordsMarkedCount.value / learnWords.value.length) * 100
 })
 
 const reviewProgressPercent = computed(() => {
   if (reviewWords.value.length === 0) return 0
-  return (currentReviewIndex.value / reviewWords.value.length) * 100
+  return (reviewWordsMarkedCount.value / reviewWords.value.length) * 100
 })
 
 // 背单词相关方法
@@ -533,11 +690,19 @@ const nextLearnWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
     updateProgress(currentWord.value.id, status)
     incrementRecited()
     learnSessionStats[status]++
+    
+    // 记录单词的标记状态
+    learnWordStatusMap.value.set(currentWord.value.id, status)
 
+    // 选择后直接跳到下一词，不执行翻转动画
+    skipFlipAnimation.value = true
     showLearningMeaning.value = false
-    currentLearnIndex.value++
-
-    if (currentLearnIndex.value >= learnWords.value.length) {
+    
+    // 检查是否所有单词都已标记
+    const allMarked = learnWords.value.every(word => learnWordStatusMap.value.has(word.id))
+    
+    if (allMarked) {
+      // 所有单词都标记了，显示完成状态
       learnSessionCompleted.value = true
       // 保存学习轮次
       if (currentPlan.value) {
@@ -556,13 +721,49 @@ const nextLearnWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
         })
         await syncStudyStats()
       }
+    } else {
+      // 还有未标记的单词，继续到下一张
+      currentLearnIndex.value++
+      if (currentLearnIndex.value >= learnWords.value.length) {
+        // 到达最后一张，循环回开头找未标记的单词
+        currentLearnIndex.value = 0
+      }
     }
+
+    requestAnimationFrame(() => {
+      skipFlipAnimation.value = false
+    })
+  }
+}
+
+const jumpToLearnWord = (wordId: string) => {
+  const targetIndex = learnWords.value.findIndex(word => word.id === wordId)
+  if (targetIndex === -1) return
+  activeTab.value = 'learn'
+  showLearningMeaning.value = false
+  currentLearnIndex.value = targetIndex
+}
+
+// 上一张卡片
+const prevLearnWord = () => {
+  if (currentLearnIndex.value > 0) {
+    showLearningMeaning.value = false
+    currentLearnIndex.value--
+  }
+}
+
+// 下一张卡片（不记录答案）
+const skipLearnWord = () => {
+  if (currentLearnIndex.value < learnWords.value.length - 1) {
+    showLearningMeaning.value = false
+    currentLearnIndex.value++
   }
 }
 
 const loadLearnWords = async () => {
   if (!isAuthenticated()) {
     learnWords.value = []
+    learnSessionPoolWords.value = []
     return
   }
 
@@ -572,43 +773,95 @@ const loadLearnWords = async () => {
       await loadStudyPlans()
     }
     if (currentPlan.value) {
-      learnWords.value = await getLearnWords(currentPlan.value.id)
+      const words = await getLearnWords(currentPlan.value.id)
+      learnWords.value = words
+      learnSessionPoolWords.value = [...words]
     }
   } catch (error) {
     console.error('Failed to load learn words:', error)
     learnWords.value = []
+    learnSessionPoolWords.value = []
   } finally {
     isLoading.value = false
   }
 }
 
-const resetLearnSession = async () => {
+const resetLearnSessionWithSource = async (reloadFromApi: boolean = false) => {
   learnSessionStats.known = 0
   learnSessionStats.fuzzy = 0
   learnSessionStats.unknown = 0
   currentLearnIndex.value = 0
   showLearningMeaning.value = false
   learnSessionCompleted.value = false
-  await loadLearnWords()
+  learnWordStatusMap.value.clear()
+
+  if (reloadFromApi || learnSessionPoolWords.value.length === 0) {
+    await loadLearnWords()
+    return
+  }
+
+  learnWords.value = [...learnSessionPoolWords.value]
+}
+
+const resetLearnSession = async () => {
+  await resetLearnSessionWithSource(false)
 }
 
 // 复习相关方法
 const toggleReviewCard = () => {
+  // 清除之前的计时器
+  if (autoFlipTimer.value) {
+    clearInterval(autoFlipTimer.value)
+    autoFlipTimer.value = null
+    autoFlipCountdown.value = 0
+  }
+
   showReviewMeaning.value = !showReviewMeaning.value
+
+  // 如果翻转到显示释义，启动自动翻回计时器
+  if (showReviewMeaning.value) {
+    autoFlipCountdown.value = 3
+    autoFlipTimer.value = setInterval(() => {
+      autoFlipCountdown.value--
+      if (autoFlipCountdown.value <= 0) {
+        showReviewMeaning.value = false
+        autoFlipCountdown.value = 0
+        if (autoFlipTimer.value) {
+          clearInterval(autoFlipTimer.value)
+          autoFlipTimer.value = null
+        }
+      }
+    }, 1000)
+  }
 }
 
 const nextReviewWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
   if (!requireLogin()) return
   
+  // 清除自动翻回计时器
+  if (autoFlipTimer.value) {
+    clearInterval(autoFlipTimer.value)
+    autoFlipTimer.value = null
+    autoFlipCountdown.value = 0
+  }
+  
   if (currentReviewWord.value) {
     updateProgress(currentReviewWord.value.id, status)
     incrementRecited()
     reviewSessionStats[status]++
+    
+    // 记录单词的标记状态
+    reviewWordStatusMap.value.set(currentReviewWord.value.id, status)
 
+    // 选择后直接跳到下一词，不执行翻转动画
+    skipFlipAnimation.value = true
     showReviewMeaning.value = false
-    currentReviewIndex.value++
-
-    if (currentReviewIndex.value >= reviewWords.value.length) {
+    
+    // 检查是否所有单词都已标记
+    const allMarked = reviewWords.value.every(word => reviewWordStatusMap.value.has(word.id))
+    
+    if (allMarked) {
+      // 所有单词都标记了，显示完成状态
       reviewSessionCompleted.value = true
       if (currentPlan.value) {
         const today = new Date().toISOString().split('T')[0] || ''
@@ -626,7 +879,34 @@ const nextReviewWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
         })
         await syncStudyStats()
       }
+    } else {
+      // 还有未标记的单词，继续到下一张
+      currentReviewIndex.value++
+      if (currentReviewIndex.value >= reviewWords.value.length) {
+        // 到达最后一张，循环回开头找未标记的单词
+        currentReviewIndex.value = 0
+      }
     }
+
+    requestAnimationFrame(() => {
+      skipFlipAnimation.value = false
+    })
+  }
+}
+
+// 复习上一张卡片
+const prevReviewWord = () => {
+  if (currentReviewIndex.value > 0) {
+    showReviewMeaning.value = false
+    currentReviewIndex.value--
+  }
+}
+
+// 复习下一张卡片（不记录答案）
+const skipReviewWord = () => {
+  if (currentReviewIndex.value < reviewWords.value.length - 1) {
+    showReviewMeaning.value = false
+    currentReviewIndex.value++
   }
 }
 
@@ -653,12 +933,20 @@ const loadReviewWords = async () => {
 }
 
 const resetReviewSession = async () => {
+  // 清除自动翻回计时器
+  if (autoFlipTimer.value) {
+    clearInterval(autoFlipTimer.value)
+    autoFlipTimer.value = null
+  }
+
   reviewSessionStats.known = 0
   reviewSessionStats.fuzzy = 0
   reviewSessionStats.unknown = 0
   currentReviewIndex.value = 0
   showReviewMeaning.value = false
+  autoFlipCountdown.value = 0
   reviewSessionCompleted.value = false
+  reviewWordStatusMap.value.clear()
   await loadReviewWords()
 }
 
@@ -668,14 +956,34 @@ const requestAddMore = async () => {
 
   try {
     if (currentPlan.value) {
-      const result = await requestAddMoreAPI(currentPlan.value.id, 5)
+      const excludeWordIds = learnSessionPoolWords.value
+        .map(word => Number(word.id))
+        .filter(id => Number.isInteger(id) && id > 0)
+
+      const result = await requestAddMoreAPI(currentPlan.value.id, 5, excludeWordIds)
       if (result.success) {
-        learnWords.value.push(...result.moreWords)
+        const existingIds = new Set(learnSessionPoolWords.value.map(word => word.id))
+        const additionalWords = result.moreWords.filter(word => !existingIds.has(word.id))
+
+        if (additionalWords.length === 0) {
+          ElMessage.info('当前可用单词不足，暂无新的加量单词')
+          return
+        }
+
+        learnSessionPoolWords.value.push(...additionalWords)
+        // 加量学习阶段仅学习新增单词
+        learnWords.value = additionalWords
+        learnWordStatusMap.value.clear()
+        currentLearnIndex.value = 0
+        showLearningMeaning.value = false
+        skipFlipAnimation.value = false
         learnSessionCompleted.value = false
+        ElMessage.success(`已添加 ${additionalWords.length} 个加量单词`)
       }
     }
   } catch (error) {
     console.error('加量学习失败:', error)
+    ElMessage.error('加量学习失败，请稍后重试')
   }
 }
 
@@ -710,7 +1018,7 @@ const handlePlanSwitch = async (planId: string) => {
   try {
     await activateStudyPlan(planId)
     await loadStudyPlans()
-    await resetLearnSession()
+    await resetLearnSessionWithSource(true)
     await resetReviewSession()
     ElMessage.success('已切换学习计划')
   } catch (error: any) {
@@ -745,7 +1053,7 @@ const savePlanConfig = async () => {
     return
   }
 
-  await resetLearnSession()
+  await resetLearnSessionWithSource(true)
   await resetReviewSession()
   ElMessage.success('学习计划已更新')
 }
@@ -787,7 +1095,7 @@ const createNewPlanConfig = async () => {
     return
   }
 
-  await resetLearnSession()
+  await resetLearnSessionWithSource(true)
   await resetReviewSession()
   ElMessage.success('新学习计划已创建并切换')
 }
@@ -812,22 +1120,34 @@ const handleKeyboard = (event: KeyboardEvent) => {
     if (event.code === 'Space') {
       event.preventDefault()
       toggleLearningCard()
-    } else if (showLearningMeaning.value && event.code === 'Digit1') {
+    } else if (event.code === 'ArrowLeft') {
+      event.preventDefault()
+      prevLearnWord()
+    } else if (event.code === 'ArrowRight') {
+      event.preventDefault()
+      skipLearnWord()
+    } else if (event.code === 'Digit1') {
       nextLearnWord('unknown')
-    } else if (showLearningMeaning.value && event.code === 'Digit2') {
+    } else if (event.code === 'Digit2') {
       nextLearnWord('fuzzy')
-    } else if (showLearningMeaning.value && event.code === 'Digit3') {
+    } else if (event.code === 'Digit3') {
       nextLearnWord('known')
     }
   } else if (activeTab.value === 'review') {
     if (event.code === 'Space') {
       event.preventDefault()
       toggleReviewCard()
-    } else if (showReviewMeaning.value && event.code === 'Digit1') {
+    } else if (event.code === 'ArrowLeft') {
+      event.preventDefault()
+      prevReviewWord()
+    } else if (event.code === 'ArrowRight') {
+      event.preventDefault()
+      skipReviewWord()
+    } else if (event.code === 'Digit1') {
       nextReviewWord('unknown')
-    } else if (showReviewMeaning.value && event.code === 'Digit2') {
+    } else if (event.code === 'Digit2') {
       nextReviewWord('fuzzy')
-    } else if (showReviewMeaning.value && event.code === 'Digit3') {
+    } else if (event.code === 'Digit3') {
       nextReviewWord('known')
     }
   }
@@ -846,6 +1166,11 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyboard)
+  // 清除自动翻回计时器
+  if (autoFlipTimer.value) {
+    clearInterval(autoFlipTimer.value)
+    autoFlipTimer.value = null
+  }
 })
 </script>
 
@@ -1106,12 +1431,96 @@ h1 {
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
+.mark-progress {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 0 20px;
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.progress-primary {
+  color: #667eea;
+}
+
+.warn-text {
+  color: #e6a23c;
+  line-height: 1.5;
+}
+
+.done-text {
+  color: #67c23a;
+}
+
+.remaining-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 88px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.remaining-chip {
+  border: 1px solid rgba(102, 126, 234, 0.35);
+  background: rgba(102, 126, 234, 0.08);
+  color: #4255c6;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.remaining-chip:hover {
+  background: rgba(102, 126, 234, 0.16);
+  transform: translateY(-1px);
+}
+
+.remaining-chip.active {
+  background: rgba(102, 126, 234, 0.26);
+  border-color: rgba(102, 126, 234, 0.75);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.15) inset;
+}
+
 .flashcard {
   position: relative;
   margin: 40px 0;
   perspective: 1000px;
+  height: 500px;
 }
 
+/* 3D 翻转容器 */
+.flip-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s cubic-bezier(0.6, 0.2, 0.4, 1);
+  transform-style: preserve-3d;
+}
+
+.flip-container.no-flip {
+  transition: none;
+}
+
+/* 翻转状态 */
+.flip-container.flipped {
+  transform: rotateY(180deg);
+}
+
+/* 内层翻转元素 */
+.flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+/* 卡片正面 */
 .card-face {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -1123,14 +1532,74 @@ h1 {
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
-  position: relative;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .card-face:hover {
-  transform: translateY(-8px);
   box-shadow: 0 16px 48px rgba(102, 126, 234, 0.3);
+}
+
+/* 卡片背面 */
+.card-back {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 60px 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: rotateY(180deg);
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+}
+
+.back-content {
+  text-align: center;
+  width: 100%;
+}
+
+.favorite-btn-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+}
+
+.favorite-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+}
+
+.favorite-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.favorite-btn.active {
+  background: rgba(245, 108, 108, 0.8);
+  filter: drop-shadow(0 2px 8px rgba(245, 108, 108, 0.4));
 }
 
 .card-content {
@@ -1166,8 +1635,28 @@ h1 {
   opacity: 0.7;
 }
 
-.card-back {
-  animation: fadeIn 0.3s ease;
+.status-badge {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.status-unknown {
+  background: linear-gradient(135deg, #f56c6c 0%, #f78989 100%);
+}
+
+.status-fuzzy {
+  background: linear-gradient(135deg, #e6a23c 0%, #ebb563 100%);
+}
+
+.status-known {
+  background: linear-gradient(135deg, #67c23a 0%, #85ce61 100%);
 }
 
 .divider {
@@ -1310,6 +1799,17 @@ h1 {
   transform: translateY(-2px);
 }
 
+.btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
+.btn-disabled:hover {
+  transform: none !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+}
+
 .keyboard-hints {
   text-align: center;
   margin-top: 20px;
@@ -1450,17 +1950,18 @@ h1 {
   }
 }
 
-.flip-enter-active {
-  animation: fadeIn 0.3s ease;
-}
-
 /* 响应式 */
 @media (max-width: 768px) {
   .plan-info {
     grid-template-columns: 1fr;
   }
   
-  .card-face {
+  .flashcard {
+    height: 380px;
+  }
+  
+  .card-face,
+  .card-back {
     padding: 40px 20px;
     min-height: 280px;
   }

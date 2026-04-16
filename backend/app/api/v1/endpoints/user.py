@@ -3,15 +3,18 @@
 """
 from typing import Annotated, List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlmodel import select
+from sqlalchemy.orm import selectinload
+from sqlalchemy import func
 
-from app.core.deps import UserDB, get_current_active_user
-from app.models.favorite import SearchHistory
+from app.core.deps import UserDB, DictDB, get_current_active_user
+from app.models.favorite import SearchHistory, Favorite
 from app.models.progress import WordProgress, WordProgressCreate
 from app.models.user import User
-from app.models.word import Word
+from app.models.word import Word, WordRead
 from app.services.stats_service import study_stats_service
+from app.services.word_service import word_service
 
 router = APIRouter()
 
@@ -99,30 +102,117 @@ async def get_search_history(
     ]
 
 
-@router.get("/favorites", response_model=List[dict])
+@router.get("/favorites", response_model=dict)
 async def get_favorites(
-    db: UserDB
-) -> List[dict]:
-    """获取收藏列表 (从 MySQL 用户数据库)"""
-    # TODO: 实现收藏列表逻辑
-    return []
+    user_db: UserDB,
+    dict_db: DictDB,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100)
+) -> dict:
+    """获取用户的收藏列表 (从 MySQL 用户数据库)"""
+    if current_user.id is None:
+        return {"words": [], "total": 0, "page": page, "limit": limit}
+
+    # 获取总数
+    count_statement = select(func.count()).select_from(Favorite).where(Favorite.user_id == current_user.id)
+    count_result = await user_db.exec(count_statement)
+    total = count_result.one()
+
+    # 获取所有收藏的 word_id（不分页，后续在内存中处理排序和分页）
+    all_favorites_statement = (
+        select(Favorite.word_id)
+        .where(Favorite.user_id == current_user.id)
+    )
+    all_favorites_result = await user_db.exec(all_favorites_statement)
+    all_word_ids = all_favorites_result.all()
+    
+    if not all_word_ids:
+        return {"words": [], "total": total, "page": page, "limit": limit}
+
+    # 获取所有单词并按假名排序
+    word_statement = (
+        select(Word)
+        .where(Word.id.in_(all_word_ids))
+        .options(selectinload(Word.tags))
+        .order_by(Word.kana.asc())
+    )
+    word_result = await dict_db.exec(word_statement)
+    sorted_words = word_result.all()
+    
+    # 应用分页
+    offset = (page - 1) * limit
+    paginated_words = sorted_words[offset:offset + limit]
+
+    # 返回收藏的单词信息（按假名排序）
+    result_list = []
+    for word in paginated_words:
+        tags = [tag.tag for tag in word.tags] if word.tags else []
+        
+        result_list.append({
+            "id": word.id,
+            "word": word.word,
+            "kana": word.kana,
+            "japaneseMeaning": word.japanese_meaning,
+            "chineseMeaning": word.chinese_meaning,
+            "example": word.example,
+            "partOfSpeech": word.part_of_speech,
+            "audioUrl": word.audio_url,
+            "tags": tags,
+        })
+    
+    return {"words": result_list, "total": total, "page": page, "limit": limit}
 
 
 @router.post("/favorites/{word_id}", response_model=dict)
 async def add_to_favorites(
-    db: UserDB,
-    word_id: str
+    user_db: UserDB,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    word_id: int
 ) -> dict:
     """添加到收藏夹 (保存到 MySQL 用户数据库)"""
-    # TODO: 实现添加收藏逻辑
-    return {"success": True}
+    if current_user.id is None:
+        raise HTTPException(status_code=401, detail="未授权")
+
+    # 检查是否已收藏
+    statement = select(Favorite).where(
+        (Favorite.user_id == current_user.id) & (Favorite.word_id == word_id)
+    )
+    result = await user_db.exec(statement)
+    existing = result.first()
+
+    if existing:
+        return {"success": True, "message": "已收藏"}
+
+    # 添加到收藏夹
+    favorite = Favorite(user_id=current_user.id, word_id=word_id)
+    user_db.add(favorite)
+    await user_db.commit()
+    await user_db.refresh(favorite)
+
+    return {"success": True, "message": "收藏成功"}
 
 
 @router.delete("/favorites/{word_id}", response_model=dict)
 async def remove_from_favorites(
-    db: UserDB,
-    word_id: str
+    user_db: UserDB,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    word_id: int
 ) -> dict:
     """从收藏夹移除 (从 MySQL 用户数据库删除)"""
-    # TODO: 实现移除收藏逻辑
-    return {"success": True}
+    if current_user.id is None:
+        raise HTTPException(status_code=401, detail="未授权")
+
+    # 删除收藏记录
+    statement = select(Favorite).where(
+        (Favorite.user_id == current_user.id) & (Favorite.word_id == word_id)
+    )
+    result = await user_db.exec(statement)
+    favorite = result.first()
+
+    if favorite:
+        await user_db.delete(favorite)
+        await user_db.commit()
+        return {"success": True, "message": "已取消收藏"}
+
+    return {"success": True, "message": "收藏记录不存在"}

@@ -7,7 +7,7 @@
 
 import type { Word, SearchResult, QuizQuestion, WordProgress, StudyStats, Essay, EssayScore, StudyPlan, LearningSession, User, AuthResponse, RegisterRequest, LoginRequest, ResetPasswordRequest, SetNewPasswordRequest } from '@/types'
 import { getRandomWords, searchWords as localSearchWords, QUIZ_QUESTIONS, WORDS_DATABASE } from '@/utils/mockData'
-import { DEFAULT_STUDY_PLAN } from '@/utils/constants'
+import { DEFAULT_STUDY_PLAN, LOCAL_STORAGE_KEYS } from '@/utils/constants'
 
 // API 配置
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
@@ -382,15 +382,14 @@ export async function getSearchHistory(
  * 添加到收藏夹
  * POST /api/user/favorites/:wordId
  */
-export async function addToFavorites(wordId: string, word: Word): Promise<{ success: boolean }> {
+export async function addToFavorites(wordId: string): Promise<{ success: boolean }> {
   if (USE_MOCK_API) {
     return { success: true }
   }
   
   const response = await fetch(`${API_BASE_URL}/user/favorites/${wordId}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(word)
+    headers: getAuthHeaders()
   })
   if (!response.ok) throw new Error(`添加收藏失败: ${response.statusText}`)
   return response.json()
@@ -406,7 +405,8 @@ export async function removeFromFavorites(wordId: string): Promise<{ success: bo
   }
   
   const response = await fetch(`${API_BASE_URL}/user/favorites/${wordId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: getAuthHeaders()
   })
   if (!response.ok) throw new Error(`移除收藏失败: ${response.statusText}`)
   return response.json()
@@ -414,16 +414,24 @@ export async function removeFromFavorites(wordId: string): Promise<{ success: bo
 
 /**
  * 获取收藏夹列表
- * GET /api/user/favorites
+ * GET /api/user/favorites?page=1&limit=20
  */
-export async function getFavorites(): Promise<Word[]> {
+export async function getFavorites(page: number = 1, limit: number = 20): Promise<{ words: Word[], total: number, page: number, limit: number }> {
   if (USE_MOCK_API) {
-    return []
+    return { words: [], total: 0, page, limit }
   }
   
-  const response = await fetch(`${API_BASE_URL}/user/favorites`)
+  const response = await fetch(`${API_BASE_URL}/user/favorites?page=${page}&limit=${limit}`, {
+    headers: getAuthHeaders()
+  })
   if (!response.ok) throw new Error(`获取收藏列表失败: ${response.statusText}`)
-  return response.json()
+  const data: { words: WordApiResponse[], total: number, page: number, limit: number } = await response.json()
+  return {
+    words: data.words.map(normalizeWord),
+    total: data.total,
+    page: data.page,
+    limit: data.limit
+  }
 }
 
 /**
@@ -435,7 +443,9 @@ export async function getUserProgress(): Promise<WordProgress[]> {
     return []
   }
   
-  const response = await fetch(`${API_BASE_URL}/user/progress`)
+  const response = await fetch(`${API_BASE_URL}/user/progress`, {
+    headers: getAuthHeaders()
+  })
   if (!response.ok) throw new Error(`获取学习进度失败: ${response.statusText}`)
   return response.json()
 }
@@ -752,7 +762,11 @@ export async function getLearningSessions(planId: string): Promise<LearningSessi
  * 请求加量学习（增加当天的学习量）
  * POST /api/study-plans/:planId/add-more
  */
-export async function requestAddMore(planId: string, additionalCount: number): Promise<{ success: boolean; moreWords: Word[] }> {
+export async function requestAddMore(
+  planId: string,
+  additionalCount: number,
+  excludeWordIds: number[] = []
+): Promise<{ success: boolean; moreWords: Word[] }> {
   if (USE_MOCK_API) {
     return {
       success: true,
@@ -760,7 +774,12 @@ export async function requestAddMore(planId: string, additionalCount: number): P
     }
   }
   
-  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/add-more?additional_count=${additionalCount}`, {
+  const query = new URLSearchParams({ additional_count: String(additionalCount) })
+  for (const id of excludeWordIds) {
+    query.append('exclude_word_ids', String(id))
+  }
+
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/add-more?${query.toString()}`, {
     method: 'POST',
     headers: getAuthHeaders()
   })
@@ -835,6 +854,9 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     }
     localStorage.setItem('yomii_auth_token', mockToken)
     localStorage.setItem('yomii_user', JSON.stringify(mockUser))
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('yomii:login'))
+    }
     return { success: true, message: '登录成功', token: mockToken, user: mockUser }
   }
   
@@ -849,6 +871,9 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     if (result.user) {
       localStorage.setItem('yomii_user', JSON.stringify(result.user))
     }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('yomii:login'))
+    }
   }
   return result
 }
@@ -859,6 +884,16 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
 export function logout(): void {
   localStorage.removeItem('yomii_auth_token')
   localStorage.removeItem('yomii_user')
+  localStorage.removeItem(LOCAL_STORAGE_KEYS.SEARCH_HISTORY)
+  localStorage.removeItem(LOCAL_STORAGE_KEYS.WORD_PROGRESS)
+  localStorage.removeItem(LOCAL_STORAGE_KEYS.STUDY_STATS)
+  localStorage.removeItem(LOCAL_STORAGE_KEYS.FAVORITES)
+  // 兼容旧版本可能使用的键名
+  localStorage.removeItem('searchHistory')
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('yomii:logout'))
+  }
 }
 
 /**

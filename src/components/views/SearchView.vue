@@ -74,7 +74,10 @@
       @mousemove.stop
       @pointermove.stop
       @touchmove.stop>
-      <el-empty description="搜索中..." image="search" />
+      <div class="loading-container">
+        <div class="spinner"></div>
+        <p class="loading-text">正在查询单词</p>
+      </div>
     </el-card>
 
     <!-- 错误信息 -->
@@ -93,10 +96,21 @@
       <el-card class="result-info">
         <template #header>
           <div class="card-header">
-            <span>
-              共 <el-tag>{{ searchTotal }}</el-tag> 个结果，
-              第 <el-tag>{{ searchPage }}</el-tag> / <el-tag>{{ totalPages }}</el-tag> 页
-            </span>
+            <div class="stats-container">
+              <div class="stat-item">
+                <span class="stat-label">找到</span>
+                <span class="stat-value">{{ searchTotal }}</span>
+                <span class="stat-label">个单词</span>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <span class="stat-label">第</span>
+                <span class="stat-value">{{ searchPage }}</span>
+                <span class="stat-label">/</span>
+                <span class="stat-value">{{ totalPages }}</span>
+                <span class="stat-label">页</span>
+              </div>
+            </div>
           </div>
         </template>
       </el-card>
@@ -227,13 +241,19 @@ const { isFavorited, toggleFavorite: originalToggleFavorite } = useFavorites()
 /**
  * 需要登录检查的 toggleFavorite 包装函数
  */
-const toggleFavorite = (wordId: string) => {
+const toggleFavorite = async (wordId: string) => {
   if (!isAuthenticated()) {
     ElMessage.warning('请先登录才能收藏词汇')
     window.dispatchEvent(new CustomEvent('open-login-dialog'))
     return
   }
-  originalToggleFavorite(wordId)
+  try {
+    await originalToggleFavorite(wordId)
+    const isFav = isFavorited(wordId)
+    ElMessage.success(isFav ? '已收藏' : '已取消收藏')
+  } catch (error: any) {
+    ElMessage.error(error.message || '操作失败')
+  }
 }
 
 /**
@@ -378,12 +398,66 @@ const copyToClipboard = (text: string) => {
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   border: none;
+  padding: 0 !important;
+}
+
+:deep(.result-info .el-card__body) {
+  padding: 0 !important;
+  display: none;
 }
 
 .card-header {
   padding: 0;
   display: flex;
   align-items: center;
+  width: 100%;
+}
+
+.stats-container {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.stat-label {
+  color: #606266;
+  font-weight: 400;
+}
+
+.stat-value {
+  color: #409eff;
+  font-weight: 600;
+  font-size: 18px;
+  padding: 2px 8px;
+  background: rgba(64, 158, 255, 0.1);
+  border-radius: 4px;
+  min-width: 45px;
+  text-align: center;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 24px;
+  background: #dcdfe6;
+}
+
+@media (max-width: 768px) {
+  .stats-container {
+    gap: 16px;
+  }
+
+  .stat-value {
+    font-size: 16px;
+  }
 }
 
 .results {
@@ -688,6 +762,41 @@ const copyToClipboard = (text: string) => {
 .empty-hint {
   font-size: 14px;
   margin: 0;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 20px;
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid #f0f0f0;
+  border-top: 4px solid #409eff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  margin: 0;
+  font-size: 18px;
+  color: #333333;
+  font-weight: 500;
+  letter-spacing: 2px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes slideIn {
