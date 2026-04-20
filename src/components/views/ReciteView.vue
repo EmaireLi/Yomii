@@ -302,6 +302,10 @@
 
       <!-- 背单词完成状态 -->
       <div v-else-if="learnSessionCompleted" class="completion-state">
+        <div v-if="showLearnCelebration" class="celebration-layer" aria-hidden="true">
+          <span v-for="n in 18" :key="`confetti-${n}`" class="confetti-piece" :style="{ '--i': n }"></span>
+          <div class="celebration-glow"></div>
+        </div>
         <div class="completion-content">
           <p class="completion-icon"><el-icon><Promotion /></el-icon></p>
           <p class="completion-text">恭喜！今天的背单词任务已完成</p>
@@ -446,6 +450,10 @@
 
       <!-- 复习完成状态 -->
       <div v-else-if="reviewSessionCompleted" class="completion-state">
+        <div v-if="showReviewCelebration" class="celebration-layer" aria-hidden="true">
+          <span v-for="n in 18" :key="`review-confetti-${n}`" class="confetti-piece" :style="{ '--i': n }"></span>
+          <div class="celebration-glow"></div>
+        </div>
         <div class="completion-content">
           <p class="completion-icon"><el-icon><Promotion /></el-icon></p>
           <p class="completion-text">恭喜！今天的复习任务已完成</p>
@@ -486,12 +494,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, computed, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import type { StudyPlan, Word } from '@/types'
+import type { DictionaryConfig, StudyPlan, Word } from '@/types'
 import {
   activateStudyPlan,
   createStudyPlan,
+  getDictionaryCatalog,
   getLearnWords,
   getReviewWords,
   getStudyPlans,
@@ -501,7 +510,7 @@ import {
   isAuthenticated
 } from '@/api'
 import { useWordProgress, useStudyStats, useFavorites } from '@/composables/useLocalStorage'
-import { DICTIONARIES, WORD_COUNT_OPTIONS } from '@/utils/constants'
+import { WORD_COUNT_OPTIONS } from '@/utils/constants'
 import { Setting, Reading, CircleClose, QuestionFilled, Check, Promotion, Warning, Star, StarFilled, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 
 /**
@@ -523,7 +532,7 @@ const activeTab = ref<'learn' | 'review'>('learn')
 const studyPlans = ref<StudyPlan[]>([])
 const currentPlan = ref<StudyPlan | null>(null)
 const selectedPlanId = ref('')
-const dictionaries = DICTIONARIES
+const dictionaries = ref<DictionaryConfig[]>([])
 const wordCountOptions = WORD_COUNT_OPTIONS
 const planPanelOpenNames = ref<string[]>([])
 const selectedDictionaryId = ref<string>('common')
@@ -536,18 +545,18 @@ const newPlanReviewRatio = ref(0.5)
 
 // 计算当前选中的辞书
 const selectedDictionary = computed(() => {
-  return dictionaries.find(d => d.id === selectedDictionaryId.value)
+  return dictionaries.value.find(d => d.id === selectedDictionaryId.value)
 })
 
 const newSelectedDictionary = computed(() => {
-  return dictionaries.find(d => d.id === newPlanDictionaryId.value)
+  return dictionaries.value.find(d => d.id === newPlanDictionaryId.value)
 })
 
 // 计算当前辞书的名称
 const currentDictionaryName = computed(() => {
   const plan = currentPlan.value
   if (plan?.dictionaryId) {
-    const dict = dictionaries.find(d => d.id === plan.dictionaryId)
+    const dict = dictionaries.value.find(d => d.id === plan.dictionaryId)
     return dict ? dict.name : '常用词典'
   }
   return '常用词典'
@@ -560,6 +569,8 @@ const currentLearnIndex = ref(0)
 const showLearningMeaning = ref(false)
 const skipFlipAnimation = ref(false)
 const learnSessionCompleted = ref(false)
+const showLearnCelebration = ref(false)
+const celebrationTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const learnWordStatusMap = ref<Map<string, 'unknown' | 'fuzzy' | 'known'>>(new Map())
 const learnSessionStats = reactive({
   known: 0,
@@ -572,9 +583,11 @@ const reviewWords = ref<Word[]>([])
 const currentReviewIndex = ref(0)
 const showReviewMeaning = ref(false)
 const reviewSessionCompleted = ref(false)
+const showReviewCelebration = ref(false)
 const reviewWordStatusMap = ref<Map<string, 'unknown' | 'fuzzy' | 'known'>>(new Map())
 const autoFlipCountdown = ref(0)
 const autoFlipTimer = ref<ReturnType<typeof setInterval> | null>(null)
+const reviewCelebrationTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const reviewSessionStats = reactive({
   known: 0,
   fuzzy: 0,
@@ -683,16 +696,65 @@ const toggleLearningCard = () => {
   showLearningMeaning.value = !showLearningMeaning.value
 }
 
+const triggerLearnCelebration = () => {
+  showLearnCelebration.value = true
+  if (celebrationTimer.value) {
+    clearTimeout(celebrationTimer.value)
+  }
+  celebrationTimer.value = setTimeout(() => {
+    showLearnCelebration.value = false
+    celebrationTimer.value = null
+  }, 2600)
+}
+
+const triggerReviewCelebration = () => {
+  showReviewCelebration.value = true
+  if (reviewCelebrationTimer.value) {
+    clearTimeout(reviewCelebrationTimer.value)
+  }
+  reviewCelebrationTimer.value = setTimeout(() => {
+    showReviewCelebration.value = false
+    reviewCelebrationTimer.value = null
+  }, 2600)
+}
+
+const applyWordStatusChange = (
+  statusMap: Map<string, 'unknown' | 'fuzzy' | 'known'>,
+  sessionStats: { known: number; fuzzy: number; unknown: number },
+  wordId: string,
+  nextStatus: 'unknown' | 'fuzzy' | 'known'
+) => {
+  const previousStatus = statusMap.get(wordId)
+  const isFirstMarked = previousStatus === undefined
+
+  if (previousStatus && previousStatus !== nextStatus) {
+    sessionStats[previousStatus] = Math.max(0, sessionStats[previousStatus] - 1)
+  }
+
+  if (!previousStatus || previousStatus !== nextStatus) {
+    sessionStats[nextStatus]++
+  }
+
+  statusMap.set(wordId, nextStatus)
+  return { previousStatus, isFirstMarked }
+}
+
 const nextLearnWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
   if (!requireLogin()) return
   
   if (currentWord.value) {
+    const wordId = currentWord.value.id
+    const { isFirstMarked } = applyWordStatusChange(
+      learnWordStatusMap.value,
+      learnSessionStats,
+      wordId,
+      status
+    )
+
     updateProgress(currentWord.value.id, status)
-    incrementRecited()
-    learnSessionStats[status]++
-    
-    // 记录单词的标记状态
-    learnWordStatusMap.value.set(currentWord.value.id, status)
+    if (isFirstMarked) {
+      incrementRecited()
+    }
 
     // 选择后直接跳到下一词，不执行翻转动画
     skipFlipAnimation.value = true
@@ -793,6 +855,7 @@ const resetLearnSessionWithSource = async (reloadFromApi: boolean = false) => {
   currentLearnIndex.value = 0
   showLearningMeaning.value = false
   learnSessionCompleted.value = false
+  showLearnCelebration.value = false
   learnWordStatusMap.value.clear()
 
   if (reloadFromApi || learnSessionPoolWords.value.length === 0) {
@@ -846,12 +909,18 @@ const nextReviewWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
   }
   
   if (currentReviewWord.value) {
+    const wordId = currentReviewWord.value.id
+    const { isFirstMarked } = applyWordStatusChange(
+      reviewWordStatusMap.value,
+      reviewSessionStats,
+      wordId,
+      status
+    )
+
     updateProgress(currentReviewWord.value.id, status)
-    incrementRecited()
-    reviewSessionStats[status]++
-    
-    // 记录单词的标记状态
-    reviewWordStatusMap.value.set(currentReviewWord.value.id, status)
+    if (isFirstMarked) {
+      incrementRecited()
+    }
 
     // 选择后直接跳到下一词，不执行翻转动画
     skipFlipAnimation.value = true
@@ -946,6 +1015,7 @@ const resetReviewSession = async () => {
   showReviewMeaning.value = false
   autoFlipCountdown.value = 0
   reviewSessionCompleted.value = false
+  showReviewCelebration.value = false
   reviewWordStatusMap.value.clear()
   await loadReviewWords()
 }
@@ -978,12 +1048,22 @@ const requestAddMore = async () => {
         showLearningMeaning.value = false
         skipFlipAnimation.value = false
         learnSessionCompleted.value = false
+        showLearnCelebration.value = false
         ElMessage.success(`已添加 ${additionalWords.length} 个加量单词`)
       }
     }
   } catch (error) {
     console.error('加量学习失败:', error)
     ElMessage.error('加量学习失败，请稍后重试')
+  }
+}
+
+const loadDictionaries = async () => {
+  try {
+    dictionaries.value = await getDictionaryCatalog()
+  } catch (error) {
+    console.error('Failed to load dictionaries:', error)
+    dictionaries.value = []
   }
 }
 
@@ -1153,9 +1233,21 @@ const handleKeyboard = (event: KeyboardEvent) => {
   }
 }
 
+watch(learnSessionCompleted, (completed) => {
+  if (completed) {
+    triggerLearnCelebration()
+  }
+})
+
+watch(reviewSessionCompleted, (completed) => {
+  if (completed) {
+    triggerReviewCelebration()
+  }
+})
+
 onMounted(() => {
   if (isAuthenticated()) {
-    loadStudyPlans().then(() => {
+    loadDictionaries().then(() => loadStudyPlans()).then(() => {
       loadLearnWords()
       loadReviewWords()
     })
@@ -1166,6 +1258,14 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyboard)
+  if (celebrationTimer.value) {
+    clearTimeout(celebrationTimer.value)
+    celebrationTimer.value = null
+  }
+  if (reviewCelebrationTimer.value) {
+    clearTimeout(reviewCelebrationTimer.value)
+    reviewCelebrationTimer.value = null
+  }
   // 清除自动翻回计时器
   if (autoFlipTimer.value) {
     clearInterval(autoFlipTimer.value)
@@ -1826,12 +1926,49 @@ h1 {
 }
 
 .completion-state {
+  position: relative;
+  overflow: hidden;
   text-align: center;
   padding: 60px 20px;
 }
 
 .completion-content {
+  position: relative;
+  z-index: 2;
   margin-bottom: 40px;
+}
+
+.celebration-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.confetti-piece {
+  --size: 10px;
+  position: absolute;
+  top: -10%;
+  left: calc((var(--i) * 5.4%) - 4%);
+  width: var(--size);
+  height: calc(var(--size) * 1.8);
+  border-radius: 2px;
+  opacity: 0;
+  background: hsl(calc(var(--i) * 20), 85%, 60%);
+  transform: rotate(calc(var(--i) * 16deg));
+  animation: confetti-fall 1.8s ease-in forwards;
+  animation-delay: calc((var(--i) % 6) * 0.08s);
+}
+
+.celebration-glow {
+  position: absolute;
+  left: 50%;
+  top: 35%;
+  width: 220px;
+  height: 220px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(103, 194, 58, 0.28) 0%, rgba(64, 158, 255, 0.08) 50%, transparent 70%);
+  animation: celebration-pulse 1.8s ease-out forwards;
 }
 
 .completion-icon {
@@ -1947,6 +2084,35 @@ h1 {
   }
   50% {
     transform: translateY(-10px);
+  }
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(320px) rotate(540deg);
+  }
+}
+
+@keyframes celebration-pulse {
+  0% {
+    opacity: 0.1;
+    transform: translate(-50%, -50%) scale(0.75);
+  }
+  40% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.2);
   }
 }
 

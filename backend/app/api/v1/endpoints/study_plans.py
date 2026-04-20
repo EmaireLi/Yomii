@@ -10,6 +10,7 @@ from sqlalchemy import func
 from sqlmodel import select
 
 from app.core.deps import DictDB, UserDB, get_current_active_user
+from app.core.word_levels import DICTIONARY_CATALOG, get_tags_by_dictionary
 from app.models.progress import ProgressStatus, WordProgress
 from app.models.study_plan import (
     LearningSession,
@@ -23,13 +24,6 @@ from app.models.word import Word, WordRead, WordTag
 from app.services.stats_service import study_stats_service
 
 router = APIRouter()
-
-
-DICTIONARY_TAG_MAP: dict[str, str] = {
-    "jlpt1": "N1",
-    "jlpt2": "N2",
-    "jlpt3": "N3",
-}
 
 
 def _to_timestamp_ms(dt: datetime | None) -> int:
@@ -149,21 +143,25 @@ async def _pick_random_words(
         return []
 
     excluded = exclude_ids or set()
-    jlpt_tag = DICTIONARY_TAG_MAP.get(dictionary_id)
+    level_tags = list(get_tags_by_dictionary(dictionary_id))
 
-    async def query_words(only_jlpt_tag: bool) -> list[Word]:
+    async def query_words(only_level_tags: bool) -> list[Word]:
         statement = select(Word)
-        if only_jlpt_tag and jlpt_tag:
-            statement = statement.join(WordTag, WordTag.word_id == Word.id).where(WordTag.tag == jlpt_tag)
+        if only_level_tags and level_tags:
+            statement = (
+                statement.join(WordTag, WordTag.word_id == Word.id)
+                .where(WordTag.tag.in_(level_tags))
+                .distinct()
+            )
         if excluded:
             statement = statement.where(~Word.id.in_(excluded))
         statement = statement.order_by(func.random()).limit(limit)
         result = await dict_db.exec(statement)
         return result.all()
 
-    words = await query_words(only_jlpt_tag=True)
-    if len(words) < limit and jlpt_tag:
-        extra_words = await query_words(only_jlpt_tag=False)
+    words = await query_words(only_level_tags=True)
+    if len(words) < limit and level_tags:
+        extra_words = await query_words(only_level_tags=False)
         existing_ids = {word.id for word in words}
         for word in extra_words:
             if word.id not in existing_ids:
@@ -246,6 +244,12 @@ async def get_study_plans(
     if not plans:
         plans = [await _ensure_default_plan(db, current_user)]
     return [_to_study_plan_response(plan) for plan in plans]
+
+
+@router.get("/dictionaries", response_model=List[dict])
+async def get_dictionaries() -> List[dict]:
+    """获取后端支持的辞书列表（前后端统一来源）"""
+    return DICTIONARY_CATALOG
 
 
 @router.get("/current", response_model=dict)

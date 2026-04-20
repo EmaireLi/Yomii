@@ -18,7 +18,15 @@ MySQL (用户库):
 
 # SQLite 模型
 from .word import Word, WordTag, WordCreate, WordRead
-from .quiz import QuizQuestion, QuizResult, QuizSubmit, QuestionType
+from .quiz import (
+    QuizQuestion,
+    QuizResult,
+    QuizSubmit,
+    QuizSession,
+    QuizSessionSubmit,
+    QuizAnswerItem,
+    QuestionType,
+)
 
 # MySQL 模型
 from .user import User, UserCreate, UserUpdate, UserInDB
@@ -31,7 +39,7 @@ from .study_plan import StudyPlan, LearningSession, StudyPlanCreate, StudyPlanUp
 __all__ = [
     # SQLite
     "Word", "WordTag", "WordCreate", "WordRead",
-    "QuizQuestion", "QuizResult", "QuizSubmit", "QuestionType",
+    "QuizQuestion", "QuizResult", "QuizSubmit", "QuizSession", "QuizSessionSubmit", "QuizAnswerItem", "QuestionType",
     # MySQL - User
     "User", "UserCreate", "UserUpdate", "UserInDB",
     # MySQL - Progress

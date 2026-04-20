@@ -1,6 +1,7 @@
 """
 用户相关 API
 """
+from datetime import datetime
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, Query, HTTPException
@@ -45,18 +46,36 @@ async def get_study_stats(
 
 @router.get("/progress", response_model=List[dict])
 async def get_user_progress(
-    db: UserDB
+    db: UserDB,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> List[dict]:
     """获取学习进度 (从 MySQL 用户数据库)"""
-    # TODO: 实现获取进度逻辑
-    return []
+    statement = (
+        select(WordProgress)
+        .where(WordProgress.user_id == current_user.id)
+        .order_by(WordProgress.last_reviewed_at.desc())
+    )
+    result = await db.exec(statement)
+    records = result.all()
+
+    return [
+        {
+            "wordId": str(record.word_id),
+            "status": record.status,
+            "reviewCount": record.review_count,
+            "correctCount": record.correct_count,
+            "lastReviewedAt": int(record.last_reviewed_at.timestamp() * 1000),
+        }
+        for record in records
+    ]
 
 
 @router.post("/progress/{word_id}", response_model=dict)
 async def update_word_progress(
     db: UserDB,
     word_id: str,
-    progress_in: WordProgressCreate
+    progress_in: WordProgressCreate,
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> dict:
     """
     更新单词学习进度 (保存到 MySQL 用户数据库)
@@ -65,13 +84,45 @@ async def update_word_progress(
     - **status**: 学习状态 (unknown/fuzzy/known)
     - **is_correct**: 是否答对
     """
-    # TODO: 实现更新进度逻辑
+    try:
+        parsed_word_id = int(word_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="word_id 必须是数字") from exc
+
+    now = datetime.utcnow()
+    statement = select(WordProgress).where(
+        (WordProgress.user_id == current_user.id) & (WordProgress.word_id == parsed_word_id)
+    )
+    result = await db.exec(statement)
+    progress = result.first()
+
+    if progress is None:
+        progress = WordProgress(
+            user_id=current_user.id or 0,
+            word_id=parsed_word_id,
+            status=progress_in.status,
+            review_count=1,
+            correct_count=1 if progress_in.is_correct else 0,
+            last_reviewed_at=now,
+        )
+        db.add(progress)
+    else:
+        progress.status = progress_in.status
+        progress.review_count += 1
+        if progress_in.is_correct:
+            progress.correct_count += 1
+        progress.last_reviewed_at = now
+        db.add(progress)
+
+    await db.commit()
+    await db.refresh(progress)
+
     return {
-        "wordId": word_id,
-        "status": progress_in.status,
-        "reviewCount": 1,
-        "correctCount": 1 if progress_in.is_correct else 0,
-        "lastReviewedAt": 0
+        "wordId": str(progress.word_id),
+        "status": progress.status,
+        "reviewCount": progress.review_count,
+        "correctCount": progress.correct_count,
+        "lastReviewedAt": int(progress.last_reviewed_at.timestamp() * 1000),
     }
 
 

@@ -59,6 +59,44 @@ export interface QuizResult {
   timestamp: number
 }
 
+/** 测试历史记录 */
+export interface QuizSessionRecord {
+  id: number | string
+  difficulty: 'easy' | 'medium' | 'hard' | string
+  totalQuestions: number
+  correctAnswers: number
+  accuracy: number
+  durationSeconds: number
+  abilityScore: number
+  level: string
+  summary: string
+  trendDelta: number
+  completedAt: number
+}
+
+/** 能力报告（结合历史记录生成） */
+export interface QuizAbilityReport {
+  overallScore: number
+  level: string
+  trend: {
+    direction: 'up' | 'down' | 'stable' | string
+    delta: number
+  }
+  consistencyScore: number
+  speedScore: number
+  historyCount: number
+  basedOnSessions: number
+  recommendations: string[]
+  summary: string
+  generatedAt: number
+  currentSession: QuizSessionRecord | null
+  difficultyBreakdown: Array<{
+    difficulty: string
+    accuracy: number
+    count: number
+  }>
+}
+
 /** 作文提交 */
 export interface Essay {
   id: string
@@ -119,6 +157,15 @@ export interface LearningSession {
   completedAt?: number
 }
 
+/** 辞书配置（由后端返回） */
+export interface DictionaryConfig {
+  id: string
+  name: string
+  description: string
+  wordCount: number
+  level: 'easy' | 'medium' | 'hard' | string
+}
+
 /** 用户数据 */
 export interface UserData {
   stats: StudyStats
@@ -126,6 +173,7 @@ export interface UserData {
   favorites: string[]
   searchHistory: string[]
   quizResults: QuizResult[]
+  quizHistory?: QuizSessionRecord[]
   config: AppConfig
   studyPlans?: StudyPlan[]
   currentPlan?: StudyPlan
