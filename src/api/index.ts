@@ -277,12 +277,41 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+let expiredTokenHandled = false
+
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  const parts = token.split('.')
+  if (parts.length !== 3 || !parts[1]) return null
+
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+    const json = atob(padded)
+    return JSON.parse(json) as { exp?: number }
+  } catch {
+    return null
+  }
+}
+
+function isTokenExpired(token: string): boolean {
+  const payload = decodeJwtPayload(token)
+  if (!payload?.exp) return false
+  const nowSeconds = Math.floor(Date.now() / 1000)
+  return payload.exp <= nowSeconds
+}
+
+function handleExpiredToken(): void {
+  if (expiredTokenHandled) return
+  expiredTokenHandled = true
+  logout()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('open-login-dialog'))
+  }
+}
+
 function assertApiResponse(response: Response, action: string): void {
   if (response.status === 401) {
-    logout()
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('open-login-dialog'))
-    }
+    handleExpiredToken()
     throw new Error('登录状态已失效，请重新登录')
   }
   if (!response.ok) {
@@ -1084,6 +1113,7 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
   })
   const result: AuthResponse = await response.json()
   if (response.ok && result.token) {
+    expiredTokenHandled = false
     localStorage.setItem('yomii_auth_token', result.token)
     if (result.user) {
       localStorage.setItem('yomii_user', JSON.stringify(result.user))
@@ -1099,6 +1129,7 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
  * 用户登出
  */
 export function logout(): void {
+  expiredTokenHandled = false
   localStorage.removeItem('yomii_auth_token')
   localStorage.removeItem('yomii_user')
   localStorage.removeItem(LOCAL_STORAGE_KEYS.SEARCH_HISTORY)
@@ -1131,7 +1162,14 @@ export function getCurrentUser(): User | null {
  * 获取认证令牌
  */
 export function getAuthToken(): string | null {
-  return localStorage.getItem('yomii_auth_token')
+  const token = localStorage.getItem('yomii_auth_token')
+  if (!token) return null
+
+  if (isTokenExpired(token)) {
+    handleExpiredToken()
+    return null
+  }
+  return token
 }
 
 /**

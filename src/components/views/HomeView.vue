@@ -83,7 +83,15 @@
       </template>
       
       <el-row :gutter="20">
-        <el-col v-for="(feature, idx) in featureList" :key="idx" :xs="24" :sm="12" :md="12" :lg="6">
+        <el-col
+          v-for="(feature, idx) in featureList"
+          :key="idx"
+          :xs="24"
+          :sm="12"
+          :md="12"
+          :lg="6"
+          class="feature-col"
+        >
           <div class="feature-item">
             <div class="feature-icon">
               <el-icon><component :is="feature.icon" /></el-icon>
@@ -252,11 +260,20 @@ const featureList = [
 .feature-item {
   display: flex;
   gap: 12px;
-  padding: 16px;
+  width: 100%;
+  height: 132px;
+  box-sizing: border-box;
+  align-items: center;
+  padding: 18px;
   background: linear-gradient(135deg, #f5f7fa 0%, #eef2f8 100%);
   border-radius: 6px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-left: 4px solid #667eea;
+}
+
+.feature-col {
+  display: flex;
+  margin-bottom: 16px;
 }
 
 .feature-item:hover {
@@ -267,12 +284,16 @@ const featureList = [
 }
 
 .feature-icon {
-  min-width: 50px;
+  min-width: 52px;
+  width: 52px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 28px;
   color: #667eea;
+  background: rgba(102, 126, 234, 0.08);
+  border-radius: 10px;
 }
 
 .feature-info {
@@ -291,5 +312,9 @@ const featureList = [
   color: #333333;
   font-size: 13px;
   line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>

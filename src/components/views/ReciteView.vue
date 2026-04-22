@@ -1957,7 +1957,7 @@ h1 {
   background: hsl(calc(var(--i) * 20), 85%, 60%);
   transform: rotate(calc(var(--i) * 16deg));
   animation: confetti-fall 1.8s ease-in forwards;
-  animation-delay: calc((var(--i) % 6) * 0.08s);
+  animation-delay: calc((var(--i) - 1) * 0.08s);
 }
 
 .celebration-glow {
