@@ -59,7 +59,7 @@
             :key="idx"
             @click="searchQuery = history; handleSearch()"
             closable
-            @close="removeSearch(idx)"
+            @close="handleRemoveSearch(idx)"
             class="history-tag"
             style="cursor: pointer; margin-top: 8px;"
           >
@@ -267,7 +267,7 @@ const loadSearchPage = async (saveHistory: boolean = false) => {
     searchTotal.value = payload.total
     searchPage.value = payload.page
     if (saveHistory) {
-      addSearch(searchQuery.value)
+      await addSearch(searchQuery.value)
     }
   } catch (error: any) {
     errorMessage.value = error.message || '搜索失败，请稍后重试'
@@ -328,6 +328,14 @@ const copyToClipboard = (text: string) => {
       duration: 2000
     })
   })
+}
+
+const handleRemoveSearch = async (index: number) => {
+  try {
+    await removeSearch(index)
+  } catch (error: any) {
+    ElMessage.error(error?.message || '删除历史失败')
+  }
 }
 </script>
 

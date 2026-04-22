@@ -7,6 +7,7 @@ import {
   addToFavorites as addToFavoritesAPI,
   removeFromFavorites as removeFromFavoritesAPI,
   getSearchHistory as getSearchHistoryAPI,
+  deleteSearchHistory as deleteSearchHistoryAPI,
   getUserProgress,
   updateWordProgress as updateWordProgressAPI,
 } from '@/api'
@@ -39,9 +40,7 @@ function setStorageItem<T>(key: string, value: T): void {
  * 使用本地存储 - 搜索历史
  */
 export function useSearchHistory() {
-  const searchHistory = ref<string[]>(
-    getStorageItem(LOCAL_STORAGE_KEYS.SEARCH_HISTORY, [])
-  )
+  const searchHistory = ref<string[]>([])
 
   const syncSearchHistory = async () => {
     if (!isAuthenticated()) {
@@ -51,7 +50,15 @@ export function useSearchHistory() {
 
     try {
       const rows = await getSearchHistoryAPI(50)
-      searchHistory.value = rows.map(row => row.keyword)
+      const uniqueKeywords: string[] = []
+      const seen = new Set<string>()
+      for (const row of rows) {
+        const keyword = row.keyword?.trim()
+        if (!keyword || seen.has(keyword)) continue
+        seen.add(keyword)
+        uniqueKeywords.push(keyword)
+      }
+      searchHistory.value = uniqueKeywords
     } catch (error) {
       console.error('Failed to sync search history:', error)
     }
@@ -71,34 +78,30 @@ export function useSearchHistory() {
     }
   })
 
-  const addSearch = (query: string) => {
+  const addSearch = async (query: string) => {
     if (!query.trim()) return
-    
-    const history = searchHistory.value
-    // 移除重复项
-    const index = history.indexOf(query)
-    if (index > -1) history.splice(index, 1)
-    
-    // 新搜索加到最前面，保持最多50条
-    history.unshift(query)
-    if (history.length > 50) history.pop()
+    await syncSearchHistory()
   }
 
-  const removeSearch = (index: number) => {
-    searchHistory.value.splice(index, 1)
+  const removeSearch = async (index: number) => {
+    if (!isAuthenticated()) {
+      searchHistory.value.splice(index, 1)
+      return
+    }
+
+    const keyword = searchHistory.value[index]
+    if (!keyword) return
+
+    await deleteSearchHistoryAPI(keyword)
+    await syncSearchHistory()
   }
 
-  const clearHistory = () => {
+  const clearHistory = async () => {
+    if (isAuthenticated()) {
+      await deleteSearchHistoryAPI()
+    }
     searchHistory.value = []
   }
-
-  watch(
-    searchHistory,
-    (newVal) => {
-      setStorageItem(LOCAL_STORAGE_KEYS.SEARCH_HISTORY, newVal)
-    },
-    { deep: true }
-  )
 
   if (isAuthenticated()) {
     void syncSearchHistory()

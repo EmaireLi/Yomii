@@ -628,7 +628,7 @@ export async function getSearchHistory(
   limit: number = 10
 ): Promise<Array<{ id: number; keyword: string; resultCount: number; createdAt: number }>> {
   if (USE_MOCK_API) {
-    // Mock 模式直接返回空（由 localStorage 驱动）
+    // Mock 模式无后端历史
     return []
   }
   
@@ -636,6 +636,30 @@ export async function getSearchHistory(
     headers: getAuthHeaders()
   })
   assertApiResponse(response, '获取搜索历史')
+  return response.json()
+}
+
+/**
+ * 删除搜索历史
+ * DELETE /api/user/search-history?keyword=xxx
+ * keyword 不传则清空全部历史
+ */
+export async function deleteSearchHistory(
+  keyword?: string
+): Promise<{ success: boolean; deletedCount: number; message?: string }> {
+  if (USE_MOCK_API) {
+    return { success: true, deletedCount: 0 }
+  }
+
+  const query = typeof keyword === 'string' && keyword.trim()
+    ? `?keyword=${encodeURIComponent(keyword.trim())}`
+    : ''
+
+  const response = await fetch(`${API_BASE_URL}/user/search-history${query}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '删除搜索历史')
   return response.json()
 }
 
@@ -1284,6 +1308,7 @@ export default {
   updateWordProgress,
   getStudyStats,
   getSearchHistory,
+  deleteSearchHistory,
   addToFavorites,
   removeFromFavorites,
   getFavorites,
