@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlmodel import select
+from sqlmodel import delete, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import func
 
@@ -151,6 +151,31 @@ async def get_search_history(
         }
         for record in records
     ]
+
+
+@router.delete("/search-history", response_model=dict)
+async def delete_search_history(
+    db: UserDB,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    keyword: str | None = Query(None, description="删除指定关键词；不传则清空全部"),
+) -> dict:
+    """删除搜索历史 (从 MySQL 用户数据库删除)"""
+    if current_user.id is None:
+        raise HTTPException(status_code=401, detail="未授权")
+
+    statement = delete(SearchHistory).where(SearchHistory.user_id == current_user.id)
+    normalized_keyword = keyword.strip() if isinstance(keyword, str) else ""
+    if normalized_keyword:
+        statement = statement.where(SearchHistory.keyword == normalized_keyword)
+
+    result = await db.exec(statement)
+    await db.commit()
+
+    return {
+        "success": True,
+        "deletedCount": int(result.rowcount or 0),
+        "message": "删除成功",
+    }
 
 
 @router.get("/favorites", response_model=dict)

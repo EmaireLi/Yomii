@@ -4,6 +4,7 @@
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlmodel import delete
 
 from app.core.deps import DictDB, UserDB, get_optional_current_user
 from app.models.favorite import SearchHistory
@@ -35,6 +36,11 @@ async def search_words(
     # 登录用户记录搜索历史（用于后续“最近搜索”能力扩展）
     normalized_query = q.strip()
     if current_user is not None and normalized_query and page == 1:
+        await user_db.exec(
+            delete(SearchHistory).where(
+                (SearchHistory.user_id == current_user.id) & (SearchHistory.keyword == normalized_query)
+            )
+        )
         user_db.add(
             SearchHistory(
                 user_id=current_user.id,
