@@ -55,3 +55,8 @@ __pycache__/
 venv/
 .venv/
 backend/data/
+
+# Local dictionary data
+/data/dictionary.txt
+/backend/data/dictionary.txt
+/backend/data/dictionary.db
