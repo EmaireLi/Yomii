@@ -35,6 +35,7 @@ export const LOCAL_STORAGE_KEYS = {
   USER_DATA: 'yomii_user_data',
   SEARCH_HISTORY: 'yomii_search_history',
   FAVORITES: 'yomii_favorites',
+  QUIZ_HISTORY: 'yomii_quiz_history',
   WORD_PROGRESS: 'yomii_word_progress',
   STUDY_STATS: 'yomii_study_stats',
   STUDY_PLANS: 'yomii_study_plans',
@@ -62,12 +63,12 @@ export const DEFAULT_STUDY_PLAN = {
 
 // 辞书列表
 export const DICTIONARIES = [
-  { id: 'common', name: '常用词典', description: '最常用的 1500 个单词', wordCount: 1500 },
-  { id: 'daily', name: '日常词典', description: '日常生活中的 2500 个词汇', wordCount: 2500 },
-  { id: 'jlpt3', name: 'JLPT N3', description: '日本语能力测试 N3 级词汇', wordCount: 3700 },
-  { id: 'jlpt2', name: 'JLPT N2', description: '日本语能力测试 N2 级词汇', wordCount: 6000 },
-  { id: 'jlpt1', name: 'JLPT N1', description: '日本语能力测试 N1 级词汇', wordCount: 10000 },
-  { id: 'business', name: '商务词典', description: '商务日语常用词汇', wordCount: 2000 }
+  { id: 'common', name: '常用词典', description: '基础级别（N5-N4）', wordCount: 1500, level: 'easy' },
+  { id: 'daily', name: '日常词典', description: '中等级别（N3）', wordCount: 2500, level: 'medium' },
+  { id: 'jlpt3', name: 'JLPT N3', description: '中等级别（N3）', wordCount: 3700, level: 'medium' },
+  { id: 'jlpt2', name: 'JLPT N2', description: '高级别（N2-N1）', wordCount: 6000, level: 'hard' },
+  { id: 'jlpt1', name: 'JLPT N1', description: '高级别（N2-N1）', wordCount: 10000, level: 'hard' },
+  { id: 'business', name: '商务词典', description: '高级别（N2-N1）', wordCount: 2000, level: 'hard' }
 ]
 
 // 单词数量预设选项

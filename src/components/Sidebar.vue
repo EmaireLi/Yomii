@@ -53,7 +53,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { House, Search, DocumentCopy, Notebook, Delete, Download } from '@element-plus/icons-vue'
+import { House, Search, DocumentCopy, Notebook, Delete, Download, Star } from '@element-plus/icons-vue'
 import { VIEWS } from '@/utils/constants'
 import { useSearchHistory, useStudyStats } from '@/composables/useLocalStorage'
 
@@ -73,6 +73,7 @@ const menuItems = [
   { id: VIEWS.HOME, label: '首页', icon: House, description: '查看学习概览和统计' },
   { id: VIEWS.SEARCH, label: '查词', icon: Search, description: '快速查询日语词汇' },
   { id: VIEWS.RECITE, label: '背单词', icon: DocumentCopy, description: '闪卡式单词学习' },
+  { id: VIEWS.FAVORITES, label: '我的收藏', icon: Star, description: '查看收藏的词汇' },
   { id: VIEWS.TEST, label: '能力测试', icon: Notebook, description: '检测学习成果' }
 ]
 

@@ -5,9 +5,9 @@
  * 支持 Mock 模式和真实后端两种模型
  */
 
-import type { Word, SearchResult, QuizQuestion, WordProgress, StudyStats, Essay, EssayScore, StudyPlan, LearningSession, User, AuthResponse, RegisterRequest, LoginRequest, ResetPasswordRequest, SetNewPasswordRequest } from '@/types'
-import { getRandomWords, searchWords as localSearchWords, QUIZ_QUESTIONS, WORDS_DATABASE } from '@/utils/mockData'
-import { DEFAULT_STUDY_PLAN } from '@/utils/constants'
+import type { Word, SearchResult, QuizQuestion, QuizAbilityReport, QuizSessionRecord, DictionaryConfig, WordProgress, StudyStats, Essay, EssayScore, StudyPlan, LearningSession, User, AuthResponse, RegisterRequest, LoginRequest, ResetPasswordRequest, SetNewPasswordRequest } from '@/types'
+import { getRandomWords, searchWords as localSearchWords, WORDS_DATABASE } from '@/utils/mockData'
+import { DEFAULT_STUDY_PLAN, LOCAL_STORAGE_KEYS, DICTIONARIES } from '@/utils/constants'
 
 // API 配置
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
@@ -131,17 +131,187 @@ function normalizeLearningSession(session: LearningSessionApiResponse): Learning
   }
 }
 
+const QUIZ_HISTORY_STORAGE_KEY = LOCAL_STORAGE_KEYS.QUIZ_HISTORY
+
+function getStoredQuizHistory(): QuizSessionRecord[] {
+  if (typeof window === 'undefined') return []
+  const raw = localStorage.getItem(QUIZ_HISTORY_STORAGE_KEY)
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as QuizSessionRecord[]
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function setStoredQuizHistory(records: QuizSessionRecord[]): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(QUIZ_HISTORY_STORAGE_KEY, JSON.stringify(records))
+}
+
+function generateQuizAbilityReport(records: QuizSessionRecord[]): QuizAbilityReport {
+  if (records.length === 0) {
+    return {
+      overallScore: 0,
+      level: '暂无评级',
+      trend: { direction: 'stable', delta: 0 },
+      consistencyScore: 0,
+      speedScore: 0,
+      historyCount: 0,
+      basedOnSessions: 0,
+      recommendations: ['完成至少 1 次测试后即可生成能力报告。'],
+      summary: '暂无历史测试记录，无法评估能力趋势。',
+      generatedAt: 0,
+      currentSession: null,
+      difficultyBreakdown: []
+    }
+  }
+
+  const sorted = [...records].sort((a, b) => a.completedAt - b.completedAt)
+  const accuracySeries = sorted.map(item => item.accuracy)
+  const speedSeries = sorted
+    .filter(item => item.totalQuestions > 0 && item.durationSeconds > 0)
+    .map(item => item.durationSeconds / item.totalQuestions)
+
+  let weightedAccuracy = 0
+  let totalWeight = 0
+  accuracySeries.forEach((value, idx) => {
+    const weight = Math.exp((idx - (accuracySeries.length - 1)) / 4)
+    weightedAccuracy += value * weight
+    totalWeight += weight
+  })
+  weightedAccuracy = totalWeight > 0 ? weightedAccuracy / totalWeight : 0
+
+  const recent = accuracySeries.slice(-3)
+  const previous = accuracySeries.slice(-6, -3)
+  const recentAvg = recent.length > 0 ? recent.reduce((sum, item) => sum + item, 0) / recent.length : 0
+  const previousAvg = previous.length > 0
+    ? previous.reduce((sum, item) => sum + item, 0) / previous.length
+    : (accuracySeries[0] ?? 0)
+  const trendDelta = Number((recentAvg - previousAvg).toFixed(1))
+
+  const meanAccuracy = accuracySeries.reduce((sum, item) => sum + item, 0) / accuracySeries.length
+  const variance = accuracySeries.reduce((sum, item) => sum + (item - meanAccuracy) ** 2, 0) / accuracySeries.length
+  const consistencyScore = Math.max(0, Math.min(100, Number((100 - Math.sqrt(variance) * 2.2).toFixed(1))))
+
+  const avgSecondsPerQuestion = speedSeries.length > 0
+    ? speedSeries.reduce((sum, item) => sum + item, 0) / speedSeries.length
+    : 60
+  const speedScore = Math.max(40, Math.min(100, Number((100 * (45 / avgSecondsPerQuestion)).toFixed(1))))
+
+  const overallScore = Number((weightedAccuracy * 0.72 + consistencyScore * 0.18 + speedScore * 0.1).toFixed(1))
+  const level = overallScore >= 90
+    ? 'JLPT N2+'
+    : overallScore >= 80
+      ? 'JLPT N3'
+      : overallScore >= 70
+        ? 'JLPT N4'
+        : overallScore >= 60
+          ? 'JLPT N5'
+          : '入门阶段'
+
+  const breakdownMap = new Map<string, { total: number; count: number }>()
+  sorted.forEach(item => {
+    const current = breakdownMap.get(item.difficulty) || { total: 0, count: 0 }
+    current.total += item.accuracy
+    current.count += 1
+    breakdownMap.set(item.difficulty, current)
+  })
+  const difficultyBreakdown = Array.from(breakdownMap.entries())
+    .map(([difficulty, value]) => ({
+      difficulty,
+      accuracy: Number((value.total / value.count).toFixed(1)),
+      count: value.count
+    }))
+    .sort((a, b) => a.accuracy - b.accuracy)
+
+  const direction = trendDelta >= 3 ? 'up' : trendDelta <= -3 ? 'down' : 'stable'
+  const trendText = direction === 'up' ? '近期表现明显提升' : direction === 'down' ? '近期表现出现回落' : '近期表现整体稳定'
+  const recommendations = [
+    direction === 'down'
+      ? '近期准确率回落，建议先复习错题词汇，再进行同难度复测。'
+      : direction === 'up'
+        ? '能力在提升，下一次测试可尝试更高难度以扩大能力边界。'
+        : '能力表现稳定，建议固定每周 2-3 次测试保持节奏。'
+  ]
+  if (difficultyBreakdown[0]) {
+    recommendations.push(`当前薄弱难度为 ${difficultyBreakdown[0].difficulty}（平均正确率 ${difficultyBreakdown[0].accuracy}%），可优先加强该层级训练。`)
+  }
+
+  const currentSession = sorted[sorted.length - 1] || null
+  return {
+    overallScore,
+    level,
+    trend: { direction, delta: trendDelta },
+    consistencyScore,
+    speedScore,
+    historyCount: sorted.length,
+    basedOnSessions: sorted.length,
+    recommendations,
+    summary: `综合能力分 ${overallScore}，${trendText}。建议持续按周进行测试并针对薄弱项复习。`,
+    generatedAt: currentSession?.completedAt || Date.now(),
+    currentSession,
+    difficultyBreakdown
+  }
+}
+
+function normalizeQuizSession(record: any): QuizSessionRecord {
+  return {
+    id: record.id,
+    difficulty: record.difficulty || 'medium',
+    totalQuestions: Number(record.totalQuestions ?? record.total_questions ?? 0),
+    correctAnswers: Number(record.correctAnswers ?? record.correct_answers ?? 0),
+    accuracy: Number(record.accuracy ?? 0),
+    durationSeconds: Number(record.durationSeconds ?? record.duration_seconds ?? 0),
+    abilityScore: Number(record.abilityScore ?? record.ability_score ?? 0),
+    level: String(record.level ?? record.reportLevel ?? record.report_level ?? '暂无评级'),
+    summary: String(record.summary ?? record.reportSummary ?? record.report_summary ?? ''),
+    trendDelta: Number(record.trendDelta ?? record.trend_delta ?? 0),
+    completedAt: Number(record.completedAt ?? record.createdAt ?? record.created_at ?? Date.now())
+  }
+}
+
 function getAuthHeaders(): Record<string, string> {
   const token = getAuthToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+let expiredTokenHandled = false
+
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  const parts = token.split('.')
+  if (parts.length !== 3 || !parts[1]) return null
+
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+    const json = atob(padded)
+    return JSON.parse(json) as { exp?: number }
+  } catch {
+    return null
+  }
+}
+
+function isTokenExpired(token: string): boolean {
+  const payload = decodeJwtPayload(token)
+  if (!payload?.exp) return false
+  const nowSeconds = Math.floor(Date.now() / 1000)
+  return payload.exp <= nowSeconds
+}
+
+function handleExpiredToken(): void {
+  if (expiredTokenHandled) return
+  expiredTokenHandled = true
+  logout()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('open-login-dialog'))
+  }
+}
+
 function assertApiResponse(response: Response, action: string): void {
   if (response.status === 401) {
-    logout()
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('open-login-dialog'))
-    }
+    handleExpiredToken()
     throw new Error('登录状态已失效，请重新登录')
   }
   if (!response.ok) {
@@ -215,7 +385,7 @@ export async function getWord(id: string): Promise<Word> {
   const response = await fetch(`${API_BASE_URL}/words/${id}`, {
     headers: getAuthHeaders()
   })
-  if (!response.ok) throw new Error(`获取单词失败: ${response.statusText}`)
+  assertApiResponse(response, '获取单词')
   const data: WordApiResponse = await response.json()
   return normalizeWord(data)
 }
@@ -232,7 +402,7 @@ export async function getRandomWordsAPI(count: number = 5): Promise<Word[]> {
   const response = await fetch(`${API_BASE_URL}/words/random?count=${count}`, {
     headers: getAuthHeaders()
   })
-  if (!response.ok) throw new Error(`获取随机单词失败: ${response.statusText}`)
+  assertApiResponse(response, '获取随机单词')
   const data: WordApiResponse[] = await response.json()
   return data.map(normalizeWord)
 }
@@ -253,7 +423,7 @@ export async function getAllWords(page: number = 1, limit: number = 20): Promise
   const response = await fetch(`${API_BASE_URL}/words?page=${page}&limit=${limit}`, {
     headers: getAuthHeaders()
   })
-  if (!response.ok) throw new Error(`获取单词列表失败: ${response.statusText}`)
+  assertApiResponse(response, '获取单词列表')
   const data: { words: WordApiResponse[]; total: number } = await response.json()
   return {
     words: data.words.map(normalizeWord),
@@ -266,13 +436,10 @@ export async function getAllWords(page: number = 1, limit: number = 20): Promise
  * GET /api/quiz/questions?difficulty=medium&count=10
  */
 export async function getQuizQuestions(difficulty: string = 'medium', count: number = 10): Promise<QuizQuestion[]> {
-  if (USE_MOCK_API) {
-    // 从 mockData 返回固定的测试题目
-    return QUIZ_QUESTIONS.slice(0, count)
-  }
-  
-  const response = await fetch(`${API_BASE_URL}/quiz/questions?difficulty=${difficulty}&count=${count}`)
-  if (!response.ok) throw new Error(`获取测试题目失败: ${response.statusText}`)
+  const response = await fetch(`${API_BASE_URL}/quiz/questions?difficulty=${difficulty}&count=${count}`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取测试题目')
   return response.json()
 }
 
@@ -285,17 +452,76 @@ export async function submitQuizAnswer(
   userAnswer: string,
   isCorrect: boolean
 ): Promise<{ success: boolean; score: number }> {
-  if (USE_MOCK_API) {
-    // Mock 模式直接返回无修改
-    return { success: true, score: isCorrect ? 1 : 0 }
-  }
-  
   const response = await fetch(`${API_BASE_URL}/quiz/submit`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questionId, userAnswer, isCorrect })
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({
+      question_id: Number(questionId),
+      user_answer: userAnswer,
+      is_correct: isCorrect
+    })
   })
-  if (!response.ok) throw new Error(`提交答案失败: ${response.statusText}`)
+  assertApiResponse(response, '提交答案')
+  return response.json()
+}
+
+/**
+ * 提交整场测试，保存历史并返回能力报告
+ * POST /api/quiz/session
+ */
+export async function submitQuizSession(payload: {
+  difficulty: string
+  totalQuestions: number
+  correctAnswers: number
+  durationSeconds: number
+  answers: Array<{ questionId: number | string; userAnswer: string; isCorrect: boolean }>
+}): Promise<{ success: boolean; session: QuizSessionRecord; report: QuizAbilityReport }> {
+  const response = await fetch(`${API_BASE_URL}/quiz/session`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({
+      difficulty: payload.difficulty,
+      total_questions: payload.totalQuestions,
+      correct_answers: payload.correctAnswers,
+      duration_seconds: payload.durationSeconds,
+      answers: payload.answers.map(item => ({
+        question_id: Number(item.questionId),
+        user_answer: item.userAnswer,
+        is_correct: item.isCorrect
+      }))
+    })
+  })
+  assertApiResponse(response, '提交测试会话')
+  const data = await response.json() as { success: boolean; session: any; report: QuizAbilityReport }
+  return {
+    success: data.success,
+    session: normalizeQuizSession(data.session),
+    report: data.report
+  }
+}
+
+/**
+ * 获取测试历史记录
+ * GET /api/quiz/history
+ */
+export async function getQuizHistory(limit: number = 10): Promise<QuizSessionRecord[]> {
+  const response = await fetch(`${API_BASE_URL}/quiz/history?limit=${limit}`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取测试历史')
+  const data = await response.json() as any[]
+  return data.map(normalizeQuizSession)
+}
+
+/**
+ * 获取能力报告
+ * GET /api/quiz/report
+ */
+export async function getQuizAbilityReport(limit: number = 20): Promise<QuizAbilityReport> {
+  const response = await fetch(`${API_BASE_URL}/quiz/report?limit=${limit}`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取能力报告')
   return response.json()
 }
 
@@ -327,10 +553,14 @@ export async function updateWordProgress(
   
   const response = await fetch(`${API_BASE_URL}/user/progress/${wordId}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status, isCorrect })
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({
+      word_id: Number(wordId),
+      status,
+      is_correct: isCorrect
+    })
   })
-  if (!response.ok) throw new Error(`更新学习进度失败: ${response.statusText}`)
+  assertApiResponse(response, '更新学习进度')
   return response.json()
 }
 
@@ -374,7 +604,7 @@ export async function getSearchHistory(
   const response = await fetch(`${API_BASE_URL}/user/search-history?limit=${limit}`, {
     headers: getAuthHeaders()
   })
-  if (!response.ok) throw new Error(`获取搜索历史失败: ${response.statusText}`)
+  assertApiResponse(response, '获取搜索历史')
   return response.json()
 }
 
@@ -382,17 +612,16 @@ export async function getSearchHistory(
  * 添加到收藏夹
  * POST /api/user/favorites/:wordId
  */
-export async function addToFavorites(wordId: string, word: Word): Promise<{ success: boolean }> {
+export async function addToFavorites(wordId: string): Promise<{ success: boolean }> {
   if (USE_MOCK_API) {
     return { success: true }
   }
   
   const response = await fetch(`${API_BASE_URL}/user/favorites/${wordId}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(word)
+    headers: getAuthHeaders()
   })
-  if (!response.ok) throw new Error(`添加收藏失败: ${response.statusText}`)
+  assertApiResponse(response, '添加收藏')
   return response.json()
 }
 
@@ -406,24 +635,33 @@ export async function removeFromFavorites(wordId: string): Promise<{ success: bo
   }
   
   const response = await fetch(`${API_BASE_URL}/user/favorites/${wordId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: getAuthHeaders()
   })
-  if (!response.ok) throw new Error(`移除收藏失败: ${response.statusText}`)
+  assertApiResponse(response, '移除收藏')
   return response.json()
 }
 
 /**
  * 获取收藏夹列表
- * GET /api/user/favorites
+ * GET /api/user/favorites?page=1&limit=20
  */
-export async function getFavorites(): Promise<Word[]> {
+export async function getFavorites(page: number = 1, limit: number = 20): Promise<{ words: Word[], total: number, page: number, limit: number }> {
   if (USE_MOCK_API) {
-    return []
+    return { words: [], total: 0, page, limit }
   }
   
-  const response = await fetch(`${API_BASE_URL}/user/favorites`)
-  if (!response.ok) throw new Error(`获取收藏列表失败: ${response.statusText}`)
-  return response.json()
+  const response = await fetch(`${API_BASE_URL}/user/favorites?page=${page}&limit=${limit}`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取收藏列表')
+  const data: { words: WordApiResponse[], total: number, page: number, limit: number } = await response.json()
+  return {
+    words: data.words.map(normalizeWord),
+    total: data.total,
+    page: data.page,
+    limit: data.limit
+  }
 }
 
 /**
@@ -435,8 +673,10 @@ export async function getUserProgress(): Promise<WordProgress[]> {
     return []
   }
   
-  const response = await fetch(`${API_BASE_URL}/user/progress`)
-  if (!response.ok) throw new Error(`获取学习进度失败: ${response.statusText}`)
+  const response = await fetch(`${API_BASE_URL}/user/progress`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取学习进度')
   return response.json()
 }
 
@@ -468,7 +708,7 @@ export async function submitEssayAPI(essayData: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(essayData)
   })
-  if (!response.ok) throw new Error(`提交作文失败: ${response.statusText}`)
+  assertApiResponse(response, '提交作文')
   return response.json()
 }
 
@@ -484,7 +724,7 @@ export async function getEssayHistoryAPI(limit: number = 20): Promise<Essay[]> {
   }
   
   const response = await fetch(`${API_BASE_URL}/essays/history?limit=${limit}`)
-  if (!response.ok) throw new Error(`获取作文历史失败: ${response.statusText}`)
+  assertApiResponse(response, '获取作文历史')
   return response.json()
 }
 
@@ -498,7 +738,7 @@ export async function getEssayScore(essayId: string): Promise<EssayScore> {
   }
   
   const response = await fetch(`${API_BASE_URL}/essays/${essayId}/score`)
-  if (!response.ok) throw new Error(`获取作文评分失败: ${response.statusText}`)
+  assertApiResponse(response, '获取作文评分')
   return response.json()
 }
 
@@ -560,6 +800,22 @@ export async function getStudyPlans(): Promise<StudyPlan[]> {
   assertApiResponse(response, '获取学习计划')
   const data: StudyPlanApiResponse[] = await response.json()
   return data.map(normalizeStudyPlan)
+}
+
+/**
+ * 获取后端辞书配置
+ * GET /api/study-plans/dictionaries
+ */
+export async function getDictionaryCatalog(): Promise<DictionaryConfig[]> {
+  if (USE_MOCK_API) {
+    return DICTIONARIES as DictionaryConfig[]
+  }
+
+  const response = await fetch(`${API_BASE_URL}/study-plans/dictionaries`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取辞书配置')
+  return response.json()
 }
 
 /**
@@ -752,7 +1008,11 @@ export async function getLearningSessions(planId: string): Promise<LearningSessi
  * 请求加量学习（增加当天的学习量）
  * POST /api/study-plans/:planId/add-more
  */
-export async function requestAddMore(planId: string, additionalCount: number): Promise<{ success: boolean; moreWords: Word[] }> {
+export async function requestAddMore(
+  planId: string,
+  additionalCount: number,
+  excludeWordIds: number[] = []
+): Promise<{ success: boolean; moreWords: Word[] }> {
   if (USE_MOCK_API) {
     return {
       success: true,
@@ -760,7 +1020,12 @@ export async function requestAddMore(planId: string, additionalCount: number): P
     }
   }
   
-  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/add-more?additional_count=${additionalCount}`, {
+  const query = new URLSearchParams({ additional_count: String(additionalCount) })
+  for (const id of excludeWordIds) {
+    query.append('exclude_word_ids', String(id))
+  }
+
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/add-more?${query.toString()}`, {
     method: 'POST',
     headers: getAuthHeaders()
   })
@@ -835,6 +1100,9 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     }
     localStorage.setItem('yomii_auth_token', mockToken)
     localStorage.setItem('yomii_user', JSON.stringify(mockUser))
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('yomii:login'))
+    }
     return { success: true, message: '登录成功', token: mockToken, user: mockUser }
   }
   
@@ -845,9 +1113,13 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
   })
   const result: AuthResponse = await response.json()
   if (response.ok && result.token) {
+    expiredTokenHandled = false
     localStorage.setItem('yomii_auth_token', result.token)
     if (result.user) {
       localStorage.setItem('yomii_user', JSON.stringify(result.user))
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('yomii:login'))
     }
   }
   return result
@@ -857,8 +1129,20 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
  * 用户登出
  */
 export function logout(): void {
+  expiredTokenHandled = false
   localStorage.removeItem('yomii_auth_token')
   localStorage.removeItem('yomii_user')
+  localStorage.removeItem(LOCAL_STORAGE_KEYS.SEARCH_HISTORY)
+  localStorage.removeItem(LOCAL_STORAGE_KEYS.QUIZ_HISTORY)
+  localStorage.removeItem(LOCAL_STORAGE_KEYS.WORD_PROGRESS)
+  localStorage.removeItem(LOCAL_STORAGE_KEYS.STUDY_STATS)
+  localStorage.removeItem(LOCAL_STORAGE_KEYS.FAVORITES)
+  // 兼容旧版本可能使用的键名
+  localStorage.removeItem('searchHistory')
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('yomii:logout'))
+  }
 }
 
 /**
@@ -878,7 +1162,14 @@ export function getCurrentUser(): User | null {
  * 获取认证令牌
  */
 export function getAuthToken(): string | null {
-  return localStorage.getItem('yomii_auth_token')
+  const token = localStorage.getItem('yomii_auth_token')
+  if (!token) return null
+
+  if (isTokenExpired(token)) {
+    handleExpiredToken()
+    return null
+  }
+  return token
 }
 
 /**
@@ -947,6 +1238,9 @@ export default {
   getAllWords,
   getQuizQuestions,
   submitQuizAnswer,
+  submitQuizSession,
+  getQuizHistory,
+  getQuizAbilityReport,
   updateWordProgress,
   getStudyStats,
   getSearchHistory,
@@ -959,6 +1253,7 @@ export default {
   getEssayScore,
   generateMockEssayScore,
   // 学习计划相关
+  getDictionaryCatalog,
   getStudyPlans,
   getCurrentStudyPlan,
   createStudyPlan,

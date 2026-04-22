@@ -1,11 +1,15 @@
-/**
- * 本地存储组合函数
- */
-
-import { ref, watch } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import type { UserData, StudyPlan, LearningSession } from '@/types'
 import { DEFAULT_APP_CONFIG, LOCAL_STORAGE_KEYS, DEFAULT_STUDY_PLAN } from '@/utils/constants'
-import { getStudyStats, isAuthenticated } from '@/api'
+import {
+  getStudyStats,
+  isAuthenticated,
+  addToFavorites as addToFavoritesAPI,
+  removeFromFavorites as removeFromFavoritesAPI,
+  getSearchHistory as getSearchHistoryAPI,
+  getUserProgress,
+  updateWordProgress as updateWordProgressAPI,
+} from '@/api'
 
 /**
  * 从localStorage中读取数据
@@ -39,6 +43,34 @@ export function useSearchHistory() {
     getStorageItem(LOCAL_STORAGE_KEYS.SEARCH_HISTORY, [])
   )
 
+  const syncSearchHistory = async () => {
+    if (!isAuthenticated()) {
+      searchHistory.value = []
+      return
+    }
+
+    try {
+      const rows = await getSearchHistoryAPI(50)
+      searchHistory.value = rows.map(row => row.keyword)
+    } catch (error) {
+      console.error('Failed to sync search history:', error)
+    }
+  }
+
+  const handleLogoutClear = () => {
+    searchHistory.value = []
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('yomii:logout', handleLogoutClear)
+  }
+
+  onUnmounted(() => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('yomii:logout', handleLogoutClear)
+    }
+  })
+
   const addSearch = (query: string) => {
     if (!query.trim()) return
     
@@ -68,28 +100,56 @@ export function useSearchHistory() {
     { deep: true }
   )
 
+  if (isAuthenticated()) {
+    void syncSearchHistory()
+  }
+
   return {
     searchHistory,
     addSearch,
     removeSearch,
-    clearHistory
+    clearHistory,
+    syncSearchHistory
   }
 }
 
 /**
- * 使用本地存储 - 收藏夹
+ * 使用本地存储 - 收藏夹 (支持后端同步)
  */
 export function useFavorites() {
   const favorites = ref<string[]>(
     getStorageItem(LOCAL_STORAGE_KEYS.FAVORITES, [])
   )
 
-  const toggleFavorite = (wordId: string) => {
+  /**
+   * 切换收藏状态 (同步到后端)
+   */
+  const toggleFavorite = async (wordId: string) => {
     const index = favorites.value.indexOf(wordId)
-    if (index > -1) {
-      favorites.value.splice(index, 1)
-    } else {
-      favorites.value.push(wordId)
+    const isFavorited = index > -1
+
+    try {
+      if (isFavorited) {
+        // 移除收藏
+        if (isAuthenticated()) {
+          await removeFromFavoritesAPI(wordId)
+        }
+        favorites.value.splice(index, 1)
+      } else {
+        // 添加收藏
+        if (isAuthenticated()) {
+          await addToFavoritesAPI(wordId)
+        }
+        favorites.value.push(wordId)
+      }
+    } catch (error) {
+      // 如果后端操作失败，回滚本地状态
+      if (isFavorited) {
+        favorites.value.push(wordId) // 还原已删除的项
+      } else {
+        favorites.value.splice(index, 1) // 还原已添加的项
+      }
+      throw error
     }
   }
 
@@ -129,6 +189,10 @@ export function useStudyStats() {
   const stats = ref(
     getStorageItem(LOCAL_STORAGE_KEYS.STUDY_STATS, defaultStats)
   )
+
+  const resetStats = () => {
+    stats.value = { ...defaultStats }
+  }
 
   const toDayStartMs = (timestamp: number): number => {
     if (!timestamp) return 0
@@ -210,6 +274,26 @@ export function useStudyStats() {
     }
   }
 
+  const handleLoginSync = () => {
+    void syncStudyStats()
+  }
+
+  const handleLogoutReset = () => {
+    resetStats()
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('yomii:login', handleLoginSync)
+    window.addEventListener('yomii:logout', handleLogoutReset)
+  }
+
+  onUnmounted(() => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('yomii:login', handleLoginSync)
+      window.removeEventListener('yomii:logout', handleLogoutReset)
+    }
+  })
+
   watch(
     stats,
     (newVal) => {
@@ -217,6 +301,10 @@ export function useStudyStats() {
     },
     { deep: true }
   )
+
+  if (isAuthenticated()) {
+    void syncStudyStats()
+  }
 
   return {
     stats,
@@ -234,6 +322,38 @@ export function useWordProgress() {
     getStorageItem(LOCAL_STORAGE_KEYS.WORD_PROGRESS, {} as Record<string, any>)
   )
 
+  const syncWordProgress = async () => {
+    if (!isAuthenticated()) {
+      wordProgress.value = {}
+      return
+    }
+
+    try {
+      const rows = await getUserProgress()
+      const mapped: Record<string, any> = {}
+      for (const row of rows) {
+        mapped[String(row.wordId)] = row
+      }
+      wordProgress.value = mapped
+    } catch (error) {
+      console.error('Failed to sync word progress:', error)
+    }
+  }
+
+  const handleLogoutClear = () => {
+    wordProgress.value = {}
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('yomii:logout', handleLogoutClear)
+  }
+
+  onUnmounted(() => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('yomii:logout', handleLogoutClear)
+    }
+  })
+
   const updateProgress = (wordId: string, status: 'unknown' | 'fuzzy' | 'known') => {
     if (!wordProgress.value[wordId]) {
       wordProgress.value[wordId] = {
@@ -250,6 +370,12 @@ export function useWordProgress() {
       progress.reviewCount++
       if (status === 'known') progress.correctCount++
     }
+
+    if (isAuthenticated()) {
+      void updateWordProgressAPI(wordId, status, status === 'known').catch((error) => {
+        console.error('Failed to sync progress update:', error)
+      })
+    }
   }
 
   const getProgress = (wordId: string) => {
@@ -264,10 +390,15 @@ export function useWordProgress() {
     { deep: true }
   )
 
+  if (isAuthenticated()) {
+    void syncWordProgress()
+  }
+
   return {
     wordProgress,
     updateProgress,
-    getProgress
+    getProgress,
+    syncWordProgress
   }
 }
 

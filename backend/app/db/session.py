@@ -163,7 +163,7 @@ async def create_mysql_tables():
     from app.models.progress import WordProgress
     from app.models.favorite import Favorite, SearchHistory
     from app.models.stats import StudyStats
-    from app.models.quiz import QuizResult
+    from app.models.quiz import QuizResult, QuizSession
     from app.models.essay import Essay, EssayScore
     from app.models.study_plan import StudyPlan, LearningSession
     mysql_tables = _model_tables(
@@ -172,6 +172,7 @@ async def create_mysql_tables():
         Favorite,
         SearchHistory,
         StudyStats,
+        QuizSession,
         QuizResult,
         Essay,
         EssayScore,

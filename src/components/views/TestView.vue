@@ -36,11 +36,52 @@
         <p><el-icon class="inline-icon"><Memo /></el-icon> 预计题目数量：10-15 题</p>
         <p><el-icon class="inline-icon"><Timer /></el-icon> 预计耗时：10-15 分钟</p>
         <p><el-icon class="inline-icon"><Aim /></el-icon> 题型：多选题、填空题、听力题</p>
+        <p><el-icon class="inline-icon"><Memo /></el-icon> 快捷键：1/2/3 选难度，Enter 开始测试</p>
       </div>
 
       <button @click="startTest" class="btn btn-start">
         开始测试
       </button>
+      </el-card>
+
+      <el-card v-if="abilityReport && abilityReport.historyCount > 0" class="section-card">
+        <template #header>
+          <div class="card-header">历史能力概览</div>
+        </template>
+        <div class="analysis-grid">
+          <div class="analysis-item">
+            <span class="analysis-label">综合能力分</span>
+            <span class="analysis-value" style="color: #409eff;">{{ abilityReport.overallScore }}</span>
+          </div>
+          <div class="analysis-item">
+            <span class="analysis-label">当前等级</span>
+            <span class="analysis-value" style="color: #67c23a;">{{ abilityReport.level }}</span>
+          </div>
+          <div class="analysis-item">
+            <span class="analysis-label">趋势</span>
+            <span class="analysis-value" style="color: #e6a23c;">
+              {{ abilityReport.trend.direction }} ({{ abilityReport.trend.delta }})
+            </span>
+          </div>
+        </div>
+        <p class="recommendation-text">{{ abilityReport.summary }}</p>
+      </el-card>
+
+      <el-card v-if="quizHistory.length > 0" class="section-card">
+        <template #header>
+          <div class="card-header">最近测试记录</div>
+        </template>
+        <div class="history-list">
+          <div v-for="item in quizHistory.slice(0, 3)" :key="item.id" class="history-item">
+            <div class="history-main">
+              <strong>{{ difficultyText(item.difficulty) }}</strong>
+              <span>{{ item.correctAnswers }} / {{ item.totalQuestions }}</span>
+              <span>{{ item.accuracy }}%</span>
+              <span>{{ item.level }}</span>
+            </div>
+            <div class="history-sub">{{ formatDateTime(item.completedAt) }}</div>
+          </div>
+        </div>
       </el-card>
     </div>
 
@@ -81,7 +122,7 @@
               v-model="userAnswer"
               :disabled="answered"
             />
-            <span class="option-text">{{ option }}</span>
+            <span class="option-text">{{ optionLabel(idx) }}. {{ option }}</span>
           </label>
         </div>
 
@@ -160,6 +201,31 @@
             <span class="analysis-value" style="color: #409eff;">{{ accuracy }}%</span>
           </div>
         </div>
+        <p class="recommendation-text">快捷键：1-4 选答案，Enter/Space 提交或下一题，N 下一题</p>
+      </el-card>
+
+      <el-card v-if="abilityReport" class="section-card">
+        <template #header>
+          <div class="analysis-title">能力报告（结合历史记录）</div>
+        </template>
+        <div class="analysis-grid">
+          <div class="analysis-item">
+            <span class="analysis-label">综合能力分</span>
+            <span class="analysis-value" style="color: #409eff;">{{ abilityReport.overallScore }}</span>
+          </div>
+          <div class="analysis-item">
+            <span class="analysis-label">能力等级</span>
+            <span class="analysis-value" style="color: #67c23a;">{{ abilityReport.level }}</span>
+          </div>
+          <div class="analysis-item">
+            <span class="analysis-label">稳定性</span>
+            <span class="analysis-value" style="color: #e6a23c;">{{ abilityReport.consistencyScore }}</span>
+          </div>
+        </div>
+        <p class="recommendation-text">{{ abilityReport.summary }}</p>
+        <p v-if="abilityReport.recommendations[0]" class="recommendation-text">
+          建议：{{ abilityReport.recommendations[0] }}
+        </p>
       </el-card>
 
       <el-card class="section-card">
@@ -168,8 +234,8 @@
         </template>
         <p class="recommendation-text">{{ recommendation }}</p>
         <div class="action-buttons">
-          <button @click="resetTest" class="btn btn-primary">重新测试</button>
-          <button @click="$emit('switchView', 'recite')" class="btn btn-secondary">
+          <button type="button" @click="resetTest" class="btn btn-primary">重新测试</button>
+          <button type="button" @click="goToRecite" class="btn btn-secondary">
             去背单词增强基础
           </button>
         </div>
@@ -179,15 +245,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Memo, Timer, Aim, CircleCheck, CircleClose } from '@element-plus/icons-vue'
-import type { QuizQuestion } from '@/types'
-import { getQuizQuestions as getQuizQuestionsAPI, isAuthenticated } from '@/api'
+import type { QuizAbilityReport, QuizQuestion, QuizSessionRecord } from '@/types'
+import { VIEWS } from '@/utils/constants'
+import {
+  getQuizAbilityReport as getQuizAbilityReportAPI,
+  getQuizHistory as getQuizHistoryAPI,
+  getQuizQuestions as getQuizQuestionsAPI,
+  isAuthenticated,
+  submitQuizSession as submitQuizSessionAPI
+} from '@/api'
 
-const emit = defineEmits<{
-  switchView: [view: string]
-}>()
+const router = useRouter()
 
 // 测试状态
 const testStarted = ref(false)
@@ -199,6 +271,11 @@ const answered = ref(false)
 const selectedDifficulty = ref('medium')
 const timeRemaining = ref(600) // 10分钟
 const isLoading = ref(false)
+const isSubmittingSession = ref(false)
+const testStartAt = ref(0)
+const answerRecords = ref<Array<{ questionId: string; userAnswer: string; isCorrect: boolean }>>([])
+const quizHistory = ref<QuizSessionRecord[]>([])
+const abilityReport = ref<QuizAbilityReport | null>(null)
 
 const difficulties = [
   { label: '初级', value: 'easy' },
@@ -250,6 +327,8 @@ const startTest = async () => {
   score.value = 0
   userAnswer.value = ''
   answered.value = false
+  answerRecords.value = []
+  testStartAt.value = Date.now()
   isLoading.value = true
   
   try {
@@ -260,6 +339,7 @@ const startTest = async () => {
     startTimer()
   } catch (error) {
     console.error('Failed to load quiz questions:', error)
+    ElMessage.error('加载题目失败，请稍后重试')
     testStarted.value = false
   } finally {
     isLoading.value = false
@@ -267,19 +347,57 @@ const startTest = async () => {
 }
 
 const submitAnswer = () => {
+  if (answered.value || !currentQuestion.value) return
   answered.value = true
-  if (isCorrect.value) {
+  const correct = isCorrect.value
+  if (correct) {
     score.value++
+  }
+  answerRecords.value.push({
+    questionId: currentQuestion.value.id,
+    userAnswer: userAnswer.value,
+    isCorrect: correct
+  })
+}
+
+const finishTest = async () => {
+  if (testCompleted.value || isSubmittingSession.value) return
+  testCompleted.value = true
+  if (timerInterval) {
+    clearInterval(timerInterval)
+  }
+
+  if (!isAuthenticated() || totalQuestions.value === 0) {
+    return
+  }
+
+  isSubmittingSession.value = true
+  try {
+    const durationSeconds = Math.max(0, Math.floor((Date.now() - testStartAt.value) / 1000))
+    const response = await submitQuizSessionAPI({
+      difficulty: selectedDifficulty.value,
+      totalQuestions: totalQuestions.value,
+      correctAnswers: score.value,
+      durationSeconds,
+      answers: answerRecords.value
+    })
+    abilityReport.value = response.report
+    quizHistory.value = [response.session, ...quizHistory.value.filter(item => item.id !== response.session.id)].slice(0, 10)
+  } catch (error) {
+    console.error('Failed to submit quiz session:', error)
+    ElMessage.warning('历史记录保存失败，当前成绩仅本次可见')
+  } finally {
+    isSubmittingSession.value = false
   }
 }
 
-const nextQuestion = () => {
+const nextQuestion = async () => {
   currentIndex.value++
   userAnswer.value = ''
   answered.value = false
   
   if (currentIndex.value >= totalQuestions.value) {
-    testCompleted.value = true
+    await finishTest()
   }
 }
 
@@ -290,6 +408,9 @@ const resetTest = () => {
   score.value = 0
   userAnswer.value = ''
   answered.value = false
+  timeRemaining.value = 600
+  answerRecords.value = []
+  isSubmittingSession.value = false
   if (timerInterval) {
     clearInterval(timerInterval)
   }
@@ -309,15 +430,134 @@ const startTimer = () => {
     timeRemaining.value--
     if (timeRemaining.value <= 0) {
       clearInterval(timerInterval)
-      testCompleted.value = true
+      finishTest()
     }
   }, 1000) as unknown as number
 }
+
+const difficultyText = (value: string): string => {
+  const matched = difficulties.find(item => item.value === value)
+  return matched?.label || value
+}
+
+const formatDateTime = (timestamp: number): string => {
+  if (!timestamp) return '-'
+  return new Date(timestamp).toLocaleString()
+}
+
+const optionLabel = (idx: number): string => {
+  const labels = ['A', 'B', 'C', 'D']
+  return labels[idx] || String(idx + 1)
+}
+
+const goToRecite = () => {
+  // 通过路由内切换，避免触发浏览器级跳转。
+  router.push({ name: VIEWS.RECITE })
+}
+
+const selectOptionByIndex = (index: number) => {
+  if (!currentQuestion.value || answered.value) return
+  const option = currentQuestion.value.options[index]
+  if (option) {
+    userAnswer.value = option
+  }
+}
+
+const handleKeyboard = (event: KeyboardEvent) => {
+  const target = event.target as HTMLElement | null
+  if (target) {
+    const tagName = target.tagName.toLowerCase()
+    if (tagName === 'input' || tagName === 'textarea' || target.isContentEditable) {
+      return
+    }
+  }
+
+  if (!testStarted.value) {
+    if (event.code === 'Digit1') selectedDifficulty.value = 'easy'
+    if (event.code === 'Digit2') selectedDifficulty.value = 'medium'
+    if (event.code === 'Digit3') selectedDifficulty.value = 'hard'
+    if (event.code === 'Enter') {
+      event.preventDefault()
+      void startTest()
+    }
+    return
+  }
+
+  if (testCompleted.value) {
+    if (event.code === 'KeyR') {
+      event.preventDefault()
+      resetTest()
+    }
+    if (event.code === 'KeyB') {
+      event.preventDefault()
+      goToRecite()
+    }
+    return
+  }
+
+  if (!currentQuestion.value) return
+
+  if (event.code === 'Digit1') selectOptionByIndex(0)
+  if (event.code === 'Digit2') selectOptionByIndex(1)
+  if (event.code === 'Digit3') selectOptionByIndex(2)
+  if (event.code === 'Digit4') selectOptionByIndex(3)
+
+  if (event.code === 'Enter' || event.code === 'Space') {
+    event.preventDefault()
+    if (!answered.value) {
+      submitAnswer()
+    } else {
+      void nextQuestion()
+    }
+  }
+
+  if (event.code === 'KeyN' && answered.value) {
+    event.preventDefault()
+    void nextQuestion()
+  }
+}
+
+const loadHistoryAndReport = async () => {
+  if (!isAuthenticated()) {
+    quizHistory.value = []
+    abilityReport.value = null
+    return
+  }
+  try {
+    const [history, report] = await Promise.all([
+      getQuizHistoryAPI(10),
+      getQuizAbilityReportAPI(20)
+    ])
+    quizHistory.value = history
+    abilityReport.value = report
+  } catch (error) {
+    console.error('Failed to load quiz history/report:', error)
+  }
+}
+
+const handleLogin = () => {
+  loadHistoryAndReport()
+}
+
+const handleLogout = () => {
+  quizHistory.value = []
+  abilityReport.value = null
+}
+
+onMounted(() => {
+  loadHistoryAndReport()
+  window.addEventListener('keydown', handleKeyboard)
+  window.addEventListener('yomii:login', handleLogin)
+  window.addEventListener('yomii:logout', handleLogout)
+})
 
 onUnmounted(() => {
   if (timerInterval) {
     clearInterval(timerInterval)
   }
+  window.removeEventListener('keydown', handleKeyboard)
+  window.removeEventListener('yomii:login', handleLogin)
+  window.removeEventListener('yomii:logout', handleLogout)
 })
 </script>
 
@@ -726,6 +966,33 @@ onUnmounted(() => {
   display: blo8k;
   font-size: 20px;
   font-weight: 700;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-item {
+  background: #f5f7fa;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.history-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  color: #303133;
+}
+
+.history-sub {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #909399;
 }
 
 .recommendation-text {

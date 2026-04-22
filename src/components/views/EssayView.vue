@@ -17,7 +17,7 @@
         <template #header>
           <div class="card-header"><el-icon class="inline-icon"><EditPen /></el-icon> 写作练习</div>
         </template>
-        <p class="hint">请用日语写一篇短文，最少 200 字。支持未来 AI 自动评分。</p>
+        <p class="hint">请用日语写一篇短文。支持未来 AI 自动评分。</p>
 
         <div class="form-group">
           <label for="topic">选择话题：</label>
@@ -47,14 +47,12 @@
           <textarea
             v-model="essayContent"
             class="essay-textarea"
-            placeholder="请用日语写作...（最少 200 字）"
+            placeholder="请用日语写作..."
             rows="12"
             @input="updateWordCount"
           ></textarea>
           <div class="word-count">
-            <span :class="{ warning: wordCount < 200 }">
-              字数：{{ wordCount }} / 最少 200
-            </span>
+            <span>字数：{{ wordCount }}</span>
           </div>
         </div>
 
@@ -181,7 +179,6 @@
       <ul>
         <li>确保内容与选定话题相关</li>
         <li>使用正确的日语语法和表达</li>
-        <li>字数不少于 200，更详细的内容会获得更高分</li>
         <li>使用多样的词汇和句式</li>
         <li>AI 评分系统正在优化中，目前支持人工评分和样本评分</li>
       </ul>
@@ -236,7 +233,7 @@ const getTopicLabel = (topic: string): string => {
  */
 const canSubmit = computed(() => {
   const topic = selectedTopic.value === 'custom' ? customTopic.value : selectedTopic.value
-  return topic && wordCount.value >= 200 && !isSubmitting.value
+  return !!topic && essayContent.value.trim().length > 0 && !isSubmitting.value
 })
 
 /**
