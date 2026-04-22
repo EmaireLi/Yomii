@@ -52,9 +52,12 @@
           </el-col>
         </el-row>
         
-        <div v-if="searchHistory.length > 0" class="search-history">
+        <div v-if="historyRecords.length > 0" class="search-history">
           <div class="history-header">
-            <span class="history-label">最近搜索：</span>
+            <button class="history-toggle" @click="historyExpanded = !historyExpanded">
+              <span class="history-label">最近搜索</span>
+              <span class="history-toggle-text">{{ historyExpanded ? '收起' : '展开' }}</span>
+            </button>
             <div class="history-actions">
               <el-button text class="history-link-btn" @click="historyDrawerVisible = true">
                 查看全部
@@ -64,18 +67,26 @@
               </el-button>
             </div>
           </div>
-          <div class="history-tags">
-            <el-tag
-              v-for="(history, idx) in searchHistory.slice(0, 5)"
-              :key="history"
-              @click="applyHistorySearch(history)"
-              closable
-              @close="handleRemoveSearch(idx)"
-              class="history-tag"
-              style="cursor: pointer; margin-top: 8px;"
+          <div v-if="historyExpanded" class="history-preview-list">
+            <div
+              v-for="record in visibleHistoryRecords"
+              :key="record.id"
+              class="history-preview-item"
             >
-              {{ history }}
-            </el-tag>
+              <button class="history-item-main preview" @click="applyHistorySearch(record.keyword)">
+                <span class="history-item-keyword">{{ record.keyword }}</span>
+                <span class="history-item-meta">
+                  {{ formatHistoryMeta(record.resultCount, record.createdAt) }}
+                </span>
+              </button>
+              <el-button
+                text
+                class="history-delete-btn"
+                @click="handleRemoveHistoryKeyword(record.keyword)"
+              >
+                删除
+              </el-button>
+            </div>
           </div>
         </div>
       </div>
@@ -279,13 +290,15 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const hoveredWordId = ref<string | null>(null)
 const historyDrawerVisible = ref(false)
+const historyExpanded = ref(false)
 const totalPages = computed(() => {
   if (searchTotal.value === 0) return 1
   return Math.ceil(searchTotal.value / searchLimit.value)
 })
 
-const { searchHistory, historyRecords, addSearch, removeSearch, clearHistory } = useSearchHistory()
+const { historyRecords, addSearch, removeSearch, clearHistory } = useSearchHistory()
 const { isFavorited, toggleFavorite: originalToggleFavorite } = useFavorites()
+const visibleHistoryRecords = computed(() => historyRecords.value.slice(0, 5))
 
 /**
  * 需要登录检查的 toggleFavorite 包装函数
@@ -395,14 +408,6 @@ const copyToClipboard = (text: string) => {
   })
 }
 
-const handleRemoveSearch = async (index: number) => {
-  try {
-    await removeSearch(index)
-  } catch (error: any) {
-    ElMessage.error(error?.message || '删除历史失败')
-  }
-}
-
 const handleRemoveHistoryKeyword = async (keyword: string) => {
   try {
     await removeSearch(keyword)
@@ -477,6 +482,16 @@ const handleClearHistory = async () => {
   flex-wrap: wrap;
 }
 
+.history-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
 .history-actions {
   display: flex;
   align-items: center;
@@ -489,16 +504,35 @@ const handleClearHistory = async () => {
   font-weight: 600;
 }
 
-.history-tags {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+.history-toggle-text {
+  color: #409eff;
+  font-size: 13px;
+  font-weight: 500;
 }
 
-.history-tag {
-  cursor: pointer;
-  user-select: none;
+.history-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-preview-item,
+.history-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 12px 14px;
+  border: 1px solid #ebeef5;
+  border-radius: 10px;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.history-preview-item:hover,
+.history-list-item:hover {
+  border-color: #c6e2ff;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.08);
 }
 
 .history-link-btn {
@@ -535,16 +569,6 @@ const handleClearHistory = async () => {
   gap: 12px;
 }
 
-.history-list-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid #ebeef5;
-  border-radius: 10px;
-  background: #ffffff;
-}
-
 .history-item-main {
   flex: 1;
   display: flex;
@@ -555,6 +579,10 @@ const handleClearHistory = async () => {
   text-align: left;
   cursor: pointer;
   padding: 0;
+}
+
+.history-item-main.preview {
+  min-width: 0;
 }
 
 .history-item-keyword {
@@ -570,7 +598,9 @@ const handleClearHistory = async () => {
 }
 
 .history-delete-btn {
+  flex-shrink: 0;
   padding: 0 !important;
+  font-size: 13px;
 }
 
 .state-card {
@@ -771,34 +801,6 @@ const handleClearHistory = async () => {
   background-color: #66b1ff;
 }
 
-.search-history {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.history-label {
-  font-size: 14px;
-  color: #333333;
-}
-
-.history-tag {
-  padding: 4px 12px;
-  background: #f0f9ff;
-  color: #409eff;
-  border: 1px solid #b3d8ff;
-  border-radius: 16px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.3s;
-}
-
-.history-tag:hover {
-  background: #409eff;
-  color: white;
-}
-
 .results {
   animation: slideIn 0.3s ease;
 }
@@ -974,6 +976,17 @@ const handleClearHistory = async () => {
   color: #333333;
   font-weight: 500;
   letter-spacing: 2px;
+}
+
+@media (max-width: 768px) {
+  .history-preview-item,
+  .history-list-item {
+    align-items: flex-start;
+  }
+
+  .history-delete-btn {
+    align-self: center;
+  }
 }
 
 @keyframes spin {

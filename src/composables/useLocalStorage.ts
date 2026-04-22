@@ -125,6 +125,7 @@ export function useSearchHistory() {
       await deleteSearchHistoryAPI()
     }
     searchHistory.value = []
+    historyRecords.value = []
   }
 
   if (isAuthenticated()) {
