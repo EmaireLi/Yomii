@@ -170,34 +170,38 @@ async def get_favorites(
     count_result = await user_db.exec(count_statement)
     total = count_result.one()
 
-    # 获取所有收藏的 word_id（不分页，后续在内存中处理排序和分页）
-    all_favorites_statement = (
+    offset = (page - 1) * limit
+
+    # 只查询当前页的收藏词 ID（按收藏时间倒序）
+    page_favorites_statement = (
         select(Favorite.word_id)
         .where(Favorite.user_id == current_user.id)
+        .order_by(Favorite.id.desc())
+        .offset(offset)
+        .limit(limit)
     )
-    all_favorites_result = await user_db.exec(all_favorites_statement)
-    all_word_ids = all_favorites_result.all()
+    page_favorites_result = await user_db.exec(page_favorites_statement)
+    page_word_ids = page_favorites_result.all()
     
-    if not all_word_ids:
+    if not page_word_ids:
         return {"words": [], "total": total, "page": page, "limit": limit}
 
-    # 获取所有单词并按假名排序
+    # 读取当前页单词详情，并按收藏顺序组装返回
     word_statement = (
         select(Word)
-        .where(Word.id.in_(all_word_ids))
+        .where(Word.id.in_(page_word_ids))
         .options(selectinload(Word.tags))
-        .order_by(Word.kana.asc())
     )
     word_result = await dict_db.exec(word_statement)
-    sorted_words = word_result.all()
-    
-    # 应用分页
-    offset = (page - 1) * limit
-    paginated_words = sorted_words[offset:offset + limit]
+    words = word_result.all()
+    words_by_id = {word.id: word for word in words if word.id is not None}
 
-    # 返回收藏的单词信息（按假名排序）
+    # 返回收藏的单词信息（按收藏时间倒序）
     result_list = []
-    for word in paginated_words:
+    for word_id in page_word_ids:
+        word = words_by_id.get(word_id)
+        if word is None:
+            continue
         tags = [tag.tag for tag in word.tags] if word.tags else []
         
         result_list.append({

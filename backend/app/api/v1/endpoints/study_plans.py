@@ -6,7 +6,8 @@ import json
 from typing import Annotated, Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import func, update
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlmodel import select
 
 from app.core.deps import DictDB, UserDB, get_current_active_user
@@ -24,6 +25,16 @@ from app.models.word import Word, WordRead, WordTag
 from app.services.stats_service import study_stats_service
 
 router = APIRouter()
+
+_EBBINGHAUS_INTERVALS_DAYS: dict[ProgressStatus, list[float]] = {
+    ProgressStatus.UNKNOWN: [0.0, 0.5, 1.0, 2.0, 4.0, 7.0],
+    ProgressStatus.FUZZY: [0.0, 1.0, 2.0, 4.0, 7.0, 15.0],
+}
+
+_REVIEW_STATUS_WEIGHT: dict[ProgressStatus, int] = {
+    ProgressStatus.UNKNOWN: 3,
+    ProgressStatus.FUZZY: 2,
+}
 
 
 def _to_timestamp_ms(dt: datetime | None) -> int:
@@ -65,6 +76,18 @@ def _parse_json_word_ids(raw: str) -> list[str]:
         return []
 
 
+def _merge_word_id_lists(existing_ids: list[str], incoming_ids: list[str]) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for raw_id in [*existing_ids, *incoming_ids]:
+        normalized = str(raw_id)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        merged.append(normalized)
+    return merged
+
+
 def _parse_session_date(raw_date: str) -> date:
     try:
         return datetime.strptime(raw_date, "%Y-%m-%d").date()
@@ -100,6 +123,56 @@ def _to_word_read(word: Word, tags: list[str]) -> WordRead:
         audio_url=word.audio_url,
         tags=tags,
     )
+
+
+def _target_interval_days(status: ProgressStatus, review_count: int) -> float:
+    schedule = _EBBINGHAUS_INTERVALS_DAYS.get(
+        status,
+        _EBBINGHAUS_INTERVALS_DAYS[ProgressStatus.UNKNOWN],
+    )
+    safe_count = max(0, review_count)
+    idx = min(safe_count, len(schedule) - 1)
+    return max(0.0, float(schedule[idx]))
+
+
+def _rank_progress_for_review(
+    progress_rows: list[WordProgress],
+    target_count: int,
+    now: datetime,
+) -> list[int]:
+    if target_count <= 0 or not progress_rows:
+        return []
+
+    ranked: list[tuple[int, int, float, datetime, int]] = []
+    for row in progress_rows:
+        elapsed_days = max(0.0, (now - row.last_reviewed_at).total_seconds() / 86400.0)
+        target_days = _target_interval_days(row.status, row.review_count)
+        # overdue_ratio >= 1 表示到达/超过该词下一次复习时间点。
+        overdue_ratio = elapsed_days / max(target_days, 0.125)
+        is_due = 1 if overdue_ratio >= 1 else 0
+        status_weight = _REVIEW_STATUS_WEIGHT.get(row.status, 1)
+        ranked.append((is_due, status_weight, overdue_ratio, row.last_reviewed_at, row.word_id))
+
+    ranked.sort(
+        key=lambda item: (
+            item[0],              # 到期优先
+            item[1],              # unknown > fuzzy > known
+            item[2],              # 逾期比例越大越优先
+            -item[3].timestamp(), # 越久未复习越优先（时间越早 timestamp 越小）
+        ),
+        reverse=True,
+    )
+
+    selected_ids: list[int] = []
+    seen: set[int] = set()
+    for _, _, _, _, word_id in ranked:
+        if word_id in seen:
+            continue
+        seen.add(word_id)
+        selected_ids.append(word_id)
+        if len(selected_ids) >= target_count:
+            break
+    return selected_ids
 
 
 async def _load_tags_map(dict_db: DictDB, word_ids: list[int]) -> dict[int, list[str]]:
@@ -401,54 +474,49 @@ async def get_review_words(
     current_user: Annotated[User, Depends(get_current_active_user)],
     plan_id: str,
     date: str | None = Query(None, description="日期 YYYY-MM-DD"),
+    learned_count: int | None = Query(None, ge=0, description="当日学习单词数"),
 ) -> List[WordRead]:
     """
     获取复习单词列表
-    - 优先复习 fuzzy/unknown
-    - 不足时补充 known
+    - 复习量 = 当日学习量 * review_ratio（支持加量学习动态调整）
+    - 选词按艾宾浩斯遗忘曲线到期优先（结合 review_count + last_reviewed_at）
+    - 仅复习 unknown / fuzzy，known 不参与复习
     """
-    _ = date
     plan = await _resolve_user_plan(user_db, current_user, plan_id)
-    review_count = max(0, int(round(plan.daily_goal * plan.review_ratio)))
+    target_date = date or datetime.utcnow().strftime("%Y-%m-%d")
+
+    base_learn_count: int | None = learned_count
+    if base_learn_count is None:
+        session_statement = (
+            select(LearningSession)
+            .where(
+                LearningSession.plan_id == (plan.id or 0),
+                LearningSession.date == target_date,
+            )
+            .order_by(LearningSession.id.desc())
+            .limit(1)
+        )
+        session_result = await user_db.exec(session_statement)
+        today_session = session_result.first()
+        if today_session is not None:
+            base_learn_count = len(_parse_json_word_ids(today_session.learned_words))
+
+    if base_learn_count is None or base_learn_count <= 0:
+        base_learn_count = plan.daily_goal
+
+    review_count = max(0, int(round(base_learn_count * plan.review_ratio)))
     if review_count == 0:
         return []
 
-    priority_statement = (
-        select(WordProgress.word_id)
-        .where(
-            WordProgress.user_id == current_user.id,
-            WordProgress.status.in_([ProgressStatus.UNKNOWN, ProgressStatus.FUZZY]),
-        )
-        .order_by(WordProgress.last_reviewed_at.asc())
-        .limit(review_count)
+    progress_statement = select(WordProgress).where(
+        WordProgress.user_id == current_user.id,
+        WordProgress.status.in_([ProgressStatus.UNKNOWN, ProgressStatus.FUZZY]),
     )
-    priority_result = await user_db.exec(priority_statement)
-    review_word_ids: list[int] = list(priority_result.all())
-
-    if len(review_word_ids) < review_count:
-        supplement_statement = (
-            select(WordProgress.word_id)
-            .where(
-                WordProgress.user_id == current_user.id,
-                WordProgress.status == ProgressStatus.KNOWN,
-                ~WordProgress.word_id.in_(review_word_ids) if review_word_ids else True,
-            )
-            .order_by(WordProgress.last_reviewed_at.asc())
-            .limit(review_count - len(review_word_ids))
-        )
-        supplement_result = await user_db.exec(supplement_statement)
-        review_word_ids.extend(list(supplement_result.all()))
+    progress_result = await user_db.exec(progress_statement)
+    progress_rows = progress_result.all()
+    review_word_ids = _rank_progress_for_review(progress_rows, review_count, datetime.utcnow())
 
     words = await _fetch_words_by_ids(dict_db, review_word_ids)
-    if len(words) < review_count:
-        fallback_words = await _pick_random_words(
-            dict_db=dict_db,
-            limit=review_count - len(words),
-            dictionary_id=plan.dictionary_id,
-            exclude_ids={int(word.id) for word in words},
-        )
-        words.extend(fallback_words)
-
     return words[:review_count]
 
 
@@ -464,46 +532,88 @@ async def save_learning_session(
     study_date = _parse_session_date(session_in.date)
 
     now = datetime.utcnow()
-    session = LearningSession(
-        plan_id=plan.id or 0,
-        date=session_in.date,
-        learned_words=json.dumps(session_in.learned_words, ensure_ascii=False),
-        reviewed_words=json.dumps(session_in.reviewed_words, ensure_ascii=False),
-        known_count=session_in.known_count,
-        fuzzy_count=session_in.fuzzy_count,
-        unknown_count=session_in.unknown_count,
-        completed_at=now,
-    )
-    db.add(session)
 
-    affected_word_ids = set(_parse_word_ids(session_in.learned_words + session_in.reviewed_words))
-    for word_id in affected_word_ids:
-        statement = select(WordProgress).where(
-            WordProgress.user_id == current_user.id,
-            WordProgress.word_id == word_id,
+    session_statement = select(LearningSession).where(
+        LearningSession.plan_id == (plan.id or 0),
+        LearningSession.date == session_in.date,
+    )
+    session_result = await db.exec(session_statement)
+    existing_session = session_result.first()
+
+    incoming_learned_ids = [str(word_id) for word_id in session_in.learned_words]
+    incoming_reviewed_ids = [str(word_id) for word_id in session_in.reviewed_words]
+
+    existing_learned_ids: list[str] = []
+    existing_reviewed_ids: list[str] = []
+    if existing_session is not None:
+        existing_learned_ids = _parse_json_word_ids(existing_session.learned_words)
+        existing_reviewed_ids = _parse_json_word_ids(existing_session.reviewed_words)
+
+    merged_learned_ids = _merge_word_id_lists(existing_learned_ids, incoming_learned_ids)
+    merged_reviewed_ids = _merge_word_id_lists(existing_reviewed_ids, incoming_reviewed_ids)
+
+    existing_learned_set = set(_parse_word_ids(existing_learned_ids))
+    existing_reviewed_set = set(_parse_word_ids(existing_reviewed_ids))
+    incoming_learned_set = set(_parse_word_ids(incoming_learned_ids))
+    incoming_reviewed_set = set(_parse_word_ids(incoming_reviewed_ids))
+    existing_affected_set = existing_learned_set | existing_reviewed_set
+    incoming_affected_set = incoming_learned_set | incoming_reviewed_set
+    new_affected_ids = incoming_affected_set - existing_affected_set
+    new_learned_ids = incoming_learned_set - existing_learned_set
+
+    if existing_session is None:
+        session = LearningSession(
+            plan_id=plan.id or 0,
+            date=session_in.date,
+            learned_words=json.dumps(merged_learned_ids, ensure_ascii=False),
+            reviewed_words=json.dumps(merged_reviewed_ids, ensure_ascii=False),
+            known_count=max(0, session_in.known_count),
+            fuzzy_count=max(0, session_in.fuzzy_count),
+            unknown_count=max(0, session_in.unknown_count),
+            completed_at=now,
         )
-        result = await db.exec(statement)
-        progress = result.first()
-        if progress is None:
-            progress = WordProgress(
-                user_id=current_user.id,
-                word_id=word_id,
-                status=ProgressStatus.UNKNOWN,
-                review_count=1,
-                correct_count=0,
+        db.add(session)
+    else:
+        existing_session.learned_words = json.dumps(merged_learned_ids, ensure_ascii=False)
+        existing_session.reviewed_words = json.dumps(merged_reviewed_ids, ensure_ascii=False)
+        existing_session.known_count += max(0, session_in.known_count)
+        existing_session.fuzzy_count += max(0, session_in.fuzzy_count)
+        existing_session.unknown_count += max(0, session_in.unknown_count)
+        existing_session.completed_at = now
+        db.add(existing_session)
+        session = existing_session
+
+    for word_id in new_affected_ids:
+        # 优先更新已存在记录，避免额外查询和 autoflush 触发的唯一键竞争
+        update_statement = (
+            update(WordProgress)
+            .where(
+                WordProgress.user_id == current_user.id,
+                WordProgress.word_id == word_id,
+            )
+            .values(
+                review_count=WordProgress.review_count + 1,
                 last_reviewed_at=now,
             )
-        else:
-            progress.review_count += 1
-            progress.last_reviewed_at = now
-        db.add(progress)
+        )
+        update_result = await db.exec(update_statement)
+        if update_result.rowcount and update_result.rowcount > 0:
+            continue
 
-    recited_count = (
-        max(0, session_in.known_count)
-        + max(0, session_in.fuzzy_count)
-        + max(0, session_in.unknown_count)
-    )
-    learned_count = len(session_in.learned_words)
+        # 不存在时插入；若并发下已被其他请求插入，IGNORE 可避免重复键异常
+        insert_statement = mysql_insert(WordProgress).prefix_with("IGNORE").values(
+            user_id=current_user.id,
+            word_id=word_id,
+            status=ProgressStatus.UNKNOWN,
+            review_count=1,
+            correct_count=0,
+            last_reviewed_at=now,
+        )
+        await db.exec(insert_statement)
+
+    # 仅对“本次新增写入”的单词计数，保证同日重试同步幂等，避免重复累计。
+    recited_count = len(new_affected_ids)
+    learned_count = len(new_learned_ids)
     if current_user.id is not None:
         stats, _ = await study_stats_service.get_or_create(db, current_user.id)
         study_stats_service.apply_learning_activity(
