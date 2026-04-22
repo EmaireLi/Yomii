@@ -5,13 +5,7 @@
 import { ref, watch } from 'vue'
 import type { UserData, StudyPlan, LearningSession } from '@/types'
 import { DEFAULT_APP_CONFIG, LOCAL_STORAGE_KEYS, DEFAULT_STUDY_PLAN } from '@/utils/constants'
-import {
-  addToFavorites as addToFavoritesAPI,
-  getFavorites as getFavoritesAPI,
-  getStudyStats,
-  isAuthenticated,
-  removeFromFavorites as removeFromFavoritesAPI
-} from '@/api'
+import { getStudyStats, isAuthenticated } from '@/api'
 
 /**
  * 从localStorage中读取数据
@@ -90,23 +84,11 @@ export function useFavorites() {
     getStorageItem(LOCAL_STORAGE_KEYS.FAVORITES, [])
   )
 
-  const syncFavorites = async () => {
-    if (!isAuthenticated()) return
-    const remoteFavorites = await getFavoritesAPI()
-    favorites.value = remoteFavorites.map(word => word.id)
-  }
-
-  const toggleFavorite = async (wordId: string) => {
+  const toggleFavorite = (wordId: string) => {
     const index = favorites.value.indexOf(wordId)
     if (index > -1) {
-      if (isAuthenticated()) {
-        await removeFromFavoritesAPI(wordId)
-      }
       favorites.value.splice(index, 1)
     } else {
-      if (isAuthenticated()) {
-        await addToFavoritesAPI(wordId)
-      }
       favorites.value.push(wordId)
     }
   }
@@ -123,15 +105,10 @@ export function useFavorites() {
     { deep: true }
   )
 
-  if (isAuthenticated()) {
-    void syncFavorites()
-  }
-
   return {
     favorites,
     toggleFavorite,
-    isFavorited,
-    syncFavorites
+    isFavorited
   }
 }
 

@@ -84,12 +84,7 @@
       
       <el-row :gutter="20">
         <el-col v-for="(feature, idx) in featureList" :key="idx" :xs="24" :sm="12" :md="12" :lg="6">
-          <button
-            type="button"
-            class="feature-item"
-            @click="handleFeatureClick(feature.routeName)"
-            :aria-label="`跳转到${feature.title}`"
-          >
+          <div class="feature-item">
             <div class="feature-icon">
               <el-icon><component :is="feature.icon" /></el-icon>
             </div>
@@ -97,7 +92,7 @@
               <h4>{{ feature.title }}</h4>
               <p>{{ feature.description }}</p>
             </div>
-          </button>
+          </div>
         </el-col>
       </el-row>
     </el-card>
@@ -106,14 +101,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { Search, DocumentCopy, Notebook, StarFilled, UserFilled, Operation } from '@element-plus/icons-vue'
-import { TEAM_INFO, APP_DESCRIPTION, VIEWS } from '@/utils/constants'
+import { TEAM_INFO, APP_DESCRIPTION } from '@/utils/constants'
 import { useStudyStats } from '@/composables/useLocalStorage'
 
 const appDescription = APP_DESCRIPTION
 const teamInfo = TEAM_INFO
-const router = useRouter()
 
 const { stats } = useStudyStats()
 const STATS = computed(() => stats.value)
@@ -122,32 +115,24 @@ const featureList = [
   {
     icon: Search,
     title: '查词',
-    description: '快速查询日语词汇，了解含义和用法',
-    routeName: VIEWS.SEARCH
+    description: '快速查询日语词汇，了解含义和用法'
   },
   {
     icon: DocumentCopy,
     title: '背单词',
-    description: '闪卡式学习，高效掌握日语词汇',
-    routeName: VIEWS.RECITE
+    description: '闪卡式学习，高效掌握日语词汇'
   },
   {
     icon: Notebook,
     title: '能力测试',
-    description: '评估学习成果，智能题库随机出题',
-    routeName: VIEWS.TEST
+    description: '评估学习成果，智能题库随机出题'
   },
   {
     icon: StarFilled,
     title: '收藏管理',
-    description: '保存喜欢的词汇，建立个人学习库',
-    routeName: VIEWS.FAVORITES
+    description: '保存喜欢的词汇，建立个人学习库'
   }
 ]
-
-const handleFeatureClick = (routeName: string) => {
-  router.push({ name: routeName })
-}
 </script>
 
 <style scoped>
@@ -267,17 +252,11 @@ const handleFeatureClick = (routeName: string) => {
 .feature-item {
   display: flex;
   gap: 12px;
-  width: 100%;
   padding: 16px;
   background: linear-gradient(135deg, #f5f7fa 0%, #eef2f8 100%);
   border-radius: 6px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-left: 4px solid #667eea;
-  border-top: none;
-  border-right: none;
-  border-bottom: none;
-  text-align: left;
-  cursor: pointer;
 }
 
 .feature-item:hover {
@@ -285,11 +264,6 @@ const handleFeatureClick = (routeName: string) => {
   border-left-color: #764ba2;
   transform: translateX(6px);
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
-}
-
-.feature-item:focus-visible {
-  outline: 2px solid #409eff;
-  outline-offset: 2px;
 }
 
 .feature-icon {

@@ -6,7 +6,6 @@ import SearchView from '@/components/views/SearchView.vue'
 import ReciteView from '@/components/views/ReciteView.vue'
 import TestView from '@/components/views/TestView.vue'
 import EssayView from '@/components/views/EssayView.vue'
-import FavoritesView from '@/components/views/FavoritesView.vue'
 
 // 路由配置
 const routes = [
@@ -43,12 +42,6 @@ const routes = [
     name: 'essay',
     component: EssayView,
     meta: { requiresAuth: false, title: '作文评测' }
-  },
-  {
-    path: '/favorites',
-    name: 'favorites',
-    component: FavoritesView,
-    meta: { requiresAuth: true, title: '收藏词汇' }
   }
 ]
 

@@ -193,18 +193,6 @@
         <div class="flashcard">
           <!-- 正面 -->
           <div class="card-face">
-            <div class="card-top-actions">
-              <el-button
-                text
-                class="favorite-btn"
-                :aria-label="isFavorited(currentWord.id) ? '取消收藏' : '收藏单词'"
-                @click.stop="toggleFavorite(currentWord.id)"
-              >
-                <el-icon>
-                  <component :is="isFavorited(currentWord.id) ? StarFilled : Star" />
-                </el-icon>
-              </el-button>
-            </div>
             <div class="card-content">
               <h2 class="word-text">{{ currentWord.word }}</h2>
               <p class="kana-text" v-if="showLearningMeaning">[{{ currentWord.kana }}]</p>
@@ -322,18 +310,6 @@
         <div class="flashcard">
           <!-- 正面 -->
           <div class="card-face">
-            <div class="card-top-actions">
-              <el-button
-                text
-                class="favorite-btn"
-                :aria-label="isFavorited(currentReviewWord.id) ? '取消收藏' : '收藏单词'"
-                @click.stop="toggleFavorite(currentReviewWord.id)"
-              >
-                <el-icon>
-                  <component :is="isFavorited(currentReviewWord.id) ? StarFilled : Star" />
-                </el-icon>
-              </el-button>
-            </div>
             <div class="card-content">
               <h2 class="word-text">{{ currentReviewWord.word }}</h2>
               <p class="kana-text" v-if="showReviewMeaning">[{{ currentReviewWord.kana }}]</p>
@@ -451,9 +427,9 @@ import {
   updateStudyPlan as updateStudyPlanAPI,
   isAuthenticated
 } from '@/api'
-import { useFavorites, useWordProgress, useStudyStats } from '@/composables/useLocalStorage'
+import { useWordProgress, useStudyStats } from '@/composables/useLocalStorage'
 import { DICTIONARIES, WORD_COUNT_OPTIONS } from '@/utils/constants'
-import { Setting, Reading, CircleClose, QuestionFilled, Check, Promotion, Warning, Star, StarFilled } from '@element-plus/icons-vue'
+import { Setting, Reading, CircleClose, QuestionFilled, Check, Promotion, Warning } from '@element-plus/icons-vue'
 
 /**
  * 检查登录状态，未登录则打开登录对话框
@@ -529,7 +505,6 @@ const reviewSessionStats = reactive({
 // 其他功能
 const { updateProgress } = useWordProgress()
 const { incrementRecited, syncStudyStats } = useStudyStats()
-const { isFavorited, toggleFavorite: originalToggleFavorite, syncFavorites } = useFavorites()
 const isLoading = ref(false)
 
 // 计算属性
@@ -545,19 +520,6 @@ const reviewProgressPercent = computed(() => {
   if (reviewWords.value.length === 0) return 0
   return (currentReviewIndex.value / reviewWords.value.length) * 100
 })
-
-const toggleFavorite = async (wordId: string) => {
-  if (!isAuthenticated()) {
-    ElMessage.warning('请先登录才能收藏词汇')
-    window.dispatchEvent(new CustomEvent('open-login-dialog'))
-    return
-  }
-  try {
-    await originalToggleFavorite(wordId)
-  } catch (error: any) {
-    ElMessage.error(error?.message || '收藏操作失败')
-  }
-}
 
 // 背单词相关方法
 const toggleLearningCard = () => {
@@ -873,7 +835,6 @@ const handleKeyboard = (event: KeyboardEvent) => {
 
 onMounted(() => {
   if (isAuthenticated()) {
-    void syncFavorites()
     loadStudyPlans().then(() => {
       loadLearnWords()
       loadReviewWords()
@@ -1170,23 +1131,6 @@ h1 {
 .card-face:hover {
   transform: translateY(-8px);
   box-shadow: 0 16px 48px rgba(102, 126, 234, 0.3);
-}
-
-.card-top-actions {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 2;
-}
-
-.favorite-btn {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 20px;
-  padding: 6px;
-}
-
-.favorite-btn:hover {
-  color: #ffd04b;
 }
 
 .card-content {

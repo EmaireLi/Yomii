@@ -199,7 +199,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { ElNotification, ElMessage } from 'element-plus'
 import { Search, VideoPlay, DocumentCopy, Star, StarFilled } from '@element-plus/icons-vue'
 import type { Word } from '@/types'
@@ -222,22 +222,18 @@ const totalPages = computed(() => {
 })
 
 const { searchHistory, addSearch, removeSearch } = useSearchHistory()
-const { isFavorited, toggleFavorite: originalToggleFavorite, syncFavorites } = useFavorites()
+const { isFavorited, toggleFavorite: originalToggleFavorite } = useFavorites()
 
 /**
  * 需要登录检查的 toggleFavorite 包装函数
  */
-const toggleFavorite = async (wordId: string) => {
+const toggleFavorite = (wordId: string) => {
   if (!isAuthenticated()) {
     ElMessage.warning('请先登录才能收藏词汇')
     window.dispatchEvent(new CustomEvent('open-login-dialog'))
     return
   }
-  try {
-    await originalToggleFavorite(wordId)
-  } catch (error: any) {
-    ElMessage.error(error?.message || '收藏操作失败')
-  }
+  originalToggleFavorite(wordId)
 }
 
 /**
@@ -313,12 +309,6 @@ const copyToClipboard = (text: string) => {
     })
   })
 }
-
-onMounted(() => {
-  if (isAuthenticated()) {
-    void syncFavorites()
-  }
-})
 </script>
 
 <style scoped>
