@@ -53,18 +53,30 @@
         </el-row>
         
         <div v-if="searchHistory.length > 0" class="search-history">
-          <span class="history-label">最近搜索：</span>
-          <el-tag
-            v-for="(history, idx) in searchHistory.slice(0, 5)"
-            :key="idx"
-            @click="searchQuery = history; handleSearch()"
-            closable
-            @close="handleRemoveSearch(idx)"
-            class="history-tag"
-            style="cursor: pointer; margin-top: 8px;"
-          >
-            {{ history }}
-          </el-tag>
+          <div class="history-header">
+            <span class="history-label">最近搜索：</span>
+            <div class="history-actions">
+              <el-button text class="history-link-btn" @click="historyDrawerVisible = true">
+                查看全部
+              </el-button>
+              <el-button text class="history-link-btn danger" @click="handleClearHistory">
+                清空历史
+              </el-button>
+            </div>
+          </div>
+          <div class="history-tags">
+            <el-tag
+              v-for="(history, idx) in searchHistory.slice(0, 5)"
+              :key="history"
+              @click="applyHistorySearch(history)"
+              closable
+              @close="handleRemoveSearch(idx)"
+              class="history-tag"
+              style="cursor: pointer; margin-top: 8px;"
+            >
+              {{ history }}
+            </el-tag>
+          </div>
         </div>
       </div>
     </el-card>
@@ -209,6 +221,42 @@
       @touchmove.stop>
       <el-empty description="输入词汇开始查询" />
     </el-card>
+
+    <el-drawer
+      v-model="historyDrawerVisible"
+      title="查询历史"
+      size="420px"
+      class="history-drawer"
+    >
+      <div class="history-drawer-body">
+        <div class="drawer-toolbar">
+          <span class="drawer-summary">共 {{ historyRecords.length }} 条历史</span>
+          <el-button text class="history-link-btn danger" @click="handleClearHistory">
+            清空历史
+          </el-button>
+        </div>
+
+        <el-empty v-if="historyRecords.length === 0" description="暂无查询历史" />
+
+        <div v-else class="history-list">
+          <div
+            v-for="record in historyRecords"
+            :key="record.id"
+            class="history-list-item"
+          >
+            <button class="history-item-main" @click="applyHistorySearch(record.keyword)">
+              <span class="history-item-keyword">{{ record.keyword }}</span>
+              <span class="history-item-meta">
+                {{ formatHistoryMeta(record.resultCount, record.createdAt) }}
+              </span>
+            </button>
+            <el-button text class="history-delete-btn" @click="handleRemoveHistoryKeyword(record.keyword)">
+              删除
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </el-drawer>
   </section>
 </template>
 
@@ -230,12 +278,13 @@ const hasSearched = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const hoveredWordId = ref<string | null>(null)
+const historyDrawerVisible = ref(false)
 const totalPages = computed(() => {
   if (searchTotal.value === 0) return 1
   return Math.ceil(searchTotal.value / searchLimit.value)
 })
 
-const { searchHistory, addSearch, removeSearch } = useSearchHistory()
+const { searchHistory, historyRecords, addSearch, removeSearch, clearHistory } = useSearchHistory()
 const { isFavorited, toggleFavorite: originalToggleFavorite } = useFavorites()
 
 /**
@@ -310,6 +359,22 @@ const handleLimitChange = async () => {
   await loadSearchPage(false)
 }
 
+const applyHistorySearch = async (keyword: string) => {
+  searchQuery.value = keyword
+  historyDrawerVisible.value = false
+  await handleSearch()
+}
+
+const formatHistoryMeta = (resultCount: number, createdAt: number) => {
+  const formattedTime = new Date(createdAt).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+  return `${resultCount} 条结果 · ${formattedTime}`
+}
+
 const playAudio = (url: string) => {
   console.log('Playing audio:', url)
   ElNotification({
@@ -335,6 +400,24 @@ const handleRemoveSearch = async (index: number) => {
     await removeSearch(index)
   } catch (error: any) {
     ElMessage.error(error?.message || '删除历史失败')
+  }
+}
+
+const handleRemoveHistoryKeyword = async (keyword: string) => {
+  try {
+    await removeSearch(keyword)
+  } catch (error: any) {
+    ElMessage.error(error?.message || '删除历史失败')
+  }
+}
+
+const handleClearHistory = async () => {
+  try {
+    await clearHistory()
+    historyDrawerVisible.value = false
+    ElMessage.success('查询历史已清空')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '清空历史失败')
   }
 }
 </script>
@@ -380,19 +463,114 @@ const handleRemoveSearch = async (index: number) => {
 
 .search-history {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
   flex-wrap: wrap;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .history-label {
   font-size: 13px;
   color: #333333;
+  font-weight: 600;
+}
+
+.history-tags {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .history-tag {
   cursor: pointer;
   user-select: none;
+}
+
+.history-link-btn {
+  padding: 0 !important;
+  font-size: 13px;
+}
+
+.history-link-btn.danger,
+.history-delete-btn {
+  color: #f56c6c !important;
+}
+
+.history-drawer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drawer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.drawer-summary {
+  color: #606266;
+  font-size: 13px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #ebeef5;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.history-item-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.history-item-keyword {
+  color: #303133;
+  font-size: 15px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.history-item-meta {
+  color: #909399;
+  font-size: 12px;
+}
+
+.history-delete-btn {
+  padding: 0 !important;
 }
 
 .state-card {

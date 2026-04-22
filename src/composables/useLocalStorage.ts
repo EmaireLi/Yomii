@@ -12,6 +12,13 @@ import {
   updateWordProgress as updateWordProgressAPI,
 } from '@/api'
 
+type SearchHistoryRecord = {
+  id: number
+  keyword: string
+  resultCount: number
+  createdAt: number
+}
+
 /**
  * 从localStorage中读取数据
  */
@@ -41,24 +48,32 @@ function setStorageItem<T>(key: string, value: T): void {
  */
 export function useSearchHistory() {
   const searchHistory = ref<string[]>([])
+  const historyRecords = ref<SearchHistoryRecord[]>([])
 
   const syncSearchHistory = async () => {
     if (!isAuthenticated()) {
       searchHistory.value = []
+      historyRecords.value = []
       return
     }
 
     try {
       const rows = await getSearchHistoryAPI(50)
-      const uniqueKeywords: string[] = []
+      const uniqueRecords: SearchHistoryRecord[] = []
       const seen = new Set<string>()
       for (const row of rows) {
         const keyword = row.keyword?.trim()
         if (!keyword || seen.has(keyword)) continue
         seen.add(keyword)
-        uniqueKeywords.push(keyword)
+        uniqueRecords.push({
+          id: row.id,
+          keyword,
+          resultCount: row.resultCount,
+          createdAt: row.createdAt
+        })
       }
-      searchHistory.value = uniqueKeywords
+      historyRecords.value = uniqueRecords
+      searchHistory.value = uniqueRecords.map(row => row.keyword)
     } catch (error) {
       console.error('Failed to sync search history:', error)
     }
@@ -66,6 +81,7 @@ export function useSearchHistory() {
 
   const handleLogoutClear = () => {
     searchHistory.value = []
+    historyRecords.value = []
   }
 
   if (typeof window !== 'undefined') {
@@ -83,13 +99,21 @@ export function useSearchHistory() {
     await syncSearchHistory()
   }
 
-  const removeSearch = async (index: number) => {
+  const removeSearch = async (indexOrKeyword: number | string) => {
     if (!isAuthenticated()) {
-      searchHistory.value.splice(index, 1)
+      if (typeof indexOrKeyword === 'number') {
+        searchHistory.value.splice(indexOrKeyword, 1)
+        historyRecords.value.splice(indexOrKeyword, 1)
+      } else {
+        searchHistory.value = searchHistory.value.filter(keyword => keyword !== indexOrKeyword)
+        historyRecords.value = historyRecords.value.filter(record => record.keyword !== indexOrKeyword)
+      }
       return
     }
 
-    const keyword = searchHistory.value[index]
+    const keyword = typeof indexOrKeyword === 'string'
+      ? indexOrKeyword
+      : searchHistory.value[indexOrKeyword]
     if (!keyword) return
 
     await deleteSearchHistoryAPI(keyword)
@@ -109,6 +133,7 @@ export function useSearchHistory() {
 
   return {
     searchHistory,
+    historyRecords,
     addSearch,
     removeSearch,
     clearHistory,
