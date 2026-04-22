@@ -382,17 +382,16 @@ export async function getSearchHistory(
  * 添加到收藏夹
  * POST /api/user/favorites/:wordId
  */
-export async function addToFavorites(wordId: string, word: Word): Promise<{ success: boolean }> {
+export async function addToFavorites(wordId: string): Promise<{ success: boolean }> {
   if (USE_MOCK_API) {
     return { success: true }
   }
   
   const response = await fetch(`${API_BASE_URL}/user/favorites/${wordId}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(word)
+    headers: { ...getAuthHeaders() }
   })
-  if (!response.ok) throw new Error(`添加收藏失败: ${response.statusText}`)
+  assertApiResponse(response, '添加收藏')
   return response.json()
 }
 
@@ -406,9 +405,10 @@ export async function removeFromFavorites(wordId: string): Promise<{ success: bo
   }
   
   const response = await fetch(`${API_BASE_URL}/user/favorites/${wordId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: getAuthHeaders()
   })
-  if (!response.ok) throw new Error(`移除收藏失败: ${response.statusText}`)
+  assertApiResponse(response, '移除收藏')
   return response.json()
 }
 
@@ -421,9 +421,64 @@ export async function getFavorites(): Promise<Word[]> {
     return []
   }
   
-  const response = await fetch(`${API_BASE_URL}/user/favorites`)
-  if (!response.ok) throw new Error(`获取收藏列表失败: ${response.statusText}`)
-  return response.json()
+  const response = await fetch(`${API_BASE_URL}/user/favorites`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取收藏列表')
+  const data: WordApiResponse[] = await response.json()
+  return data.map(normalizeWord)
+}
+
+/**
+ * 搜索收藏夹列表（分页）
+ * GET /api/user/favorites/search?q=keyword&page=1&limit=10
+ */
+export async function searchFavorites(
+  keyword: string,
+  page: number = 1,
+  limit: number = 10
+): Promise<{ words: Word[]; total: number; page: number; limit: number }> {
+  const safePage = Math.max(1, page)
+  const safeLimit = Math.min(100, Math.max(1, limit))
+  const normalizedKeyword = keyword.trim()
+
+  if (USE_MOCK_API) {
+    const lowerKeyword = normalizedKeyword.toLowerCase()
+    const filtered = WORDS_DATABASE.filter(word => {
+      if (!lowerKeyword) return true
+      return (
+        word.word.includes(normalizedKeyword) ||
+        word.kana.includes(normalizedKeyword) ||
+        word.japaneseMeaning.toLowerCase().includes(lowerKeyword) ||
+        word.chineseMeaning.toLowerCase().includes(lowerKeyword)
+      )
+    })
+    const start = (safePage - 1) * safeLimit
+    return {
+      words: filtered.slice(start, start + safeLimit),
+      total: filtered.length,
+      page: safePage,
+      limit: safeLimit
+    }
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/user/favorites/search?q=${encodeURIComponent(normalizedKeyword)}&page=${safePage}&limit=${safeLimit}`,
+    { headers: getAuthHeaders() }
+  )
+  assertApiResponse(response, '搜索收藏')
+  const payload = await response.json() as {
+    words?: WordApiResponse[]
+    total?: number
+    page?: number
+    limit?: number
+  }
+  return {
+    words: (payload.words ?? []).map(normalizeWord),
+    total: payload.total ?? 0,
+    page: payload.page ?? safePage,
+    limit: payload.limit ?? safeLimit
+  }
 }
 
 /**
@@ -953,6 +1008,7 @@ export default {
   addToFavorites,
   removeFromFavorites,
   getFavorites,
+  searchFavorites,
   getUserProgress,
   submitEssayAPI,
   getEssayHistoryAPI,
