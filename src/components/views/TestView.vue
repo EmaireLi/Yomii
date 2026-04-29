@@ -472,6 +472,7 @@ const finishTest = async () => {
     })
     abilityReport.value = response.report
     quizHistory.value = [response.session, ...quizHistory.value.filter(item => item.id !== response.session.id)].slice(0, 10)
+    await loadHistoryAndReport()
   } catch (error) {
     console.error('Failed to submit quiz session:', error)
     ElMessage.warning('历史记录保存失败，当前成绩仅本次可见')

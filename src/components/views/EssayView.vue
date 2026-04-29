@@ -208,11 +208,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { EditPen, Promotion, Collection, Calendar, Memo, Loading, ChatDotRound, Opportunity, Document } from '@element-plus/icons-vue'
 import type { Essay, EssayScore } from '@/types'
-import { submitEssayAPI, getEssayHistoryAPI, generateMockEssayScore, isAuthenticated } from '@/api'
+import { submitEssayAPI, getEssayHistoryAPI, getEssayScore, isAuthenticated } from '@/api'
 
 /**
  * 话题选项
@@ -248,9 +248,50 @@ const showEvaluationOnly = ref<boolean>(false)
 const historyDetailVisible = ref<boolean>(false)
 const selectedHistoryItem = ref<Essay | null>(null)
 
-const viewHistoryDetail = (item: Essay) => {
+const mergeEssayScore = (essayId: string, score: EssayScore) => {
+  const target = essays.value.find(item => item.id === essayId)
+  if (target) {
+    target.score = score
+  }
+  if (selectedHistoryItem.value?.id === essayId) {
+    selectedHistoryItem.value = {
+      ...selectedHistoryItem.value,
+      score
+    }
+  }
+}
+
+const fetchEssayScore = async (essayId: string) => {
+  const score = await getEssayScore(essayId)
+  mergeEssayScore(essayId, score)
+  return score
+}
+
+const hydrateEssayScores = async (essayList: Essay[]) => {
+  await Promise.all(
+    essayList.map(async (essay) => {
+      if (essay.score) return
+      try {
+        const score = await getEssayScore(essay.id)
+        essay.score = score
+      } catch (error) {
+        console.error(`加载作文 ${essay.id} 评分失败:`, error)
+      }
+    })
+  )
+}
+
+const viewHistoryDetail = async (item: Essay) => {
   selectedHistoryItem.value = item
   historyDetailVisible.value = true
+  if (!item.score) {
+    try {
+      const score = await fetchEssayScore(item.id)
+      selectedHistoryItem.value = { ...item, score }
+    } catch (error) {
+      console.error('加载作文评分失败:', error)
+    }
+  }
 }
 
 /**
@@ -301,21 +342,19 @@ const submitEssay = async () => {
     })
 
     essays.value.unshift(essay)
-
-    // 模拟 AI 评分（真实环境中由后端处理）
-    setTimeout(async () => {
-      const score = generateMockEssayScore(essay.id)
-      const updatedEssay = essays.value.find(e => e.id === essay.id)
-      if (updatedEssay) {
-        updatedEssay.score = score
-        selectedEssay.value = updatedEssay
-      }
-    }, 1500)
+    selectedEssay.value = essay
+    try {
+      const score = await fetchEssayScore(essay.id)
+      selectedEssay.value = { ...essay, score }
+    } catch (scoreError) {
+      console.error('获取作文评分失败:', scoreError)
+      ElMessage.warning('作文已提交，但评分暂未返回，可稍后在历史记录中查看')
+    }
 
     // 清空表单
     clearForm()
   } catch (error: any) {
-    alert(`提交失败: ${error.message}`)
+    ElMessage.error(`提交失败: ${error.message}`)
   } finally {
     isSubmitting.value = false
   }
@@ -350,15 +389,40 @@ const formatDate = (timestamp: number): string => {
  * 加载历史作文
  */
 const loadEssayHistory = async () => {
+  if (!isAuthenticated()) {
+    essays.value = []
+    return
+  }
   try {
-    essays.value = await getEssayHistoryAPI()
+    const history = await getEssayHistoryAPI()
+    essays.value = history
+    await hydrateEssayScores(history)
   } catch (error) {
     console.error('加载作文历史失败:', error)
   }
 }
 
-// 页面加载时获取历史记录
-loadEssayHistory()
+const handleLogin = () => {
+  void loadEssayHistory()
+}
+
+const handleLogout = () => {
+  essays.value = []
+  selectedEssay.value = null
+  selectedHistoryItem.value = null
+  historyDetailVisible.value = false
+}
+
+onMounted(() => {
+  void loadEssayHistory()
+  window.addEventListener('yomii:login', handleLogin)
+  window.addEventListener('yomii:logout', handleLogout)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('yomii:login', handleLogin)
+  window.removeEventListener('yomii:logout', handleLogout)
+})
 </script>
 
 <style scoped>
