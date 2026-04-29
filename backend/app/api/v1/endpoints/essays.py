@@ -79,17 +79,45 @@ async def get_essay_history(
     )
     result = await db.exec(statement)
     essays = result.all()
-    
+    essay_ids = [essay.id for essay in essays if essay.id is not None]
+    score_map: dict[int, EssayScore] = {}
+
+    if essay_ids:
+        score_statement = select(EssayScore).where(EssayScore.essay_id.in_(essay_ids))
+        score_result = await db.exec(score_statement)
+        score_map = {
+            score.essay_id: score
+            for score in score_result.all()
+            if score.essay_id is not None
+        }
+
     result_list = []
     for essay in essays:
         submit_time = int(essay.submit_time.timestamp() * 1000) if essay.submit_time else 0
+        score = score_map.get(essay.id or 0)
+        score_payload = None
+        if score:
+            evaluation_time = int(score.evaluation_time.timestamp() * 1000) if score.evaluation_time else 0
+            score_payload = {
+                "id": score.id,
+                "essayId": essay.id,
+                "overallScore": score.overall_score,
+                "gramarScore": score.grammar_score,
+                "vocabularyScore": score.vocabulary_score,
+                "fluencyScore": score.fluency_score,
+                "coherenceScore": score.coherence_score,
+                "comments": score.comments,
+                "aiEvaluated": score.ai_evaluated,
+                "evaluationTime": evaluation_time,
+            }
         essay_dict = {
             "id": essay.id,
             "title": essay.title,
             "content": essay.content,
             "topic": essay.topic,
             "wordCount": essay.word_count,
-            "submitTime": submit_time
+            "submitTime": submit_time,
+            "score": score_payload,
         }
         result_list.append(essay_dict)
     
