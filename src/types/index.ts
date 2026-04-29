@@ -27,6 +27,26 @@ export interface WordProgress {
   lastReviewedAt: number
   reviewCount: number
   correctCount: number
+  interval?: number
+  ease?: number
+  lapseCount?: number
+  nextReview?: number
+  lastReview?: number
+  createdAt?: number
+}
+
+export type ReviewRating = 'again' | 'hard' | 'good'
+
+export interface ReviewWordItem {
+  word: Word
+  progress: WordProgress
+}
+
+export interface ReviewWordList {
+  items: ReviewWordItem[]
+  count: number
+  limit: number
+  timestamp?: number
 }
 
 /** 学习统计 */

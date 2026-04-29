@@ -13,9 +13,14 @@ from app.core.deps import UserDB, DictDB, get_current_active_user
 from app.models.favorite import SearchHistory, Favorite
 from app.models.progress import WordProgress, WordProgressCreate
 from app.models.user import User
-from app.models.word import Word, WordRead
+from app.models.word import Word
+from app.services.review_service import (
+    apply_review,
+    create_initial_progress,
+    status_to_rating,
+    to_review_progress_payload,
+)
 from app.services.stats_service import study_stats_service
-from app.services.word_service import word_service
 
 router = APIRouter()
 
@@ -53,21 +58,17 @@ async def get_user_progress(
     statement = (
         select(WordProgress)
         .where(WordProgress.user_id == current_user.id)
-        .order_by(WordProgress.last_reviewed_at.desc())
+        .order_by(WordProgress.last_review.desc())
     )
     result = await db.exec(statement)
     records = result.all()
 
-    return [
-        {
-            "wordId": str(record.word_id),
-            "status": record.status,
-            "reviewCount": record.review_count,
-            "correctCount": record.correct_count,
-            "lastReviewedAt": int(record.last_reviewed_at.timestamp() * 1000),
-        }
-        for record in records
-    ]
+    payload: list[dict] = []
+    for record in records:
+        item = to_review_progress_payload(record)
+        item["lastReviewedAt"] = item["lastReview"]
+        payload.append(item)
+    return payload
 
 
 @router.post("/progress/{word_id}", response_model=dict)
@@ -97,33 +98,17 @@ async def update_word_progress(
     progress = result.first()
 
     if progress is None:
-        progress = WordProgress(
-            user_id=current_user.id or 0,
-            word_id=parsed_word_id,
-            status=progress_in.status,
-            review_count=1,
-            correct_count=1 if progress_in.is_correct else 0,
-            last_reviewed_at=now,
-        )
-        db.add(progress)
-    else:
-        progress.status = progress_in.status
-        progress.review_count += 1
-        if progress_in.is_correct:
-            progress.correct_count += 1
-        progress.last_reviewed_at = now
-        db.add(progress)
+        progress = create_initial_progress(current_user.id or 0, parsed_word_id, now=now)
+
+    rating = status_to_rating(progress_in.status, progress_in.is_correct)
+    apply_review(progress, rating, now=now)
+    db.add(progress)
 
     await db.commit()
     await db.refresh(progress)
-
-    return {
-        "wordId": str(progress.word_id),
-        "status": progress.status,
-        "reviewCount": progress.review_count,
-        "correctCount": progress.correct_count,
-        "lastReviewedAt": int(progress.last_reviewed_at.timestamp() * 1000),
-    }
+    response_payload = to_review_progress_payload(progress)
+    response_payload["lastReviewedAt"] = response_payload["lastReview"]
+    return response_payload
 
 
 @router.get("/search-history", response_model=List[dict])

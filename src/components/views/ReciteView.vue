@@ -348,8 +348,27 @@
       <template #label>
         <span class="tab-label"><el-icon><EditPen /></el-icon> 复习</span>
       </template>
+      <div class="review-mode-switch">
+        <button
+          class="mode-btn"
+          :class="{ active: reviewMode === 'today' }"
+          @click="switchReviewMode('today')"
+        >
+          今日复习任务
+        </button>
+        <button
+          class="mode-btn"
+          :class="{ active: reviewMode === 'random' }"
+          @click="switchReviewMode('random')"
+        >
+          强化练习
+        </button>
+        <button class="mode-refresh-btn" @click="refreshReviewWords">
+          刷新当前模式
+        </button>
+      </div>
       <template v-if="reviewWords.length > 0 && currentReviewWord && !reviewSessionCompleted">
-        <h1>复习 <span class="counter">{{ currentReviewIndex + 1 }} / {{ reviewWords.length }}</span></h1>
+        <h1>{{ reviewModeLabel }} <span class="counter">{{ currentReviewIndex + 1 }} / {{ reviewWords.length }}</span></h1>
         
         <!-- 进度条 -->
         <div class="progress-bar">
@@ -456,10 +475,26 @@
         </div>
         <div class="completion-content">
           <p class="completion-icon"><el-icon><Promotion /></el-icon></p>
-          <p class="completion-text">恭喜！今天的复习任务已完成</p>
-          <button @click="resetReviewSession" class="btn btn-primary" style="margin-top: 20px;">
-            再复习一遍
-          </button>
+          <p class="completion-text">{{ reviewMode === 'today' ? '恭喜！今天的复习任务已完成' : '恭喜！本轮强化练习已完成' }}</p>
+          <div class="button-group">
+            <button
+              v-if="reviewMode === 'today'"
+              @click="switchReviewMode('random')"
+              class="btn btn-primary"
+            >
+              开始强化练习
+            </button>
+            <button
+              v-else
+              @click="resetReviewSession('random')"
+              class="btn btn-primary"
+            >
+              再刷一轮
+            </button>
+            <button @click="resetReviewSession('today')" class="btn btn-secondary">
+              返回今日任务
+            </button>
+          </div>
         </div>
 
         <!-- 复习统计 -->
@@ -485,8 +520,24 @@
       <!-- 没有复习单词 -->
       <div v-else class="empty-state">
         <p class="empty-icon"><el-icon><Warning /></el-icon></p>
-        <p class="empty-text">暂无复习单词</p>
-        <button @click="loadReviewWords" class="btn btn-primary">重新加载</button>
+        <p class="empty-text">{{ reviewMode === 'today' ? '今日暂无到期复习任务' : '暂无可用强化练习单词' }}</p>
+        <div class="button-group">
+          <button @click="refreshReviewWords" class="btn btn-primary">重新加载</button>
+          <button
+            v-if="reviewMode === 'today'"
+            @click="switchReviewMode('random')"
+            class="btn btn-secondary"
+          >
+            去强化练习
+          </button>
+          <button
+            v-else
+            @click="switchReviewMode('today')"
+            class="btn btn-secondary"
+          >
+            返回今日任务
+          </button>
+        </div>
       </div>
     </el-tab-pane>
   </el-tabs>
@@ -502,7 +553,8 @@ import {
   createStudyPlan,
   getDictionaryCatalog,
   getLearnWords,
-  getReviewWords,
+  getReviewRandom,
+  getReviewToday,
   getStudyPlans,
   requestAddMore as requestAddMoreAPI,
   saveLearningSession,
@@ -581,6 +633,7 @@ const learnSessionStats = reactive({
 // 复习数据
 const reviewWords = ref<Word[]>([])
 const currentReviewIndex = ref(0)
+const reviewMode = ref<'today' | 'random'>('today')
 const showReviewMeaning = ref(false)
 const reviewSessionCompleted = ref(false)
 const showReviewCelebration = ref(false)
@@ -630,6 +683,17 @@ const learnWordStatus = computed(() => {
 const reviewWordStatus = computed(() => {
   if (!currentReviewWord.value) return null
   return reviewWordStatusMap.value.get(currentReviewWord.value.id) || null
+})
+
+const reviewModeLabel = computed(() => (
+  reviewMode.value === 'today' ? '今日复习任务' : '强化练习'
+))
+
+const reviewTaskLimit = computed(() => {
+  const plan = currentPlan.value
+  if (!plan) return 20
+  const count = Math.round(plan.dailyGoal * plan.reviewRatio)
+  return Math.max(1, count)
 })
 
 // 检查是否所有单词都已标记
@@ -979,7 +1043,9 @@ const skipReviewWord = () => {
   }
 }
 
-const loadReviewWords = async () => {
+const loadReviewWords = async (mode: 'today' | 'random' = reviewMode.value) => {
+  reviewMode.value = mode
+
   if (!isAuthenticated()) {
     reviewWords.value = []
     return
@@ -990,9 +1056,12 @@ const loadReviewWords = async () => {
     if (!currentPlan.value) {
       await loadStudyPlans()
     }
-    if (currentPlan.value) {
-      reviewWords.value = await getReviewWords(currentPlan.value.id)
-    }
+    const targetCount = reviewTaskLimit.value
+    const reviewList = mode === 'today'
+      ? await getReviewToday(targetCount)
+      : await getReviewRandom(Math.max(10, targetCount))
+    const nextWords = reviewList.items.map(item => item.word)
+    reviewWords.value = nextWords
   } catch (error) {
     console.error('Failed to load review words:', error)
     reviewWords.value = []
@@ -1001,7 +1070,7 @@ const loadReviewWords = async () => {
   }
 }
 
-const resetReviewSession = async () => {
+const resetReviewSession = async (mode: 'today' | 'random' = reviewMode.value) => {
   // 清除自动翻回计时器
   if (autoFlipTimer.value) {
     clearInterval(autoFlipTimer.value)
@@ -1017,7 +1086,15 @@ const resetReviewSession = async () => {
   reviewSessionCompleted.value = false
   showReviewCelebration.value = false
   reviewWordStatusMap.value.clear()
-  await loadReviewWords()
+  await loadReviewWords(mode)
+}
+
+const switchReviewMode = async (mode: 'today' | 'random') => {
+  await resetReviewSession(mode)
+}
+
+const refreshReviewWords = async () => {
+  await resetReviewSession(reviewMode.value)
 }
 
 // 加量学习
@@ -1803,6 +1880,55 @@ h1 {
   color: #222222;
   font-size: 16px;
   font-weight: 500;
+}
+
+.review-mode-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.mode-btn {
+  border: 1px solid #dcdfe6;
+  background: #ffffff;
+  color: #333333;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.mode-btn.active {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.12);
+  color: #4b60d0;
+}
+
+.mode-refresh-btn {
+  margin-left: auto;
+  border: 1px solid #dcdfe6;
+  background: #f5f7fa;
+  color: #333333;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-refresh-btn:hover {
+  border-color: #667eea;
+  color: #4b60d0;
 }
 
 .actions {

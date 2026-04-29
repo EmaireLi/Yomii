@@ -6,13 +6,12 @@ import json
 from typing import Annotated, Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, update
-from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy import func
 from sqlmodel import select
 
 from app.core.deps import DictDB, UserDB, get_current_active_user
 from app.core.word_levels import DICTIONARY_CATALOG, get_tags_by_dictionary
-from app.models.progress import ProgressStatus, WordProgress
+from app.models.progress import WordProgress
 from app.models.study_plan import (
     LearningSession,
     LearningSessionCreate,
@@ -22,19 +21,10 @@ from app.models.study_plan import (
 )
 from app.models.user import User
 from app.models.word import Word, WordRead, WordTag
+from app.services.review_service import create_initial_progress
 from app.services.stats_service import study_stats_service
 
 router = APIRouter()
-
-_EBBINGHAUS_INTERVALS_DAYS: dict[ProgressStatus, list[float]] = {
-    ProgressStatus.UNKNOWN: [0.0, 0.5, 1.0, 2.0, 4.0, 7.0],
-    ProgressStatus.FUZZY: [0.0, 1.0, 2.0, 4.0, 7.0, 15.0],
-}
-
-_REVIEW_STATUS_WEIGHT: dict[ProgressStatus, int] = {
-    ProgressStatus.UNKNOWN: 3,
-    ProgressStatus.FUZZY: 2,
-}
 
 
 def _to_timestamp_ms(dt: datetime | None) -> int:
@@ -123,56 +113,6 @@ def _to_word_read(word: Word, tags: list[str]) -> WordRead:
         audio_url=word.audio_url,
         tags=tags,
     )
-
-
-def _target_interval_days(status: ProgressStatus, review_count: int) -> float:
-    schedule = _EBBINGHAUS_INTERVALS_DAYS.get(
-        status,
-        _EBBINGHAUS_INTERVALS_DAYS[ProgressStatus.UNKNOWN],
-    )
-    safe_count = max(0, review_count)
-    idx = min(safe_count, len(schedule) - 1)
-    return max(0.0, float(schedule[idx]))
-
-
-def _rank_progress_for_review(
-    progress_rows: list[WordProgress],
-    target_count: int,
-    now: datetime,
-) -> list[int]:
-    if target_count <= 0 or not progress_rows:
-        return []
-
-    ranked: list[tuple[int, int, float, datetime, int]] = []
-    for row in progress_rows:
-        elapsed_days = max(0.0, (now - row.last_reviewed_at).total_seconds() / 86400.0)
-        target_days = _target_interval_days(row.status, row.review_count)
-        # overdue_ratio >= 1 表示到达/超过该词下一次复习时间点。
-        overdue_ratio = elapsed_days / max(target_days, 0.125)
-        is_due = 1 if overdue_ratio >= 1 else 0
-        status_weight = _REVIEW_STATUS_WEIGHT.get(row.status, 1)
-        ranked.append((is_due, status_weight, overdue_ratio, row.last_reviewed_at, row.word_id))
-
-    ranked.sort(
-        key=lambda item: (
-            item[0],              # 到期优先
-            item[1],              # unknown > fuzzy > known
-            item[2],              # 逾期比例越大越优先
-            -item[3].timestamp(), # 越久未复习越优先（时间越早 timestamp 越小）
-        ),
-        reverse=True,
-    )
-
-    selected_ids: list[int] = []
-    seen: set[int] = set()
-    for _, _, _, _, word_id in ranked:
-        if word_id in seen:
-            continue
-        seen.add(word_id)
-        selected_ids.append(word_id)
-        if len(selected_ids) >= target_count:
-            break
-    return selected_ids
 
 
 async def _load_tags_map(dict_db: DictDB, word_ids: list[int]) -> dict[int, list[str]]:
@@ -479,8 +419,7 @@ async def get_review_words(
     """
     获取复习单词列表
     - 复习量 = 当日学习量 * review_ratio（支持加量学习动态调整）
-    - 选词按艾宾浩斯遗忘曲线到期优先（结合 review_count + last_reviewed_at）
-    - 仅复习 unknown / fuzzy，known 不参与复习
+    - 按 next_review 到期时间排序（next_review <= now）
     """
     plan = await _resolve_user_plan(user_db, current_user, plan_id)
     target_date = date or datetime.utcnow().strftime("%Y-%m-%d")
@@ -508,13 +447,18 @@ async def get_review_words(
     if review_count == 0:
         return []
 
-    progress_statement = select(WordProgress).where(
-        WordProgress.user_id == current_user.id,
-        WordProgress.status.in_([ProgressStatus.UNKNOWN, ProgressStatus.FUZZY]),
+    now = datetime.utcnow()
+    progress_statement = (
+        select(WordProgress)
+        .where(
+            WordProgress.user_id == current_user.id,
+            WordProgress.next_review <= now,
+        )
+        .order_by(WordProgress.next_review.asc(), WordProgress.word_id.asc())
+        .limit(review_count)
     )
     progress_result = await user_db.exec(progress_statement)
-    progress_rows = progress_result.all()
-    review_word_ids = _rank_progress_for_review(progress_rows, review_count, datetime.utcnow())
+    review_word_ids = [row.word_id for row in progress_result.all()]
 
     words = await _fetch_words_by_ids(dict_db, review_word_ids)
     return words[:review_count]
@@ -583,33 +527,20 @@ async def save_learning_session(
         db.add(existing_session)
         session = existing_session
 
-    for word_id in new_affected_ids:
-        # 优先更新已存在记录，避免额外查询和 autoflush 触发的唯一键竞争
-        update_statement = (
-            update(WordProgress)
-            .where(
-                WordProgress.user_id == current_user.id,
-                WordProgress.word_id == word_id,
-            )
-            .values(
-                review_count=WordProgress.review_count + 1,
-                last_reviewed_at=now,
-            )
+    if new_affected_ids:
+        existing_statement = select(WordProgress.word_id).where(
+            WordProgress.user_id == current_user.id,
+            WordProgress.word_id.in_(new_affected_ids),
         )
-        update_result = await db.exec(update_statement)
-        if update_result.rowcount and update_result.rowcount > 0:
-            continue
+        existing_result = await db.exec(existing_statement)
+        existing_ids = set(existing_result.all())
 
-        # 不存在时插入；若并发下已被其他请求插入，IGNORE 可避免重复键异常
-        insert_statement = mysql_insert(WordProgress).prefix_with("IGNORE").values(
-            user_id=current_user.id,
-            word_id=word_id,
-            status=ProgressStatus.UNKNOWN,
-            review_count=1,
-            correct_count=0,
-            last_reviewed_at=now,
-        )
-        await db.exec(insert_statement)
+        missing_ids = new_affected_ids - existing_ids
+        for word_id in missing_ids:
+            initial_progress = create_initial_progress(current_user.id or 0, word_id, now=now)
+            # 通过学习轮次写入的单词，允许在当日复习任务中立即出现。
+            initial_progress.next_review = now
+            db.add(initial_progress)
 
     # 仅对“本次新增写入”的单词计数，保证同日重试同步幂等，避免重复累计。
     recited_count = len(new_affected_ids)

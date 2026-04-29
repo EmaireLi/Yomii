@@ -15,7 +15,8 @@ CREATE TABLE words (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     word            VARCHAR(100) NOT NULL,              -- 日语单词
     kana            VARCHAR(100) NOT NULL,              -- 假名读音
-    meaning         TEXT NOT NULL,                      -- 中文释义
+    japanese_meaning TEXT NOT NULL,                     -- 日文释义
+    chinese_meaning TEXT NOT NULL DEFAULT '',           -- 中文释义
     example         TEXT NOT NULL,                      -- 例句
     part_of_speech  VARCHAR(50),                        -- 词性 (名詞/動詞/形容詞 等)
     audio_url       VARCHAR(255),                       -- 音频URL

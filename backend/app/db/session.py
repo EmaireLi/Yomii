@@ -122,6 +122,54 @@ def _migrate_study_plans_table_columns(sync_conn) -> None:
         )
 
 
+def _migrate_word_progress_table_columns(sync_conn) -> None:
+    """为 word_progress 表补齐新版复习调度字段。"""
+    inspector = inspect(sync_conn)
+    if "word_progress" not in inspector.get_table_names():
+        return
+
+    column_names = {column["name"] for column in inspector.get_columns("word_progress")}
+    if "interval" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE word_progress ADD COLUMN `interval` FLOAT NOT NULL DEFAULT 0.02"
+        )
+    if "ease" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE word_progress ADD COLUMN ease FLOAT NOT NULL DEFAULT 2.5"
+        )
+    if "lapse_count" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE word_progress ADD COLUMN lapse_count INT NOT NULL DEFAULT 0"
+        )
+    if "last_review" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE word_progress ADD COLUMN last_review DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        )
+    if "created_at" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE word_progress ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        )
+    if "next_review" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE word_progress ADD COLUMN next_review DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        )
+
+    latest_column_names = {column["name"] for column in inspect(sync_conn).get_columns("word_progress")}
+    if "last_reviewed_at" in latest_column_names:
+        sync_conn.exec_driver_sql(
+            "UPDATE word_progress SET last_review = COALESCE(last_reviewed_at, last_review)"
+        )
+    sync_conn.exec_driver_sql(
+        "UPDATE word_progress SET next_review = DATE_ADD(last_review, INTERVAL GREATEST(`interval`, 0.02) DAY)"
+    )
+
+    index_names = {idx["name"] for idx in inspector.get_indexes("word_progress")}
+    if "idx_word_progress_next_review" not in index_names:
+        sync_conn.exec_driver_sql(
+            "CREATE INDEX idx_word_progress_next_review ON word_progress (next_review)"
+        )
+
+
 def _migrate_words_table_meaning_columns(sync_conn) -> None:
     """将 words.meaning 迁移为 japanese_meaning，并补齐 chinese_meaning。"""
     inspector = inspect(sync_conn)
@@ -187,6 +235,7 @@ async def create_mysql_tables():
         )
         await conn.run_sync(_create_selected_tables, mysql_tables)
         await conn.run_sync(_migrate_study_plans_table_columns)
+        await conn.run_sync(_migrate_word_progress_table_columns)
 
 
 async def create_db_and_tables():

@@ -19,6 +19,7 @@ DROP TABLE IF EXISTS study_plans;
 DROP TABLE IF EXISTS essay_scores;
 DROP TABLE IF EXISTS essays;
 DROP TABLE IF EXISTS quiz_results;
+DROP TABLE IF EXISTS quiz_sessions;
 DROP TABLE IF EXISTS search_history;
 DROP TABLE IF EXISTS favorites;
 DROP TABLE IF EXISTS word_progress;
@@ -70,16 +71,23 @@ CREATE TABLE word_progress (
     id               INT PRIMARY KEY AUTO_INCREMENT,
     user_id          INT NOT NULL,                        -- 用户ID
     word_id          INT NOT NULL,                        -- 单词ID (引用SQLite中的words.id)
-    status           ENUM('UNKNOWN','FUZZY','KNOWN') DEFAULT 'UNKNOWN',
-    review_count     INT DEFAULT 0,                       -- 复习次数
-    correct_count    INT DEFAULT 0,                       -- 正确次数
-    last_reviewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,  -- 最后复习时间
+    status           ENUM('unknown','fuzzy','known') NOT NULL DEFAULT 'unknown',
+    `interval`       FLOAT NOT NULL DEFAULT 0.02,         -- 当前复习间隔（天）
+    ease             FLOAT NOT NULL DEFAULT 2.5,          -- 熟练度
+    review_count     INT NOT NULL DEFAULT 0,              -- 复习次数
+    lapse_count      INT NOT NULL DEFAULT 0,              -- 遗忘次数
+    correct_count    INT NOT NULL DEFAULT 0,              -- 正确次数
+    next_review      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 下次复习时间
+    last_review      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 上次复习时间
+    created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 创建时间
     
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE KEY uk_user_word (user_id, word_id),
     INDEX idx_word_progress_user_id (user_id),
     INDEX idx_word_progress_word_id (word_id),
-    INDEX idx_word_progress_status (status)
+    INDEX idx_word_progress_status (status),
+    INDEX idx_word_progress_next_review (next_review),
+    INDEX idx_word_progress_user_next_review (user_id, next_review)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
@@ -113,24 +121,52 @@ CREATE TABLE search_history (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 6. quiz_results - 测试结果表
+-- 6. quiz_sessions - 测试会话表
+-- ============================================================
+CREATE TABLE quiz_sessions (
+    id               INT PRIMARY KEY AUTO_INCREMENT,
+    user_id          INT NOT NULL,                         -- 用户ID
+    difficulty       VARCHAR(20) NOT NULL DEFAULT 'medium',
+    total_questions  INT NOT NULL DEFAULT 0,
+    correct_answers  INT NOT NULL DEFAULT 0,
+    accuracy         FLOAT NOT NULL DEFAULT 0,
+    duration_seconds INT NOT NULL DEFAULT 0,
+    ability_score    FLOAT NOT NULL DEFAULT 0,
+    report_level     VARCHAR(50) NOT NULL DEFAULT '入门',
+    report_summary   TEXT NOT NULL,
+    trend_delta      FLOAT NOT NULL DEFAULT 0,
+    created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_quiz_sessions_user_id (user_id),
+    INDEX idx_quiz_sessions_difficulty (difficulty),
+    INDEX idx_quiz_sessions_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 7. quiz_results - 测试结果表
 -- ============================================================
 CREATE TABLE quiz_results (
     id              INT PRIMARY KEY AUTO_INCREMENT,
     user_id         INT NOT NULL,                         -- 用户ID
+    session_id      INT DEFAULT NULL,                     -- 会话ID（可选）
     question_id     INT NOT NULL,                         -- 题目ID (引用SQLite)
     user_answer     VARCHAR(255) NOT NULL,                -- 用户答案
     is_correct      BOOLEAN NOT NULL,                     -- 是否正确
-    timestamp       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    difficulty      VARCHAR(20) NOT NULL DEFAULT 'medium',
+    timestamp       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (session_id) REFERENCES quiz_sessions(id) ON DELETE SET NULL,
     INDEX idx_quiz_results_user_id (user_id),
+    INDEX idx_quiz_results_session_id (session_id),
     INDEX idx_quiz_results_question_id (question_id),
+    INDEX idx_quiz_results_difficulty (difficulty),
     INDEX idx_quiz_results_timestamp (timestamp)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 7. essays - 作文表
+-- 8. essays - 作文表
 -- ============================================================
 CREATE TABLE essays (
     id              INT PRIMARY KEY AUTO_INCREMENT,
@@ -147,11 +183,11 @@ CREATE TABLE essays (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 8. essay_scores - 作文评分表
+-- 9. essay_scores - 作文评分表
 -- ============================================================
 CREATE TABLE essay_scores (
     id               INT PRIMARY KEY AUTO_INCREMENT,
-    essay_id         INT NOT NULL UNIQUE,                 -- 作文ID
+    essay_id         INT NOT NULL,                        -- 作文ID
     overall_score    INT DEFAULT 0,                       -- 总分 (0-100)
     grammar_score    INT DEFAULT 0,                       -- 语法分
     vocabulary_score INT DEFAULT 0,                       -- 词汇分
@@ -166,30 +202,32 @@ CREATE TABLE essay_scores (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 9. study_plans - 学习计划表
+-- 10. study_plans - 学习计划表
 -- ============================================================
 CREATE TABLE study_plans (
     id           INT PRIMARY KEY AUTO_INCREMENT,
     user_id      INT NOT NULL,                            -- 用户ID
     name         VARCHAR(100) NOT NULL,                   -- 计划名称
-    daily_goal   INT DEFAULT 20,                          -- 每日目标单词数
-    review_ratio FLOAT DEFAULT 0.3,                       -- 复习比例 (0-1)
-    is_active    BOOLEAN DEFAULT TRUE,                    -- 是否激活
+    daily_goal   INT NOT NULL DEFAULT 10,                 -- 每日目标单词数
+    review_ratio FLOAT NOT NULL DEFAULT 0.5,              -- 复习比例 (0-1)
+    dictionary_id VARCHAR(64) NOT NULL DEFAULT 'common',  -- 辞书ID
+    is_active    BOOLEAN NOT NULL DEFAULT FALSE,          -- 是否激活
     created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_study_plans_user_id (user_id),
-    INDEX idx_study_plans_is_active (is_active)
+    INDEX idx_study_plans_is_active (is_active),
+    INDEX idx_study_plans_dictionary_id (dictionary_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 10. learning_sessions - 学习会话表
+-- 11. learning_sessions - 学习会话表
 -- ============================================================
 CREATE TABLE learning_sessions (
     id             INT PRIMARY KEY AUTO_INCREMENT,
     plan_id        INT NOT NULL,                          -- 计划ID
-    date           DATE NOT NULL,                         -- 日期
+    date           VARCHAR(10) NOT NULL,                  -- 日期 YYYY-MM-DD
     learned_words  JSON DEFAULT NULL,                     -- 新学单词ID列表
     reviewed_words JSON DEFAULT NULL,                     -- 复习单词ID列表
     known_count    INT DEFAULT 0,                         -- 已掌握数量

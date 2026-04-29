@@ -1,7 +1,7 @@
 """
 学习进度模型 (MySQL - 用户行为数据库)
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import Optional
 from sqlmodel import SQLModel, Field
@@ -19,8 +19,12 @@ class WordProgressBase(SQLModel):
     user_id: int = Field(foreign_key="users.id", index=True)
     word_id: int = Field(index=True)  # 引用 SQLite 中的 word.id
     status: ProgressStatus = ProgressStatus.UNKNOWN
+    interval: float = 0.02
+    ease: float = 2.5
     review_count: int = 0
+    lapse_count: int = 0
     correct_count: int = 0
+    next_review: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(days=0.02), index=True)
 
 
 class WordProgress(WordProgressBase, table=True):
@@ -28,7 +32,8 @@ class WordProgress(WordProgressBase, table=True):
     __tablename__ = "word_progress"
     
     id: Optional[int] = Field(default=None, primary_key=True)
-    last_reviewed_at: datetime = Field(default_factory=datetime.utcnow)
+    last_review: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class WordProgressCreate(SQLModel):
@@ -41,4 +46,5 @@ class WordProgressCreate(SQLModel):
 class WordProgressRead(WordProgressBase):
     """学习进度读取模型"""
     id: int
-    last_reviewed_at: datetime
+    last_review: datetime
+    created_at: datetime

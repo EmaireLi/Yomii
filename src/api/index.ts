@@ -5,7 +5,29 @@
  * 支持 Mock 模式和真实后端两种模型
  */
 
-import type { Word, SearchResult, QuizQuestion, QuizAbilityReport, QuizSessionRecord, DictionaryConfig, WordProgress, StudyStats, Essay, EssayScore, StudyPlan, LearningSession, User, AuthResponse, RegisterRequest, LoginRequest, ResetPasswordRequest, SetNewPasswordRequest } from '@/types'
+import type {
+  Word,
+  SearchResult,
+  QuizQuestion,
+  QuizAbilityReport,
+  QuizSessionRecord,
+  DictionaryConfig,
+  WordProgress,
+  StudyStats,
+  Essay,
+  EssayScore,
+  StudyPlan,
+  LearningSession,
+  User,
+  AuthResponse,
+  RegisterRequest,
+  LoginRequest,
+  ResetPasswordRequest,
+  SetNewPasswordRequest,
+  ReviewRating,
+  ReviewWordItem,
+  ReviewWordList
+} from '@/types'
 import { getRandomWords, searchWords as localSearchWords, WORDS_DATABASE } from '@/utils/mockData'
 import { DEFAULT_STUDY_PLAN, LOCAL_STORAGE_KEYS, DICTIONARIES } from '@/utils/constants'
 
@@ -85,6 +107,40 @@ type LearningSessionApiResponse = {
   completed_at?: string | null
 }
 
+type WordProgressApiResponse = {
+  wordId?: string | number
+  word_id?: string | number
+  status?: 'unknown' | 'fuzzy' | 'known'
+  interval?: number
+  ease?: number
+  reviewCount?: number
+  review_count?: number
+  lapseCount?: number
+  lapse_count?: number
+  correctCount?: number
+  correct_count?: number
+  nextReview?: number
+  next_review?: string
+  lastReview?: number
+  last_review?: string
+  lastReviewedAt?: number
+  last_reviewed_at?: string
+  createdAt?: number
+  created_at?: string
+}
+
+type ReviewWordItemApiResponse = {
+  word: WordApiResponse
+  progress: WordProgressApiResponse
+}
+
+type ReviewWordListApiResponse = {
+  items?: ReviewWordItemApiResponse[]
+  count?: number
+  limit?: number
+  timestamp?: number
+}
+
 function parseTimestamp(value?: number | string | null): number {
   if (typeof value === 'number') return value
   if (typeof value === 'string') {
@@ -92,6 +148,44 @@ function parseTimestamp(value?: number | string | null): number {
     return Number.isNaN(ms) ? 0 : ms
   }
   return 0
+}
+
+function normalizeWordProgress(progress: WordProgressApiResponse): WordProgress {
+  const lastReview = parseTimestamp(progress.lastReview ?? progress.last_review)
+  const lastReviewedAt = parseTimestamp(progress.lastReviewedAt ?? progress.last_reviewed_at)
+
+  return {
+    wordId: String(progress.wordId ?? progress.word_id ?? ''),
+    status: progress.status ?? 'unknown',
+    reviewCount: Number(progress.reviewCount ?? progress.review_count ?? 0),
+    correctCount: Number(progress.correctCount ?? progress.correct_count ?? 0),
+    lastReviewedAt: lastReviewedAt || lastReview || Date.now(),
+    interval: typeof progress.interval === 'number' ? progress.interval : undefined,
+    ease: typeof progress.ease === 'number' ? progress.ease : undefined,
+    lapseCount: Number(progress.lapseCount ?? progress.lapse_count ?? 0),
+    nextReview: parseTimestamp(progress.nextReview ?? progress.next_review),
+    lastReview: lastReview || lastReviewedAt || Date.now(),
+    createdAt: parseTimestamp(progress.createdAt ?? progress.created_at)
+  }
+}
+
+function normalizeReviewWordList(payload: ReviewWordListApiResponse): ReviewWordList {
+  const items: ReviewWordItem[] = (payload.items ?? []).map(item => ({
+    word: normalizeWord(item.word),
+    progress: normalizeWordProgress(item.progress ?? {})
+  }))
+  return {
+    items,
+    count: payload.count ?? items.length,
+    limit: payload.limit ?? items.length,
+    timestamp: payload.timestamp
+  }
+}
+
+function toReviewRating(status: string, isCorrect: boolean = true): ReviewRating {
+  if (status === 'known' && isCorrect) return 'good'
+  if (status === 'fuzzy') return 'hard'
+  return 'again'
 }
 
 function normalizeStudyPlan(plan: StudyPlanApiResponse): StudyPlan {
@@ -534,34 +628,46 @@ export async function updateWordProgress(
   status: string,
   isCorrect: boolean = true
 ): Promise<WordProgress> {
+  const rating = toReviewRating(status, isCorrect)
+
   if (USE_MOCK_API) {
-    // Mock 模式返回更新后的进度
-    const statusValues: Array<'unknown' | 'fuzzy' | 'known'> = ['unknown', 'fuzzy', 'known']
-    const validStatus = status as 'unknown' | 'fuzzy' | 'known'
-    const statusIndex = statusValues.indexOf(validStatus)
-    const nextStatusIndex = (statusIndex + (isCorrect ? 1 : 0)) % statusValues.length
-    const nextStatus: 'unknown' | 'fuzzy' | 'known' = statusValues[nextStatusIndex] || 'unknown'
-    
+    const intervalByRating: Record<ReviewRating, number> = {
+      again: 0.02,
+      hard: 0.05,
+      good: 0.1
+    }
+    const statusByRating: Record<ReviewRating, 'unknown' | 'fuzzy' | 'known'> = {
+      again: 'unknown',
+      hard: 'fuzzy',
+      good: 'known'
+    }
+    const interval = intervalByRating[rating]
+
     return {
       wordId,
-      status: nextStatus,
+      status: statusByRating[rating],
       reviewCount: 1,
-      correctCount: isCorrect ? 1 : 0,
-      lastReviewedAt: Date.now()
+      correctCount: rating === 'good' ? 1 : 0,
+      lastReviewedAt: Date.now(),
+      interval,
+      ease: rating === 'good' ? 2.55 : rating === 'hard' ? 2.35 : 2.3,
+      lapseCount: rating === 'again' ? 1 : 0,
+      nextReview: Date.now() + interval * 24 * 60 * 60 * 1000,
+      lastReview: Date.now(),
+      createdAt: Date.now()
     }
   }
   
-  const response = await fetch(`${API_BASE_URL}/user/progress/${wordId}`, {
+  const response = await fetch(`${API_BASE_URL}/review/${wordId}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({
-      word_id: Number(wordId),
-      status,
-      is_correct: isCorrect
+      rating
     })
   })
   assertApiResponse(response, '更新学习进度')
-  return response.json()
+  const data: { progress: WordProgressApiResponse } = await response.json()
+  return normalizeWordProgress(data.progress)
 }
 
 /**
@@ -677,7 +783,8 @@ export async function getUserProgress(): Promise<WordProgress[]> {
     headers: getAuthHeaders()
   })
   assertApiResponse(response, '获取学习进度')
-  return response.json()
+  const rows: WordProgressApiResponse[] = await response.json()
+  return rows.map(normalizeWordProgress)
 }
 
 /**
@@ -943,19 +1050,97 @@ export async function getLearnWords(planId: string, date?: string): Promise<Word
  * GET /api/study-plans/:planId/review-words?date=YYYY-MM-DD
  */
 export async function getReviewWords(planId: string, date?: string): Promise<Word[]> {
-  const targetDate = date || new Date().toISOString().split('T')[0]
-  
+  void planId
+  void date
+   
   if (USE_MOCK_API) {
     // 返回随机单词作为复习列表
     return getRandomWords(5)
   }
-  
-  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/review-words?date=${targetDate}`, {
+
+  const data = await getReviewToday(100)
+  return data.items.map(item => item.word)
+}
+
+/**
+ * 获取今日到期复习任务
+ * GET /api/review/today
+ */
+export async function getReviewToday(limit: number = 100): Promise<ReviewWordList> {
+  const safeLimit = Math.min(500, Math.max(1, limit))
+
+  if (USE_MOCK_API) {
+    const words = getRandomWords(Math.min(safeLimit, 10))
+    const now = Date.now()
+    return {
+      items: words.map(word => ({
+        word,
+        progress: {
+          wordId: word.id,
+          status: 'unknown',
+          reviewCount: 0,
+          correctCount: 0,
+          lastReviewedAt: now,
+          interval: 0.02,
+          ease: 2.5,
+          lapseCount: 0,
+          nextReview: now,
+          lastReview: now,
+          createdAt: now
+        }
+      })),
+      count: words.length,
+      limit: safeLimit,
+      timestamp: now
+    }
+  }
+
+  const response = await fetch(`${API_BASE_URL}/review/today?limit=${safeLimit}`, {
     headers: getAuthHeaders()
   })
-  assertApiResponse(response, '获取复习单词')
-  const data: WordApiResponse[] = await response.json()
-  return data.map(normalizeWord)
+  assertApiResponse(response, '获取今日复习任务')
+  const data: ReviewWordListApiResponse = await response.json()
+  return normalizeReviewWordList(data)
+}
+
+/**
+ * 获取强化练习随机任务
+ * GET /api/review/random
+ */
+export async function getReviewRandom(limit: number = 20): Promise<ReviewWordList> {
+  const safeLimit = Math.min(200, Math.max(1, limit))
+
+  if (USE_MOCK_API) {
+    const words = getRandomWords(Math.min(safeLimit, 10))
+    const now = Date.now()
+    return {
+      items: words.map(word => ({
+        word,
+        progress: {
+          wordId: word.id,
+          status: 'fuzzy',
+          reviewCount: 2,
+          correctCount: 1,
+          lastReviewedAt: now,
+          interval: 1,
+          ease: 2.2,
+          lapseCount: 1,
+          nextReview: now,
+          lastReview: now,
+          createdAt: now
+        }
+      })),
+      count: words.length,
+      limit: safeLimit
+    }
+  }
+
+  const response = await fetch(`${API_BASE_URL}/review/random?limit=${safeLimit}`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取强化练习任务')
+  const data: ReviewWordListApiResponse = await response.json()
+  return normalizeReviewWordList(data)
 }
 
 /**
@@ -1261,6 +1446,8 @@ export default {
   activateStudyPlan,
   getLearnWords,
   getReviewWords,
+  getReviewToday,
+  getReviewRandom,
   saveLearningSession,
   getLearningSessions,
   requestAddMore
