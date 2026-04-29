@@ -116,16 +116,14 @@
         </el-col>
       </el-row>
 
-      <div class="pagination-wrapper" v-if="totalFavorites > 0">
+      <div class="pagination-wrapper" v-if="totalFavorites > pageSize">
         <el-pagination
           background
-          layout="sizes, prev, pager, next, jumper"
+          layout="prev, pager, next, jumper"
           :current-page="currentPage"
           :page-size="pageSize"
-          :page-sizes="[10, 20, 30]"
           :total="totalFavorites"
           @current-change="handlePageChange"
-          @size-change="handlePageSizeChange"
         />
       </div>
     </div>
@@ -198,10 +196,7 @@ const removeFavorite = async (wordId: string) => {
       type: 'success',
       duration: 2000
     })
-    const nextTotal = Math.max(0, totalFavorites.value - 1)
-    const maxPage = Math.max(1, Math.ceil(nextTotal / pageSize.value))
-    const targetPage = Math.min(currentPage.value, maxPage)
-    await loadFavorites(targetPage)
+    await loadFavorites()
   } catch (error: any) {
     ElMessage.error(error.message || '操作失败')
   }
@@ -209,13 +204,7 @@ const removeFavorite = async (wordId: string) => {
 
 const handlePageChange = async (page: number) => {
   currentPage.value = page
-  await loadFavorites(page)
-}
-
-const handlePageSizeChange = async (size: number) => {
-  pageSize.value = size
-  currentPage.value = 1
-  await loadFavorites(1)
+  await loadFavorites()
 }
 
 const playAudio = (url: string) => {

@@ -312,7 +312,6 @@
           <div class="button-group">
             <button @click="requestAddMore" class="btn btn-primary"><el-icon><Promotion /></el-icon> 加量学习</button>
             <button @click="resetLearnSession" class="btn btn-secondary">再来一遍</button>
-            <button @click="openPlanSwitcher" class="btn btn-secondary">切换计划</button>
           </div>
         </div>
 
@@ -331,30 +330,6 @@
             <div class="stat">
               <span class="stat-label">未掌握</span>
               <span class="stat-number unknown">{{ learnSessionStats.unknown }}</span>
-            </div>
-          </div>
-
-          <div class="status-word-groups">
-            <div class="status-word-group">
-              <h4>掌握单词（{{ learnKnownWords.length }}）</h4>
-              <div v-if="learnKnownWords.length > 0" class="status-word-list">
-                <span v-for="word in learnKnownWords" :key="`learn-known-${word.id}`" class="status-word-chip known">{{ word.word }}</span>
-              </div>
-              <p v-else class="status-empty">暂无</p>
-            </div>
-            <div class="status-word-group">
-              <h4>模糊单词（{{ learnFuzzyWords.length }}）</h4>
-              <div v-if="learnFuzzyWords.length > 0" class="status-word-list">
-                <span v-for="word in learnFuzzyWords" :key="`learn-fuzzy-${word.id}`" class="status-word-chip fuzzy">{{ word.word }}</span>
-              </div>
-              <p v-else class="status-empty">暂无</p>
-            </div>
-            <div class="status-word-group">
-              <h4>不认识单词（{{ learnUnknownWords.length }}）</h4>
-              <div v-if="learnUnknownWords.length > 0" class="status-word-list">
-                <span v-for="word in learnUnknownWords" :key="`learn-unknown-${word.id}`" class="status-word-chip unknown">{{ word.word }}</span>
-              </div>
-              <p v-else class="status-empty">暂无</p>
             </div>
           </div>
         </div>
@@ -384,18 +359,7 @@
         <!-- 复习进度 -->
         <div class="mark-progress">
           <span class="progress-primary">已背完 {{ reviewWordsMarkedCount }} / {{ reviewWords.length }} 个单词</span>
-          <span v-if="reviewRemainingCount > 0" class="warn-text">未复习单词位置（点击跳转）：</span>
-          <div v-if="reviewRemainingCount > 0" class="remaining-list">
-            <button
-              v-for="item in reviewUnmarkedItems"
-              :key="item.word.id"
-              class="remaining-chip"
-              :class="{ active: currentReviewWord && currentReviewWord.id === item.word.id }"
-              @click="jumpToReviewWord(item.word.id)"
-            >
-              {{ item.position }}. {{ item.word.word }}
-            </button>
-          </div>
+          <span v-if="reviewRemainingCount > 0" class="warn-text">未复习单词：{{ reviewRemainingWordsText }}</span>
           <span v-else class="done-text">全部单词已完成标记</span>
         </div>
 
@@ -515,30 +479,6 @@
               <span class="stat-number unknown">{{ reviewSessionStats.unknown }}</span>
             </div>
           </div>
-
-          <div class="status-word-groups">
-            <div class="status-word-group">
-              <h4>掌握单词（{{ reviewKnownWords.length }}）</h4>
-              <div v-if="reviewKnownWords.length > 0" class="status-word-list">
-                <span v-for="word in reviewKnownWords" :key="`review-known-${word.id}`" class="status-word-chip known">{{ word.word }}</span>
-              </div>
-              <p v-else class="status-empty">暂无</p>
-            </div>
-            <div class="status-word-group">
-              <h4>模糊单词（{{ reviewFuzzyWords.length }}）</h4>
-              <div v-if="reviewFuzzyWords.length > 0" class="status-word-list">
-                <span v-for="word in reviewFuzzyWords" :key="`review-fuzzy-${word.id}`" class="status-word-chip fuzzy">{{ word.word }}</span>
-              </div>
-              <p v-else class="status-empty">暂无</p>
-            </div>
-            <div class="status-word-group">
-              <h4>不认识单词（{{ reviewUnknownWords.length }}）</h4>
-              <div v-if="reviewUnknownWords.length > 0" class="status-word-list">
-                <span v-for="word in reviewUnknownWords" :key="`review-unknown-${word.id}`" class="status-word-chip unknown">{{ word.word }}</span>
-              </div>
-              <p v-else class="status-empty">暂无</p>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -561,9 +501,7 @@ import {
   activateStudyPlan,
   createStudyPlan,
   getDictionaryCatalog,
-  getLearningSessions,
   getLearnWords,
-  getWord,
   getReviewWords,
   getStudyPlans,
   requestAddMore as requestAddMoreAPI,
@@ -634,7 +572,6 @@ const learnSessionCompleted = ref(false)
 const showLearnCelebration = ref(false)
 const celebrationTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const learnWordStatusMap = ref<Map<string, 'unknown' | 'fuzzy' | 'known'>>(new Map())
-const completedLearnWords = ref<Word[]>([])
 const learnSessionStats = reactive({
   known: 0,
   fuzzy: 0,
@@ -648,7 +585,6 @@ const showReviewMeaning = ref(false)
 const reviewSessionCompleted = ref(false)
 const showReviewCelebration = ref(false)
 const reviewWordStatusMap = ref<Map<string, 'unknown' | 'fuzzy' | 'known'>>(new Map())
-const completedReviewWords = ref<Word[]>([])
 const autoFlipCountdown = ref(0)
 const autoFlipTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const reviewCelebrationTimer = ref<ReturnType<typeof setTimeout> | null>(null)
@@ -659,8 +595,8 @@ const reviewSessionStats = reactive({
 })
 
 // 其他功能
-const { updateProgress, getProgress, syncWordProgress } = useWordProgress()
-const { syncStudyStats } = useStudyStats()
+const { updateProgress } = useWordProgress()
+const { incrementRecited, syncStudyStats } = useStudyStats()
 const { isFavorited, toggleFavorite: originalToggleFavorite } = useFavorites()
 const isLoading = ref(false)
 
@@ -721,17 +657,17 @@ const reviewUnmarkedWords = computed(() => {
   return reviewWords.value.filter(word => !reviewWordStatusMap.value.has(word.id))
 })
 
-const reviewUnmarkedItems = computed(() => {
-  return reviewWords.value
-    .map((word, index) => ({ word, position: index + 1 }))
-    .filter(item => !reviewWordStatusMap.value.has(item.word.id))
-})
-
 const learnRemainingCount = computed(() => learnUnmarkedWords.value.length)
 const reviewRemainingCount = computed(() => reviewUnmarkedWords.value.length)
 
 const learnRemainingWordsText = computed(() => {
   const words = learnUnmarkedWords.value.map(word => word.word)
+  if (words.length <= 6) return words.join('、')
+  return `${words.slice(0, 6).join('、')} 等${words.length}个`
+})
+
+const reviewRemainingWordsText = computed(() => {
+  const words = reviewUnmarkedWords.value.map(word => word.word)
   if (words.length <= 6) return words.join('、')
   return `${words.slice(0, 6).join('、')} 等${words.length}个`
 })
@@ -754,33 +690,6 @@ const reviewProgressPercent = computed(() => {
   if (reviewWords.value.length === 0) return 0
   return (reviewWordsMarkedCount.value / reviewWords.value.length) * 100
 })
-
-const getWordStatus = (wordId: string): 'known' | 'fuzzy' | 'unknown' | null => {
-  const progress = getProgress(wordId)
-  if (progress?.status === 'known') return 'known'
-  if (progress?.status === 'fuzzy') return 'fuzzy'
-  if (progress?.status === 'unknown') return 'unknown'
-  return null
-}
-
-const learnStatusWordSource = computed(() => (
-  learnSessionCompleted.value && completedLearnWords.value.length > 0
-    ? completedLearnWords.value
-    : learnWords.value
-))
-const reviewStatusWordSource = computed(() => (
-  reviewSessionCompleted.value && completedReviewWords.value.length > 0
-    ? completedReviewWords.value
-    : reviewWords.value
-))
-
-const learnKnownWords = computed(() => learnStatusWordSource.value.filter(word => getWordStatus(word.id) === 'known'))
-const learnFuzzyWords = computed(() => learnStatusWordSource.value.filter(word => getWordStatus(word.id) === 'fuzzy'))
-const learnUnknownWords = computed(() => learnStatusWordSource.value.filter(word => getWordStatus(word.id) === 'unknown'))
-
-const reviewKnownWords = computed(() => reviewStatusWordSource.value.filter(word => getWordStatus(word.id) === 'known'))
-const reviewFuzzyWords = computed(() => reviewStatusWordSource.value.filter(word => getWordStatus(word.id) === 'fuzzy'))
-const reviewUnknownWords = computed(() => reviewStatusWordSource.value.filter(word => getWordStatus(word.id) === 'unknown'))
 
 // 背单词相关方法
 const toggleLearningCard = () => {
@@ -809,151 +718,6 @@ const triggerReviewCelebration = () => {
   }, 2600)
 }
 
-const openPlanSwitcher = () => {
-  planPanelOpenNames.value = ['edit']
-  ElMessage.info('请选择要切换的学习计划')
-}
-
-const releaseFlipAnimation = () => {
-  requestAnimationFrame(() => {
-    skipFlipAnimation.value = false
-  })
-}
-
-const isNetworkFetchError = (error: unknown): boolean => {
-  if (!(error instanceof Error)) return false
-  const message = error.message.toLowerCase()
-  return message.includes('failed to fetch') || message.includes('networkerror')
-}
-
-const getTodayDateKey = (): string => {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-const applySessionStats = (
-  target: { known: number; fuzzy: number; unknown: number },
-  source?: { knownCount: number; fuzzyCount: number; unknownCount: number }
-) => {
-  if (!source) {
-    target.known = 0
-    target.fuzzy = 0
-    target.unknown = 0
-    return
-  }
-  target.known = source.knownCount
-  target.fuzzy = source.fuzzyCount
-  target.unknown = source.unknownCount
-}
-
-const buildStatsFromProgress = (
-  words: Word[],
-  target: { known: number; fuzzy: number; unknown: number }
-) => {
-  if (words.length === 0) return
-
-  let known = 0
-  let fuzzy = 0
-  let unknown = 0
-
-  for (const word of words) {
-    const progress = getProgress(word.id)
-    const status = progress?.status
-    if (status === 'known') known += 1
-    else if (status === 'fuzzy') fuzzy += 1
-    else if (status === 'unknown') unknown += 1
-  }
-
-  target.known = known
-  target.fuzzy = fuzzy
-  target.unknown = unknown
-}
-
-const resolveWordsByIds = async (wordIds: string[]): Promise<Word[]> => {
-  if (wordIds.length === 0) return []
-
-  const cache = new Map<string, Word>()
-  for (const word of [...learnSessionPoolWords.value, ...learnWords.value, ...reviewWords.value, ...completedLearnWords.value, ...completedReviewWords.value]) {
-    cache.set(word.id, word)
-  }
-
-  const orderedUniqueIds: string[] = []
-  const seen = new Set<string>()
-  for (const rawId of wordIds) {
-    const id = String(rawId)
-    if (!id || seen.has(id)) continue
-    seen.add(id)
-    orderedUniqueIds.push(id)
-  }
-
-  const missingIds = orderedUniqueIds.filter(id => !cache.has(id))
-  if (missingIds.length > 0) {
-    const fetchResults = await Promise.allSettled(missingIds.map(id => getWord(id)))
-    fetchResults.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        cache.set(missingIds[index] || '', result.value)
-      }
-    })
-  }
-
-  return orderedUniqueIds.map(id => cache.get(id)).filter((word): word is Word => !!word)
-}
-
-const syncCompletionStateByPlan = async () => {
-  if (!isAuthenticated() || !currentPlan.value) {
-    learnSessionCompleted.value = false
-    reviewSessionCompleted.value = false
-    return
-  }
-
-  try {
-    const sessions = await getLearningSessions(currentPlan.value.id)
-    const today = getTodayDateKey()
-    const todaySessions = sessions.filter(session => session.date === today)
-
-    const todayLearnSession = todaySessions.find(session => session.learnedWords.length > 0)
-    const todayReviewSession = todaySessions.find(session => session.reviewedWords.length > 0)
-
-    learnSessionCompleted.value = !!todayLearnSession
-    reviewSessionCompleted.value = !!todayReviewSession
-
-    if (todayLearnSession || todayReviewSession) {
-      await syncWordProgress()
-    }
-
-    if (todayLearnSession) {
-      currentLearnIndex.value = 0
-      showLearningMeaning.value = false
-      learnWordStatusMap.value.clear()
-      completedLearnWords.value = await resolveWordsByIds(todayLearnSession.learnedWords)
-      // 先使用后端当日会话统计，避免切页后因单词列表暂空导致清零
-      applySessionStats(learnSessionStats, todayLearnSession.sessionStats)
-      buildStatsFromProgress(completedLearnWords.value, learnSessionStats)
-    } else {
-      completedLearnWords.value = []
-      applySessionStats(learnSessionStats)
-    }
-
-    if (todayReviewSession) {
-      currentReviewIndex.value = 0
-      showReviewMeaning.value = false
-      reviewWordStatusMap.value.clear()
-      completedReviewWords.value = await resolveWordsByIds(todayReviewSession.reviewedWords)
-      // 同上：先用会话统计兜底，再按进度覆盖校准
-      applySessionStats(reviewSessionStats, todayReviewSession.sessionStats)
-      buildStatsFromProgress(completedReviewWords.value, reviewSessionStats)
-    } else {
-      completedReviewWords.value = []
-      applySessionStats(reviewSessionStats)
-    }
-  } catch (error) {
-    console.error('Failed to sync completion state by plan:', error)
-  }
-}
-
 const applyWordStatusChange = (
   statusMap: Map<string, 'unknown' | 'fuzzy' | 'known'>,
   sessionStats: { known: number; fuzzy: number; unknown: number },
@@ -980,7 +744,7 @@ const nextLearnWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
   
   if (currentWord.value) {
     const wordId = currentWord.value.id
-    applyWordStatusChange(
+    const { isFirstMarked } = applyWordStatusChange(
       learnWordStatusMap.value,
       learnSessionStats,
       wordId,
@@ -988,6 +752,9 @@ const nextLearnWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
     )
 
     updateProgress(currentWord.value.id, status)
+    if (isFirstMarked) {
+      incrementRecited()
+    }
 
     // 选择后直接跳到下一词，不执行翻转动画
     skipFlipAnimation.value = true
@@ -995,57 +762,39 @@ const nextLearnWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
     
     // 检查是否所有单词都已标记
     const allMarked = learnWords.value.every(word => learnWordStatusMap.value.has(word.id))
-
-    try {
-      if (allMarked) {
-        // 所有单词都标记后，先同步后端成功再显示完成状态
-        if (currentPlan.value) {
-          const today = getTodayDateKey()
-          try {
-            await saveLearningSession(currentPlan.value.id, {
-              planId: currentPlan.value.id,
-              date: today,
-              learnedWords: learnWords.value.map(w => w.id),
-              reviewedWords: [],
-              sessionStats: {
-                knownCount: learnSessionStats.known,
-                fuzzyCount: learnSessionStats.fuzzy,
-                unknownCount: learnSessionStats.unknown
-              },
-              completedAt: Date.now()
-            })
-          } catch (error: any) {
-            console.error('保存学习完成状态失败:', error)
-            if (isNetworkFetchError(error)) {
-              await syncCompletionStateByPlan()
-              if (learnSessionCompleted.value) {
-                await syncStudyStats()
-                ElMessage.info('网络请求超时，已按后端记录完成同步')
-                return
-              }
-            }
-            ElMessage.error(error?.message || '学习完成同步失败，请稍后重试')
-            return
-          }
-
-          // 保存成功即进入完成态，统计刷新失败不阻断用户流程
-          learnSessionCompleted.value = true
-          await syncStudyStats()
-          await syncCompletionStateByPlan()
-        } else {
-          learnSessionCompleted.value = true
-        }
-      } else {
-        // 还有未标记的单词，继续到下一张
-        currentLearnIndex.value++
-        if (currentLearnIndex.value >= learnWords.value.length) {
-          // 到达最后一张，循环回开头找未标记的单词
-          currentLearnIndex.value = 0
-        }
+    
+    if (allMarked) {
+      // 所有单词都标记了，显示完成状态
+      learnSessionCompleted.value = true
+      // 保存学习轮次
+      if (currentPlan.value) {
+        const today = new Date().toISOString().split('T')[0] || ''
+        await saveLearningSession(currentPlan.value.id, {
+          planId: currentPlan.value.id,
+          date: today,
+          learnedWords: learnWords.value.map(w => w.id),
+          reviewedWords: [],
+          sessionStats: { 
+            knownCount: learnSessionStats.known,
+            fuzzyCount: learnSessionStats.fuzzy,
+            unknownCount: learnSessionStats.unknown
+          },
+          completedAt: Date.now()
+        })
+        await syncStudyStats()
       }
-    } finally {
-      releaseFlipAnimation()
+    } else {
+      // 还有未标记的单词，继续到下一张
+      currentLearnIndex.value++
+      if (currentLearnIndex.value >= learnWords.value.length) {
+        // 到达最后一张，循环回开头找未标记的单词
+        currentLearnIndex.value = 0
+      }
     }
+
+    requestAnimationFrame(() => {
+      skipFlipAnimation.value = false
+    })
   }
 }
 
@@ -1055,14 +804,6 @@ const jumpToLearnWord = (wordId: string) => {
   activeTab.value = 'learn'
   showLearningMeaning.value = false
   currentLearnIndex.value = targetIndex
-}
-
-const jumpToReviewWord = (wordId: string) => {
-  const targetIndex = reviewWords.value.findIndex(word => word.id === wordId)
-  if (targetIndex === -1) return
-  activeTab.value = 'review'
-  showReviewMeaning.value = false
-  currentReviewIndex.value = targetIndex
 }
 
 // 上一张卡片
@@ -1116,7 +857,6 @@ const resetLearnSessionWithSource = async (reloadFromApi: boolean = false) => {
   learnSessionCompleted.value = false
   showLearnCelebration.value = false
   learnWordStatusMap.value.clear()
-  completedLearnWords.value = []
 
   if (reloadFromApi || learnSessionPoolWords.value.length === 0) {
     await loadLearnWords()
@@ -1170,7 +910,7 @@ const nextReviewWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
   
   if (currentReviewWord.value) {
     const wordId = currentReviewWord.value.id
-    applyWordStatusChange(
+    const { isFirstMarked } = applyWordStatusChange(
       reviewWordStatusMap.value,
       reviewSessionStats,
       wordId,
@@ -1178,6 +918,9 @@ const nextReviewWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
     )
 
     updateProgress(currentReviewWord.value.id, status)
+    if (isFirstMarked) {
+      incrementRecited()
+    }
 
     // 选择后直接跳到下一词，不执行翻转动画
     skipFlipAnimation.value = true
@@ -1185,56 +928,38 @@ const nextReviewWord = async (status: 'unknown' | 'fuzzy' | 'known') => {
     
     // 检查是否所有单词都已标记
     const allMarked = reviewWords.value.every(word => reviewWordStatusMap.value.has(word.id))
-
-    try {
-      if (allMarked) {
-        // 先同步后端成功再显示完成状态
-        if (currentPlan.value) {
-          const today = getTodayDateKey()
-          try {
-            await saveLearningSession(currentPlan.value.id, {
-              planId: currentPlan.value.id,
-              date: today,
-              learnedWords: [],
-              reviewedWords: reviewWords.value.map(w => w.id),
-              sessionStats: {
-                knownCount: reviewSessionStats.known,
-                fuzzyCount: reviewSessionStats.fuzzy,
-                unknownCount: reviewSessionStats.unknown
-              },
-              completedAt: Date.now()
-            })
-          } catch (error: any) {
-            console.error('保存复习完成状态失败:', error)
-            if (isNetworkFetchError(error)) {
-              await syncCompletionStateByPlan()
-              if (reviewSessionCompleted.value) {
-                await syncStudyStats()
-                ElMessage.info('网络请求超时，已按后端记录完成同步')
-                return
-              }
-            }
-            ElMessage.error(error?.message || '复习完成同步失败，请稍后重试')
-            return
-          }
-
-          reviewSessionCompleted.value = true
-          await syncStudyStats()
-          await syncCompletionStateByPlan()
-        } else {
-          reviewSessionCompleted.value = true
-        }
-      } else {
-        // 还有未标记的单词，继续到下一张
-        currentReviewIndex.value++
-        if (currentReviewIndex.value >= reviewWords.value.length) {
-          // 到达最后一张，循环回开头找未标记的单词
-          currentReviewIndex.value = 0
-        }
+    
+    if (allMarked) {
+      // 所有单词都标记了，显示完成状态
+      reviewSessionCompleted.value = true
+      if (currentPlan.value) {
+        const today = new Date().toISOString().split('T')[0] || ''
+        await saveLearningSession(currentPlan.value.id, {
+          planId: currentPlan.value.id,
+          date: today,
+          learnedWords: [],
+          reviewedWords: reviewWords.value.map(w => w.id),
+          sessionStats: {
+            knownCount: reviewSessionStats.known,
+            fuzzyCount: reviewSessionStats.fuzzy,
+            unknownCount: reviewSessionStats.unknown
+          },
+          completedAt: Date.now()
+        })
+        await syncStudyStats()
       }
-    } finally {
-      releaseFlipAnimation()
+    } else {
+      // 还有未标记的单词，继续到下一张
+      currentReviewIndex.value++
+      if (currentReviewIndex.value >= reviewWords.value.length) {
+        // 到达最后一张，循环回开头找未标记的单词
+        currentReviewIndex.value = 0
+      }
     }
+
+    requestAnimationFrame(() => {
+      skipFlipAnimation.value = false
+    })
   }
 }
 
@@ -1254,9 +979,7 @@ const skipReviewWord = () => {
   }
 }
 
-const loadReviewWords = async (
-  optionsOrEvent?: { useClientLearnCount?: boolean } | Event
-) => {
+const loadReviewWords = async () => {
   if (!isAuthenticated()) {
     reviewWords.value = []
     return
@@ -1268,16 +991,7 @@ const loadReviewWords = async (
       await loadStudyPlans()
     }
     if (currentPlan.value) {
-      const shouldUseClientLearnCount = (
-        !!optionsOrEvent &&
-        typeof optionsOrEvent === 'object' &&
-        'useClientLearnCount' in optionsOrEvent &&
-        optionsOrEvent.useClientLearnCount === true
-      )
-      const dynamicLearnCount = shouldUseClientLearnCount && learnSessionPoolWords.value.length > 0
-        ? learnSessionPoolWords.value.length
-        : undefined
-      reviewWords.value = await getReviewWords(currentPlan.value.id, undefined, dynamicLearnCount)
+      reviewWords.value = await getReviewWords(currentPlan.value.id)
     }
   } catch (error) {
     console.error('Failed to load review words:', error)
@@ -1303,7 +1017,6 @@ const resetReviewSession = async () => {
   reviewSessionCompleted.value = false
   showReviewCelebration.value = false
   reviewWordStatusMap.value.clear()
-  completedReviewWords.value = []
   await loadReviewWords()
 }
 
@@ -1330,16 +1043,12 @@ const requestAddMore = async () => {
         learnSessionPoolWords.value.push(...additionalWords)
         // 加量学习阶段仅学习新增单词
         learnWords.value = additionalWords
-        learnSessionStats.known = 0
-        learnSessionStats.fuzzy = 0
-        learnSessionStats.unknown = 0
         learnWordStatusMap.value.clear()
         currentLearnIndex.value = 0
         showLearningMeaning.value = false
         skipFlipAnimation.value = false
         learnSessionCompleted.value = false
         showLearnCelebration.value = false
-        await loadReviewWords({ useClientLearnCount: true })
         ElMessage.success(`已添加 ${additionalWords.length} 个加量单词`)
       }
     }
@@ -1391,7 +1100,6 @@ const handlePlanSwitch = async (planId: string) => {
     await loadStudyPlans()
     await resetLearnSessionWithSource(true)
     await resetReviewSession()
-    await syncCompletionStateByPlan()
     ElMessage.success('已切换学习计划')
   } catch (error: any) {
     ElMessage.error(error?.message || '切换学习计划失败')
@@ -1525,24 +1233,23 @@ const handleKeyboard = (event: KeyboardEvent) => {
   }
 }
 
-watch(learnSessionCompleted, (completed, previous) => {
-  if (completed && !previous) {
+watch(learnSessionCompleted, (completed) => {
+  if (completed) {
     triggerLearnCelebration()
   }
 })
 
-watch(reviewSessionCompleted, (completed, previous) => {
-  if (completed && !previous) {
+watch(reviewSessionCompleted, (completed) => {
+  if (completed) {
     triggerReviewCelebration()
   }
 })
 
 onMounted(() => {
   if (isAuthenticated()) {
-    loadDictionaries().then(() => loadStudyPlans()).then(async () => {
-      await loadLearnWords()
-      await loadReviewWords()
-      await syncCompletionStateByPlan()
+    loadDictionaries().then(() => loadStudyPlans()).then(() => {
+      loadLearnWords()
+      loadReviewWords()
     })
   }
 
@@ -2345,68 +2052,6 @@ h1 {
   color: #f56c6c;
 }
 
-.status-word-groups {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.status-word-group {
-  background: #ffffff;
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  padding: 12px;
-  text-align: left;
-}
-
-.status-word-group h4 {
-  margin: 0 0 8px;
-  font-size: 14px;
-  color: #000000;
-}
-
-.status-word-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  max-height: 136px;
-  overflow-y: auto;
-}
-
-.status-word-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.status-word-chip.known {
-  color: #2f8f21;
-  background: rgba(103, 194, 58, 0.16);
-  border: 1px solid rgba(103, 194, 58, 0.35);
-}
-
-.status-word-chip.fuzzy {
-  color: #b6760f;
-  background: rgba(230, 162, 60, 0.16);
-  border: 1px solid rgba(230, 162, 60, 0.35);
-}
-
-.status-word-chip.unknown {
-  color: #c24646;
-  background: rgba(245, 108, 108, 0.16);
-  border: 1px solid rgba(245, 108, 108, 0.35);
-}
-
-.status-empty {
-  margin: 0;
-  color: #909399;
-  font-size: 13px;
-}
-
 .empty-state {
   text-align: center;
   padding: 60px 20px;
@@ -2507,10 +2152,6 @@ h1 {
   }
   
   .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .status-word-groups {
     grid-template-columns: 1fr;
   }
   

@@ -315,39 +315,8 @@ function assertApiResponse(response: Response, action: string): void {
     throw new Error('登录状态已失效，请重新登录')
   }
   if (!response.ok) {
-    throw new Error(`${action}失败: HTTP ${response.status}`)
+    throw new Error(`${action}失败: ${response.statusText}`)
   }
-}
-
-async function assertApiResponseWithDetail(response: Response, action: string): Promise<void> {
-  if (response.status === 401) {
-    handleExpiredToken()
-    throw new Error('登录状态已失效，请重新登录')
-  }
-  if (response.ok) return
-
-  let detail = ''
-  try {
-    const payload = await response.clone().json() as { detail?: unknown; message?: unknown; error?: unknown }
-    if (typeof payload.detail === 'string' && payload.detail.trim()) {
-      detail = payload.detail.trim()
-    } else if (typeof payload.message === 'string' && payload.message.trim()) {
-      detail = payload.message.trim()
-    } else if (typeof payload.error === 'string' && payload.error.trim()) {
-      detail = payload.error.trim()
-    }
-  } catch {
-    try {
-      const text = await response.clone().text()
-      if (text && text.trim()) {
-        detail = text.trim().slice(0, 160)
-      }
-    } catch {
-      detail = ''
-    }
-  }
-
-  throw new Error(detail ? `${action}失败: HTTP ${response.status} - ${detail}` : `${action}失败: HTTP ${response.status}`)
 }
 
 /**
@@ -1044,26 +1013,17 @@ export async function getLearnWords(planId: string, date?: string): Promise<Word
 
 /**
  * 获取复习单词列表
- * GET /api/study-plans/:planId/review-words?date=YYYY-MM-DD&learned_count=10
+ * GET /api/study-plans/:planId/review-words?date=YYYY-MM-DD
  */
-export async function getReviewWords(
-  planId: string,
-  date?: string,
-  learnedCount?: number
-): Promise<Word[]> {
-  const targetDate: string = date ?? (new Date().toISOString().split('T')[0] ?? '')
+export async function getReviewWords(planId: string, date?: string): Promise<Word[]> {
+  const targetDate = date || new Date().toISOString().split('T')[0]
   
   if (USE_MOCK_API) {
     // 返回随机单词作为复习列表
     return getRandomWords(5)
   }
   
-  const query = new URLSearchParams({ date: targetDate })
-  if (typeof learnedCount === 'number' && learnedCount >= 0) {
-    query.set('learned_count', String(Math.floor(learnedCount)))
-  }
-
-  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/review-words?${query.toString()}`, {
+  const response = await fetch(`${API_BASE_URL}/study-plans/${planId}/review-words?date=${targetDate}`, {
     headers: getAuthHeaders()
   })
   assertApiResponse(response, '获取复习单词')
@@ -1095,7 +1055,7 @@ export async function saveLearningSession(planId: string, session: Omit<Learning
       unknown_count: session.sessionStats.unknownCount
     })
   })
-  await assertApiResponseWithDetail(response, '保存学习轮次')
+  assertApiResponse(response, '保存学习轮次')
   const data: LearningSessionApiResponse = await response.json()
   return normalizeLearningSession(data)
 }
