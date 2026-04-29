@@ -72,100 +72,49 @@
       </el-card>
     </div>
 
-    <!-- 评分结果展示 -->
-    <div v-if="essays.length > 0" class="essays-history"
+    <!-- 作文历史记录 -->
+    <div class="essays-history"
       @mousemove.stop
       @pointermove.stop
       @touchmove.stop>
       <el-card class="section-card">
         <template #header>
-          <div class="card-header"><el-icon class="inline-icon"><Collection /></el-icon> 作文历史</div>
+          <div class="card-header"><el-icon class="inline-icon"><Collection /></el-icon> 作文历史记录</div>
         </template>
 
-      <div class="empty-state" v-if="essays.length === 0">
-        <p>还没有提交任何作文</p>
+      <div v-if="essays.length === 0" style="padding: 40px 20px; text-align: center;">
+        <el-empty description="还没有提交任何作文，快去练习吧" />
       </div>
 
-      <div v-for="essay in essays" :key="essay.id" class="essay-item">
-        <div class="essay-header">
-          <div>
-            <div class="essay-title">{{ essay.topic === 'custom' ? essay.title : getTopicLabel(essay.topic) }}</div>
-            <p class="meta"><el-icon class="inline-icon"><Calendar /></el-icon> {{ formatDate(essay.submitTime) }} | <el-icon class="inline-icon"><Memo /></el-icon> {{ essay.wordCount }} 字</p>
-          </div>
-          <button
-            @click="selectEssay(essay)"
-            :class="['btn btn-view', { active: selectedEssay?.id === essay.id }]"
-          >
-            <span v-if="essay.score">查看评分</span>
-            <span v-else><el-icon class="inline-icon"><Loading /></el-icon> 等待评分</span>
-          </button>
-        </div>
-
-
-        <!-- 评分结果 -->
-        <transition name="expand">
-          <div v-if="selectedEssay?.id === essay.id && essay.score" class="score-detail">
-            <div class="score-summary">
-              <div class="main-score">
-                <div class="score-number">{{ essay.score.overallScore }}</div>
-                <div class="score-label">总分</div>
-              </div>
-
-              <div class="score-breakdown">
-                <div class="score-item">
-                  <span class="score-label">语法</span>
-                  <div class="score-bar">
-                    <div class="score-fill" :style="{ width: essay.score.gramarScore + '%' }"></div>
-                  </div>
-                  <span class="score-value">{{ essay.score.gramarScore }}</span>
-                </div>
-
-                <div class="score-item">
-                  <span class="score-label">词汇</span>
-                  <div class="score-bar">
-                    <div class="score-fill" :style="{ width: essay.score.vocabularyScore + '%' }"></div>
-                  </div>
-                  <span class="score-value">{{ essay.score.vocabularyScore }}</span>
-                </div>
-
-                <div class="score-item">
-                  <span class="score-label">流畅度</span>
-                  <div class="score-bar">
-                    <div class="score-fill" :style="{ width: essay.score.fluencyScore + '%' }"></div>
-                  </div>
-                  <span class="score-value">{{ essay.score.fluencyScore }}</span>
-                </div>
-
-                <div class="score-item">
-                  <span class="score-label">连贯性</span>
-                  <div class="score-bar">
-                    <div class="score-fill" :style="{ width: essay.score.coherenceScore + '%' }"></div>
-                  </div>
-                  <span class="score-value">{{ essay.score.coherenceScore }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 评论 -->
-            <div class="comments-section">
-              <h4><el-icon class="inline-icon"><ChatDotRound /></el-icon> 评论反馈</h4>
-              <p class="comment-text">{{ essay.score.comments }}</p>
-              <p class="ai-note" v-if="essay.score.aiEvaluated">
-                <el-icon class="inline-icon"><Opportunity /></el-icon> 本评分由 AI 系统生成（{{ formatDate(essay.score.evaluationTime) }}）
-              </p>
-            </div>
-
-            <!-- 原文 -->
-            <div class="essay-content-view">
-              <h4><el-icon class="inline-icon"><Document /></el-icon> 原文</h4>
-              <div class="content-box">
-                {{ essay.content }}
-              </div>
-            </div>
-          </div>
-        </transition>
-      </div>
-    </el-card>
+      <el-table v-else :data="essays" style="width: 100%" stripe>
+        <el-table-column label="提交时间" min-width="160">
+          <template #default="scope">
+            {{ formatDate(scope.row.submitTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="话题" min-width="120">
+          <template #default="scope">
+            {{ scope.row.topic === 'custom' ? scope.row.title : getTopicLabel(scope.row.topic) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="字数" width="80" prop="wordCount"></el-table-column>
+        <el-table-column label="评分" width="80">
+          <template #default="scope">
+            <template v-if="scope.row.score">
+              <span :style="{ color: scope.row.score.overallScore >= 80 ? '#67C23A' : '#E6A23C', fontWeight: 'bold' }">
+                {{ scope.row.score.overallScore }}
+              </span>
+            </template>
+            <span v-else style="color: #909399;">待评</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="90" fixed="right">
+          <template #default="scope">
+            <el-button type="primary" link size="small" @click="viewHistoryDetail(scope.row)">详情报告</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      </el-card>
     </div>
 
     <!-- 提示 -->
@@ -183,6 +132,78 @@
         <li>AI 评分系统正在优化中，目前支持人工评分和样本评分</li>
       </ul>
     </el-card>
+
+    <!-- 作文详情与评分报告弹窗 -->
+    <el-dialog
+      v-model="historyDetailVisible"
+      title="作文详细报告"
+      width="600px"
+    >
+      <div v-if="selectedHistoryItem" class="history-detail-body">
+        <h3 style="margin-top: 0;">{{ selectedHistoryItem.topic === 'custom' ? selectedHistoryItem.title : getTopicLabel(selectedHistoryItem.topic) }}</h3>
+        <p style="color: #909399; font-size: 13px; margin-bottom: 20px;">
+          提交时间: {{ formatDate(selectedHistoryItem.submitTime) }} | 字数: {{ selectedHistoryItem.wordCount }}
+        </p>
+
+        <template v-if="selectedHistoryItem.score">
+          <el-row :gutter="20" style="margin-bottom: 20px; border: 1px solid #EBEEF5; padding: 15px; border-radius: 8px; background: #FAFAFA;">
+            <el-col :span="8" style="text-align: center; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid #EBEEF5;">
+              <el-progress
+                type="dashboard"
+                :percentage="selectedHistoryItem.score.overallScore"
+                :color="selectedHistoryItem.score.overallScore >= 80 ? '#67C23A' : '#E6A23C'"
+                :width="90"
+              >
+                <template #default="{ percentage }">
+                  <span style="font-size: 20px; font-weight: bold;">{{ percentage }}</span>
+                  <div style="font-size: 12px; color: #909399;">总分</div>
+                </template>
+              </el-progress>
+            </el-col>
+            <el-col :span="16">
+              <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                <span style="width: 45px; text-align: right; font-size: 12px; color: #606266;">语法</span>
+                <el-progress style="flex: 1;" :percentage="selectedHistoryItem.score.gramarScore" :stroke-width="8" />
+              </div>
+              <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                <span style="width: 45px; text-align: right; font-size: 12px; color: #606266;">词汇</span>
+                <el-progress style="flex: 1;" :percentage="selectedHistoryItem.score.vocabularyScore" :stroke-width="8" />
+              </div>
+              <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                <span style="width: 45px; text-align: right; font-size: 12px; color: #606266;">流畅度</span>
+                <el-progress style="flex: 1;" :percentage="selectedHistoryItem.score.fluencyScore" :stroke-width="8" />
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="width: 45px; text-align: right; font-size: 12px; color: #606266;">连贯性</span>
+                <el-progress style="flex: 1;" :percentage="selectedHistoryItem.score.coherenceScore" :stroke-width="8" />
+              </div>
+            </el-col>
+          </el-row>
+
+          <div style="margin-bottom: 20px; background-color: #Fdf6ec; padding: 15px; border-radius: 6px; border: 1px solid #faecd8;">
+            <h4 style="margin: 0 0 10px 0; color: #E6A23C; font-size: 14px; display: flex; align-items: center;">
+              <el-icon style="margin-right: 5px;"><ChatDotRound /></el-icon> AI 综合评价
+            </h4>
+            <p style="margin: 0; line-height: 1.6; color: #606266; font-size: 14px;">{{ selectedHistoryItem.score.comments }}</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; color: #303133; font-size: 14px; display: flex; align-items: center;">
+              <el-icon style="margin-right: 5px;"><Document /></el-icon> 原文内容
+            </h4>
+            <div style="padding: 15px; background-color: #F8F9FA; border: 1px solid #E4E7ED; border-radius: 6px; font-size: 14px; line-height: 1.8; color: #303133; white-space: pre-wrap; max-height: 300px; overflow-y: auto;">{{ selectedHistoryItem.content }}</div>
+          </div>
+        </template>
+        <template v-else>
+          <el-empty description="该作文正在评测中，请稍后查看" />
+        </template>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="historyDetailVisible = false">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -220,6 +241,17 @@ const isSubmitting = ref<boolean>(false)
 const essays = ref<Essay[]>([])
 const selectedEssay = ref<Essay | null>(null)
 const showEvaluationOnly = ref<boolean>(false)
+
+/**
+ * 历史记录与详情
+ */
+const historyDetailVisible = ref<boolean>(false)
+const selectedHistoryItem = ref<Essay | null>(null)
+
+const viewHistoryDetail = (item: Essay) => {
+  selectedHistoryItem.value = item
+  historyDetailVisible.value = true
+}
 
 /**
  * 获取话题统计标签

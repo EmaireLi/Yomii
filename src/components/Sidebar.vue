@@ -34,7 +34,7 @@
     <!-- 快捷链接 -->
     <div class="shortcuts-section">
       <h3>快捷操作</h3>
-      <button @click="clearHistory" class="shortcut-btn" title="清空搜索历史">
+      <button @click="handleClearHistory" class="shortcut-btn" title="清空搜索历史">
         <el-icon><DeleteIcon /></el-icon>
         <span>清空历史</span>
       </button>
@@ -53,6 +53,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ElMessage } from 'element-plus'
 import { House, Search, DocumentCopy, Notebook, Delete, Download, Star } from '@element-plus/icons-vue'
 import { VIEWS } from '@/utils/constants'
 import { useSearchHistory, useStudyStats } from '@/composables/useLocalStorage'
@@ -85,6 +86,15 @@ const dailyRecited = computed(() => stats.value.todayRecited)
 const dailyProgress = computed(() => {
   return Math.min((dailyRecited.value / dailyGoal) * 100, 100)
 })
+
+const handleClearHistory = async () => {
+  try {
+    await clearHistory()
+    ElMessage.success('搜索历史已清空')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '清空失败，请稍后重试')
+  }
+}
 
 const exportData = () => {
   const data = {

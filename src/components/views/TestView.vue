@@ -67,21 +67,45 @@
         <p class="recommendation-text">{{ abilityReport.summary }}</p>
       </el-card>
 
-      <el-card v-if="quizHistory.length > 0" class="section-card">
+      <el-card class="section-card">
         <template #header>
-          <div class="card-header">最近测试记录</div>
+          <div class="card-header">测试历史记录</div>
         </template>
-        <div class="history-list">
-          <div v-for="item in quizHistory.slice(0, 3)" :key="item.id" class="history-item">
-            <div class="history-main">
-              <strong>{{ difficultyText(item.difficulty) }}</strong>
-              <span>{{ item.correctAnswers }} / {{ item.totalQuestions }}</span>
-              <span>{{ item.accuracy }}%</span>
-              <span>{{ item.level }}</span>
-            </div>
-            <div class="history-sub">{{ formatDateTime(item.completedAt) }}</div>
-          </div>
+        <div v-if="quizHistory.length === 0" style="padding: 40px 20px; text-align: center;">
+          <el-empty description="暂无测试记录，快去参加测试吧" />
         </div>
+        <el-table v-else :data="quizHistory" style="width: 100%" stripe>
+          <el-table-column label="测试时间" min-width="160">
+            <template #default="scope">
+              {{ formatDateTime(scope.row.completedAt) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="难度" width="80">
+            <template #default="scope">
+              {{ difficultyText(scope.row.difficulty) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="答对/总数" width="100">
+            <template #default="scope">
+              {{ scope.row.correctAnswers }} / {{ scope.row.totalQuestions }}
+            </template>
+          </el-table-column>
+          <el-table-column label="准确率" width="100">
+            <template #default="scope">
+              <el-progress :percentage="scope.row.accuracy" :status="scope.row.accuracy >= 80 ? 'success' : scope.row.accuracy < 60 ? 'exception' : ''" style="width: 80px" />
+            </template>
+          </el-table-column>
+          <el-table-column label="评级" width="80">
+            <template #default="scope">
+              <el-tag :type="scope.row.accuracy >= 80 ? 'success' : 'info'">{{ scope.row.level }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="90" fixed="right">
+            <template #default="scope">
+              <el-button type="primary" link size="small" @click="viewHistoryDetail(scope.row)">详情报告</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </el-card>
     </div>
 
@@ -241,6 +265,67 @@
         </div>
       </el-card>
     </div>
+
+    <!-- 测试详情报告弹窗 -->
+    <el-dialog
+      v-model="historyDetailVisible"
+      title="测试详细报告"
+      width="600px"
+    >
+      <div v-if="selectedHistoryItem" class="history-detail-body">
+        <p style="color: #909399; font-size: 13px; margin-bottom: 20px;">
+          测试时间: {{ formatDateTime(selectedHistoryItem.completedAt) }} | 难度: {{ difficultyText(selectedHistoryItem.difficulty) }}
+        </p>
+
+        <el-row :gutter="20" style="margin-bottom: 20px; border: 1px solid #EBEEF5; padding: 15px; border-radius: 8px; background: #FAFAFA;">
+          <el-col :span="8" style="text-align: center; display: flex; flex-direction: column; justify-content: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #409EFF;">{{ selectedHistoryItem.correctAnswers }} / {{ selectedHistoryItem.totalQuestions }}</div>
+            <div style="font-size: 12px; color: #909399; margin-top: 5px;">答对题数</div>
+          </el-col>
+          <el-col :span="8" style="text-align: center; display: flex; flex-direction: column; justify-content: center; border-left: 1px solid #EBEEF5; border-right: 1px solid #EBEEF5;">
+            <el-progress
+              type="dashboard"
+              :percentage="selectedHistoryItem.accuracy"
+              :color="selectedHistoryItem.accuracy >= 80 ? '#67C23A' : '#E6A23C'"
+              :width="80"
+            >
+              <template #default="{ percentage }">
+                <span style="font-size: 16px; font-weight: bold;">{{ percentage }}%</span>
+              </template>
+            </el-progress>
+            <div style="font-size: 12px; color: #909399; margin-top: 5px;">准确率</div>
+          </el-col>
+          <el-col :span="8" style="text-align: center; display: flex; flex-direction: column; justify-content: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #67C23A;">{{ selectedHistoryItem.level }}</div>
+            <div style="font-size: 12px; color: #909399; margin-top: 5px;">评级</div>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20" style="margin-bottom: 20px; border: 1px solid #EBEEF5; padding: 15px; border-radius: 8px; background: #F8F9FA;">
+          <el-col :span="12">
+            <div style="font-size: 12px; color: #909399;">整体能力分</div>
+            <div style="font-size: 20px; font-weight: bold; color: #409EFF; margin-top: 5px;">{{ selectedHistoryItem.abilityScore }}</div>
+          </el-col>
+          <el-col :span="12">
+            <div style="font-size: 12px; color: #909399;">趋势</div>
+            <div style="font-size: 14px; font-weight: bold; color: #E6A23C; margin-top: 5px;">
+              {{ selectedHistoryItem.trendDelta > 0 ? '↑' : selectedHistoryItem.trendDelta < 0 ? '↓' : '→' }}
+              {{ Math.abs(selectedHistoryItem.trendDelta) }}
+            </div>
+          </el-col>
+        </el-row>
+
+        <div style="margin-bottom: 20px; background-color: #F0F9FF; padding: 15px; border-radius: 6px; border: 1px solid #B3D8FF;">
+          <h4 style="margin: 0 0 10px 0; color: #0A73EB; font-size: 14px;">📊 测试总结</h4>
+          <p style="margin: 0; line-height: 1.6; color: #606266; font-size: 14px;">{{ selectedHistoryItem.summary }}</p>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="historyDetailVisible = false">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -276,6 +361,10 @@ const testStartAt = ref(0)
 const answerRecords = ref<Array<{ questionId: string; userAnswer: string; isCorrect: boolean }>>([])
 const quizHistory = ref<QuizSessionRecord[]>([])
 const abilityReport = ref<QuizAbilityReport | null>(null)
+
+// 历史视图状态
+const historyDetailVisible = ref(false)
+const selectedHistoryItem = ref<QuizSessionRecord | null>(null)
 
 const difficulties = [
   { label: '初级', value: 'easy' },
@@ -438,6 +527,11 @@ const startTimer = () => {
 const difficultyText = (value: string): string => {
   const matched = difficulties.find(item => item.value === value)
   return matched?.label || value
+}
+
+const viewHistoryDetail = (item: QuizSessionRecord) => {
+  selectedHistoryItem.value = item
+  historyDetailVisible.value = true
 }
 
 const formatDateTime = (timestamp: number): string => {

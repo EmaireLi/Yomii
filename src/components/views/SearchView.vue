@@ -52,19 +52,42 @@
           </el-col>
         </el-row>
         
-        <div v-if="searchHistory.length > 0" class="search-history">
-          <span class="history-label">最近搜索：</span>
-          <el-tag
-            v-for="(history, idx) in searchHistory.slice(0, 5)"
-            :key="idx"
-            @click="searchQuery = history; handleSearch()"
-            closable
-            @close="removeSearch(idx)"
-            class="history-tag"
-            style="cursor: pointer; margin-top: 8px;"
-          >
-            {{ history }}
-          </el-tag>
+        <div v-if="historyRecords.length > 0" class="search-history">
+          <div class="history-header">
+            <button class="history-toggle" @click="historyExpanded = !historyExpanded">
+              <span class="history-label">最近搜索</span>
+              <span class="history-toggle-text">{{ historyExpanded ? '收起' : '展开' }}</span>
+            </button>
+            <div class="history-actions">
+              <el-button text class="history-link-btn" @click="historyDrawerVisible = true">
+                查看全部
+              </el-button>
+              <el-button text class="history-link-btn danger" @click="handleClearHistory">
+                清空历史
+              </el-button>
+            </div>
+          </div>
+          <div v-if="historyExpanded" class="history-preview-list">
+            <div
+              v-for="record in visibleHistoryRecords"
+              :key="record.id"
+              class="history-preview-item"
+            >
+              <button class="history-item-main preview" @click="applyHistorySearch(record.keyword)">
+                <span class="history-item-keyword">{{ record.keyword }}</span>
+                <span class="history-item-meta">
+                  {{ formatHistoryMeta(record.resultCount, record.createdAt) }}
+                </span>
+              </button>
+              <el-button
+                text
+                class="history-delete-btn"
+                @click="handleRemoveHistoryKeyword(record.keyword)"
+              >
+                删除
+              </el-button>
+            </div>
+          </div>
         </div>
       </div>
     </el-card>
@@ -209,6 +232,42 @@
       @touchmove.stop>
       <el-empty description="输入词汇开始查询" />
     </el-card>
+
+    <el-drawer
+      v-model="historyDrawerVisible"
+      title="查询历史"
+      size="420px"
+      class="history-drawer"
+    >
+      <div class="history-drawer-body">
+        <div class="drawer-toolbar">
+          <span class="drawer-summary">共 {{ historyRecords.length }} 条历史</span>
+          <el-button text class="history-link-btn danger" @click="handleClearHistory">
+            清空历史
+          </el-button>
+        </div>
+
+        <el-empty v-if="historyRecords.length === 0" description="暂无查询历史" />
+
+        <div v-else class="history-list">
+          <div
+            v-for="record in historyRecords"
+            :key="record.id"
+            class="history-list-item"
+          >
+            <button class="history-item-main" @click="applyHistorySearch(record.keyword)">
+              <span class="history-item-keyword">{{ record.keyword }}</span>
+              <span class="history-item-meta">
+                {{ formatHistoryMeta(record.resultCount, record.createdAt) }}
+              </span>
+            </button>
+            <el-button text class="history-delete-btn" @click="handleRemoveHistoryKeyword(record.keyword)">
+              删除
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </el-drawer>
   </section>
 </template>
 
@@ -230,13 +289,16 @@ const hasSearched = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const hoveredWordId = ref<string | null>(null)
+const historyDrawerVisible = ref(false)
+const historyExpanded = ref(false)
 const totalPages = computed(() => {
   if (searchTotal.value === 0) return 1
   return Math.ceil(searchTotal.value / searchLimit.value)
 })
 
-const { searchHistory, addSearch, removeSearch } = useSearchHistory()
+const { historyRecords, addSearch, removeSearch, clearHistory } = useSearchHistory()
 const { isFavorited, toggleFavorite: originalToggleFavorite } = useFavorites()
+const visibleHistoryRecords = computed(() => historyRecords.value.slice(0, 5))
 
 /**
  * 需要登录检查的 toggleFavorite 包装函数
@@ -267,7 +329,7 @@ const loadSearchPage = async (saveHistory: boolean = false) => {
     searchTotal.value = payload.total
     searchPage.value = payload.page
     if (saveHistory) {
-      addSearch(searchQuery.value)
+      await addSearch(searchQuery.value)
     }
   } catch (error: any) {
     errorMessage.value = error.message || '搜索失败，请稍后重试'
@@ -310,6 +372,22 @@ const handleLimitChange = async () => {
   await loadSearchPage(false)
 }
 
+const applyHistorySearch = async (keyword: string) => {
+  searchQuery.value = keyword
+  historyDrawerVisible.value = false
+  await handleSearch()
+}
+
+const formatHistoryMeta = (resultCount: number, createdAt: number) => {
+  const formattedTime = new Date(createdAt).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+  return `${resultCount} 条结果 · ${formattedTime}`
+}
+
 const playAudio = (url: string) => {
   console.log('Playing audio:', url)
   ElNotification({
@@ -328,6 +406,24 @@ const copyToClipboard = (text: string) => {
       duration: 2000
     })
   })
+}
+
+const handleRemoveHistoryKeyword = async (keyword: string) => {
+  try {
+    await removeSearch(keyword)
+  } catch (error: any) {
+    ElMessage.error(error?.message || '删除历史失败')
+  }
+}
+
+const handleClearHistory = async () => {
+  try {
+    await clearHistory()
+    historyDrawerVisible.value = false
+    ElMessage.success('查询历史已清空')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '清空历史失败')
+  }
 }
 </script>
 
@@ -372,19 +468,139 @@ const copyToClipboard = (text: string) => {
 
 .search-history {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.history-toggle {
+  display: inline-flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .history-label {
   font-size: 13px;
   color: #333333;
+  font-weight: 600;
 }
 
-.history-tag {
+.history-toggle-text {
+  color: #409eff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.history-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-preview-item,
+.history-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 12px 14px;
+  border: 1px solid #ebeef5;
+  border-radius: 10px;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.history-preview-item:hover,
+.history-list-item:hover {
+  border-color: #c6e2ff;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.08);
+}
+
+.history-link-btn {
+  padding: 0 !important;
+  font-size: 13px;
+}
+
+.history-link-btn.danger,
+.history-delete-btn {
+  color: #f56c6c !important;
+}
+
+.history-drawer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drawer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.drawer-summary {
+  color: #606266;
+  font-size: 13px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-item-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  text-align: left;
   cursor: pointer;
-  user-select: none;
+  padding: 0;
+}
+
+.history-item-main.preview {
+  min-width: 0;
+}
+
+.history-item-keyword {
+  color: #303133;
+  font-size: 15px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.history-item-meta {
+  color: #909399;
+  font-size: 12px;
+}
+
+.history-delete-btn {
+  flex-shrink: 0;
+  padding: 0 !important;
+  font-size: 13px;
 }
 
 .state-card {
@@ -585,34 +801,6 @@ const copyToClipboard = (text: string) => {
   background-color: #66b1ff;
 }
 
-.search-history {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.history-label {
-  font-size: 14px;
-  color: #333333;
-}
-
-.history-tag {
-  padding: 4px 12px;
-  background: #f0f9ff;
-  color: #409eff;
-  border: 1px solid #b3d8ff;
-  border-radius: 16px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.3s;
-}
-
-.history-tag:hover {
-  background: #409eff;
-  color: white;
-}
-
 .results {
   animation: slideIn 0.3s ease;
 }
@@ -788,6 +976,17 @@ const copyToClipboard = (text: string) => {
   color: #333333;
   font-weight: 500;
   letter-spacing: 2px;
+}
+
+@media (max-width: 768px) {
+  .history-preview-item,
+  .history-list-item {
+    align-items: flex-start;
+  }
+
+  .history-delete-btn {
+    align-self: center;
+  }
 }
 
 @keyframes spin {

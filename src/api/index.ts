@@ -703,7 +703,7 @@ export async function getSearchHistory(
   limit: number = 10
 ): Promise<Array<{ id: number; keyword: string; resultCount: number; createdAt: number }>> {
   if (USE_MOCK_API) {
-    // Mock 模式直接返回空（由 localStorage 驱动）
+    // Mock 模式无后端历史
     return []
   }
   
@@ -711,6 +711,30 @@ export async function getSearchHistory(
     headers: getAuthHeaders()
   })
   assertApiResponse(response, '获取搜索历史')
+  return response.json()
+}
+
+/**
+ * 删除搜索历史
+ * DELETE /api/user/search-history?keyword=xxx
+ * keyword 不传则清空全部历史
+ */
+export async function deleteSearchHistory(
+  keyword?: string
+): Promise<{ success: boolean; deletedCount: number; message?: string }> {
+  if (USE_MOCK_API) {
+    return { success: true, deletedCount: 0 }
+  }
+
+  const query = typeof keyword === 'string' && keyword.trim()
+    ? `?keyword=${encodeURIComponent(keyword.trim())}`
+    : ''
+
+  const response = await fetch(`${API_BASE_URL}/user/search-history${query}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '删除搜索历史')
   return response.json()
 }
 
@@ -812,11 +836,24 @@ export async function submitEssayAPI(essayData: {
   
   const response = await fetch(`${API_BASE_URL}/essays/submit`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(essayData)
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({
+      title: essayData.title,
+      topic: essayData.topic,
+      content: essayData.content,
+      word_count: essayData.wordCount
+    })
   })
   assertApiResponse(response, '提交作文')
-  return response.json()
+  const data = await response.json() as any
+  return {
+    id: String(data.id),
+    title: data.title,
+    content: data.content,
+    topic: data.topic,
+    wordCount: data.wordCount || data.word_count,
+    submitTime: data.submitTime || data.submit_time || Date.now()
+  }
 }
 
 /**
@@ -830,9 +867,31 @@ export async function getEssayHistoryAPI(limit: number = 20): Promise<Essay[]> {
     return stored ? JSON.parse(stored) : []
   }
   
-  const response = await fetch(`${API_BASE_URL}/essays/history?limit=${limit}`)
+  const response = await fetch(`${API_BASE_URL}/essays/history?limit=${limit}`, {
+    headers: getAuthHeaders()
+  })
   assertApiResponse(response, '获取作文历史')
-  return response.json()
+  const data = await response.json() as any[]
+  return data.map(item => ({
+    id: String(item.id),
+    title: item.title,
+    content: item.content,
+    topic: item.topic,
+    wordCount: item.wordCount || item.word_count,
+    submitTime: item.submitTime || item.submit_time || 0,
+    score: item.score ? {
+      id: String(item.score.id),
+      essayId: String(item.score.essayId || item.score.essay_id),
+      overallScore: item.score.overallScore || item.score.overall_score,
+      gramarScore: item.score.gramarScore || item.score.grammar_score,
+      vocabularyScore: item.score.vocabularyScore || item.score.vocabulary_score,
+      fluencyScore: item.score.fluencyScore || item.score.fluency_score,
+      coherenceScore: item.score.coherenceScore || item.score.coherence_score,
+      comments: item.score.comments,
+      aiEvaluated: item.score.aiEvaluated ?? item.score.ai_evaluated,
+      evaluationTime: item.score.evaluationTime || item.score.evaluation_time || 0
+    } : undefined
+  }))
 }
 
 /**
@@ -844,9 +903,23 @@ export async function getEssayScore(essayId: string): Promise<EssayScore> {
     return generateMockEssayScore(essayId)
   }
   
-  const response = await fetch(`${API_BASE_URL}/essays/${essayId}/score`)
+  const response = await fetch(`${API_BASE_URL}/essays/${essayId}/score`, {
+    headers: getAuthHeaders()
+  })
   assertApiResponse(response, '获取作文评分')
-  return response.json()
+  const data = await response.json() as any
+  return {
+    id: String(data.id),
+    essayId: String(data.essayId || data.essay_id),
+    overallScore: data.overallScore || data.overall_score,
+    gramarScore: data.gramarScore || data.grammar_score,
+    vocabularyScore: data.vocabularyScore || data.vocabulary_score,
+    fluencyScore: data.fluencyScore || data.fluency_score,
+    coherenceScore: data.coherenceScore || data.coherence_score,
+    comments: data.comments,
+    aiEvaluated: data.aiEvaluated ?? data.ai_evaluated,
+    evaluationTime: data.evaluationTime || data.evaluation_time || 0
+  }
 }
 
 /**
@@ -1429,6 +1502,7 @@ export default {
   updateWordProgress,
   getStudyStats,
   getSearchHistory,
+  deleteSearchHistory,
   addToFavorites,
   removeFromFavorites,
   getFavorites,
