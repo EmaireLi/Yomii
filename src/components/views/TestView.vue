@@ -228,10 +228,15 @@
         <p class="recommendation-text">快捷键：1-4 选答案，Enter/Space 提交或下一题，N 下一题</p>
       </el-card>
 
-      <el-card v-if="abilityReport" class="section-card">
+      <el-card v-if="isSubmittingSession || abilityReport" class="section-card">
         <template #header>
           <div class="analysis-title">能力报告（结合历史记录）</div>
         </template>
+        <div v-if="isSubmittingSession && !abilityReport" class="report-loading">
+          <el-icon class="rotating-icon"><Loading /></el-icon>
+          <span>正在生成能力报告...</span>
+        </div>
+        <template v-else-if="abilityReport">
         <div class="analysis-grid">
           <div class="analysis-item">
             <span class="analysis-label">综合能力分</span>
@@ -250,6 +255,7 @@
         <p v-if="abilityReport.recommendations[0]" class="recommendation-text">
           建议：{{ abilityReport.recommendations[0] }}
         </p>
+        </template>
       </el-card>
 
       <el-card class="section-card">
@@ -337,6 +343,7 @@ import { Memo, Timer, Aim, CircleCheck, CircleClose } from '@element-plus/icons-
 import type { QuizAbilityReport, QuizQuestion, QuizSessionRecord } from '@/types'
 import { VIEWS } from '@/utils/constants'
 import {
+  generateQuizAbilityReport,
   getQuizAbilityReport as getQuizAbilityReportAPI,
   getQuizHistory as getQuizHistoryAPI,
   getQuizQuestions as getQuizQuestionsAPI,
@@ -452,6 +459,7 @@ const submitAnswer = () => {
 const finishTest = async () => {
   if (testCompleted.value || isSubmittingSession.value) return
   testCompleted.value = true
+  abilityReport.value = null
   if (timerInterval) {
     clearInterval(timerInterval)
   }
@@ -470,11 +478,38 @@ const finishTest = async () => {
       durationSeconds,
       answers: answerRecords.value
     })
+    const mergedHistory = [response.session, ...quizHistory.value.filter(item => item.id !== response.session.id)].slice(0, 10)
+    quizHistory.value = mergedHistory
     abilityReport.value = response.report
-    quizHistory.value = [response.session, ...quizHistory.value.filter(item => item.id !== response.session.id)].slice(0, 10)
+
+    try {
+      await loadHistoryAndReport()
+      if (!abilityReport.value || abilityReport.value.historyCount === 0) {
+        abilityReport.value = generateQuizAbilityReport(quizHistory.value)
+      }
+    } catch (syncError) {
+      console.error('Failed to refresh report from backend:', syncError)
+      abilityReport.value = generateQuizAbilityReport(mergedHistory)
+    }
   } catch (error) {
     console.error('Failed to submit quiz session:', error)
-    ElMessage.warning('历史记录保存失败，当前成绩仅本次可见')
+    const localSession: QuizSessionRecord = {
+      id: `local_${Date.now()}`,
+      difficulty: selectedDifficulty.value,
+      totalQuestions: totalQuestions.value,
+      correctAnswers: score.value,
+      accuracy: accuracy.value,
+      durationSeconds: Math.max(0, Math.floor((Date.now() - testStartAt.value) / 1000)),
+      abilityScore: accuracy.value,
+      level: accuracy.value >= 80 ? 'JLPT N3' : accuracy.value >= 60 ? 'JLPT N4' : accuracy.value >= 40 ? 'JLPT N5' : '入门阶段',
+      summary: recommendation.value,
+      trendDelta: 0,
+      completedAt: Date.now()
+    }
+    const localHistory = [localSession, ...quizHistory.value].slice(0, 10)
+    quizHistory.value = localHistory
+    abilityReport.value = generateQuizAbilityReport(localHistory)
+    ElMessage.warning('历史记录保存失败，已按当前成绩生成临时报告')
   } finally {
     isSubmittingSession.value = false
   }
@@ -1096,6 +1131,20 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
+.report-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 96px;
+  color: #606266;
+  font-size: 14px;
+}
+
+.rotating-icon {
+  animation: spin 1s linear infinite;
+}
+
 .action-buttons {
   display: flex;
   gap: 10px;
@@ -1141,6 +1190,15 @@ onUnmounted(() => {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 

@@ -244,7 +244,7 @@ function setStoredQuizHistory(records: QuizSessionRecord[]): void {
   localStorage.setItem(QUIZ_HISTORY_STORAGE_KEY, JSON.stringify(records))
 }
 
-function generateQuizAbilityReport(records: QuizSessionRecord[]): QuizAbilityReport {
+export function generateQuizAbilityReport(records: QuizSessionRecord[]): QuizAbilityReport {
   if (records.length === 0) {
     return {
       overallScore: 0,
@@ -363,6 +363,36 @@ function normalizeQuizSession(record: any): QuizSessionRecord {
     summary: String(record.summary ?? record.reportSummary ?? record.report_summary ?? ''),
     trendDelta: Number(record.trendDelta ?? record.trend_delta ?? 0),
     completedAt: Number(record.completedAt ?? record.createdAt ?? record.created_at ?? Date.now())
+  }
+}
+
+function normalizeQuizAbilityReport(report: any): QuizAbilityReport {
+  const currentSession = report?.currentSession
+    ? normalizeQuizSession(report.currentSession)
+    : null
+
+  return {
+    overallScore: Number(report?.overallScore ?? report?.overall_score ?? 0),
+    level: String(report?.level ?? '暂无评级'),
+    trend: {
+      direction: String(report?.trend?.direction ?? 'stable'),
+      delta: Number(report?.trend?.delta ?? 0)
+    },
+    consistencyScore: Number(report?.consistencyScore ?? report?.consistency_score ?? 0),
+    speedScore: Number(report?.speedScore ?? report?.speed_score ?? 0),
+    historyCount: Number(report?.historyCount ?? report?.history_count ?? 0),
+    basedOnSessions: Number(report?.basedOnSessions ?? report?.based_on_sessions ?? 0),
+    recommendations: Array.isArray(report?.recommendations) ? report.recommendations.map((item: unknown) => String(item)) : [],
+    summary: String(report?.summary ?? ''),
+    generatedAt: Number(report?.generatedAt ?? report?.generated_at ?? currentSession?.completedAt ?? 0),
+    currentSession,
+    difficultyBreakdown: Array.isArray(report?.difficultyBreakdown ?? report?.difficulty_breakdown)
+      ? (report?.difficultyBreakdown ?? report?.difficulty_breakdown).map((item: any) => ({
+          difficulty: String(item?.difficulty ?? ''),
+          accuracy: Number(item?.accuracy ?? 0),
+          count: Number(item?.count ?? 0)
+        }))
+      : []
   }
 }
 
@@ -590,7 +620,7 @@ export async function submitQuizSession(payload: {
   return {
     success: data.success,
     session: normalizeQuizSession(data.session),
-    report: data.report
+    report: normalizeQuizAbilityReport(data.report)
   }
 }
 
@@ -616,7 +646,8 @@ export async function getQuizAbilityReport(limit: number = 20): Promise<QuizAbil
     headers: getAuthHeaders()
   })
   assertApiResponse(response, '获取能力报告')
-  return response.json()
+  const data = await response.json()
+  return normalizeQuizAbilityReport(data)
 }
 
 /**
