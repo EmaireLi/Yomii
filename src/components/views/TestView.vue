@@ -130,7 +130,7 @@
         <!-- 词汇展示 -->
         <div class="word-context" v-if="currentQuestion.word">
           <p class="word-display">{{ currentQuestion.word.word }}</p>
-          <p class="word-kana">[{{ currentQuestion.word.kana }}]</p>
+          <p v-if="shouldShowQuestionKana" class="word-kana">[{{ currentQuestion.word.kana }}]</p>
         </div>
 
         <!-- 选项 -->
@@ -264,6 +264,50 @@
           </button>
         </div>
       </el-card>
+
+      <el-card class="section-card">
+        <template #header>
+          <div class="card-header">测试历史记录</div>
+        </template>
+        <div v-if="isSubmittingSession && quizHistory.length === 0" style="padding: 40px 20px; text-align: center; color: #909399;">
+          正在保存测试历史...
+        </div>
+        <div v-else-if="quizHistory.length === 0" style="padding: 40px 20px; text-align: center;">
+          <el-empty description="暂无测试记录，完成测试后会自动保存" />
+        </div>
+        <el-table v-else :data="quizHistory" style="width: 100%" stripe>
+          <el-table-column label="测试时间" min-width="160">
+            <template #default="scope">
+              {{ formatDateTime(scope.row.completedAt) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="难度" width="80">
+            <template #default="scope">
+              {{ difficultyText(scope.row.difficulty) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="答对/总数" width="100">
+            <template #default="scope">
+              {{ scope.row.correctAnswers }} / {{ scope.row.totalQuestions }}
+            </template>
+          </el-table-column>
+          <el-table-column label="准确率" width="100">
+            <template #default="scope">
+              <el-progress :percentage="scope.row.accuracy" :status="scope.row.accuracy >= 80 ? 'success' : scope.row.accuracy < 60 ? 'exception' : ''" style="width: 80px" />
+            </template>
+          </el-table-column>
+          <el-table-column label="评级" width="80">
+            <template #default="scope">
+              <el-tag :type="scope.row.accuracy >= 80 ? 'success' : 'info'">{{ scope.row.level }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="90" fixed="right">
+            <template #default="scope">
+              <el-button type="primary" link size="small" @click="viewHistoryDetail(scope.row)">详情报告</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
     </div>
 
     <!-- 测试详情报告弹窗 -->
@@ -315,9 +359,43 @@
           </el-col>
         </el-row>
 
+        <el-row :gutter="20" style="margin-bottom: 20px; border: 1px solid #EBEEF5; padding: 15px; border-radius: 8px; background: #F8F9FA;">
+          <el-col :span="12">
+            <div style="font-size: 12px; color: #909399;">稳定性</div>
+            <div style="font-size: 20px; font-weight: bold; color: #409EFF; margin-top: 5px;">{{ selectedHistoryItem.consistencyScore }}</div>
+          </el-col>
+          <el-col :span="12">
+            <div style="font-size: 12px; color: #909399;">速度分</div>
+            <div style="font-size: 20px; font-weight: bold; color: #409EFF; margin-top: 5px;">{{ selectedHistoryItem.speedScore }}</div>
+          </el-col>
+        </el-row>
+
         <div style="margin-bottom: 20px; background-color: #F0F9FF; padding: 15px; border-radius: 6px; border: 1px solid #B3D8FF;">
           <h4 style="margin: 0 0 10px 0; color: #0A73EB; font-size: 14px;">📊 测试总结</h4>
           <p style="margin: 0; line-height: 1.6; color: #606266; font-size: 14px;">{{ selectedHistoryItem.summary }}</p>
+        </div>
+
+        <div v-if="selectedHistoryItem.recommendations.length > 0" style="margin-bottom: 20px; background-color: #FDF6EC; padding: 15px; border-radius: 6px; border: 1px solid #FAECD8;">
+          <h4 style="margin: 0 0 10px 0; color: #E6A23C; font-size: 14px;">学习建议</h4>
+          <p
+            v-for="recommendationItem in selectedHistoryItem.recommendations"
+            :key="recommendationItem"
+            style="margin: 6px 0; line-height: 1.6; color: #606266; font-size: 14px;"
+          >
+            {{ recommendationItem }}
+          </p>
+        </div>
+
+        <div v-if="selectedHistoryItem.difficultyBreakdown.length > 0" style="margin-bottom: 20px; background-color: #FAFAFA; padding: 15px; border-radius: 6px; border: 1px solid #EBEEF5;">
+          <h4 style="margin: 0 0 10px 0; color: #303133; font-size: 14px;">难度表现</h4>
+          <div
+            v-for="item in selectedHistoryItem.difficultyBreakdown"
+            :key="item.difficulty"
+            style="display: flex; justify-content: space-between; gap: 12px; color: #606266; font-size: 14px; line-height: 1.8;"
+          >
+            <span>{{ difficultyText(item.difficulty) }}</span>
+            <span>{{ item.accuracy }}% / {{ item.count }} 次</span>
+          </div>
         </div>
       </div>
       <template #footer>
@@ -384,6 +462,12 @@ const progressPercent = computed(() => {
 
 const isCorrect = computed(() => {
   return userAnswer.value === currentQuestion.value?.correctAnswer
+})
+
+const shouldShowQuestionKana = computed(() => {
+  const question = currentQuestion.value
+  if (!question?.word?.kana) return false
+  return question.questionMode !== 'kana' && !question.question.includes('读音')
 })
 
 const accuracy = computed(() => {
@@ -472,9 +556,11 @@ const finishTest = async () => {
     })
     abilityReport.value = response.report
     quizHistory.value = [response.session, ...quizHistory.value.filter(item => item.id !== response.session.id)].slice(0, 10)
+    await loadHistoryAndReport()
   } catch (error) {
     console.error('Failed to submit quiz session:', error)
-    ElMessage.warning('历史记录保存失败，当前成绩仅本次可见')
+    const message = error instanceof Error ? error.message : '未知错误'
+    ElMessage.warning(`历史记录保存失败：${message}`)
   } finally {
     isSubmittingSession.value = false
   }
@@ -617,15 +703,21 @@ const loadHistoryAndReport = async () => {
     abilityReport.value = null
     return
   }
-  try {
-    const [history, report] = await Promise.all([
-      getQuizHistoryAPI(10),
-      getQuizAbilityReportAPI(20)
-    ])
-    quizHistory.value = history
-    abilityReport.value = report
-  } catch (error) {
-    console.error('Failed to load quiz history/report:', error)
+  const [historyResult, reportResult] = await Promise.allSettled([
+    getQuizHistoryAPI(10),
+    getQuizAbilityReportAPI(20)
+  ])
+
+  if (historyResult.status === 'fulfilled') {
+    quizHistory.value = historyResult.value
+  } else {
+    console.error('Failed to load quiz history:', historyResult.reason)
+  }
+
+  if (reportResult.status === 'fulfilled') {
+    abilityReport.value = reportResult.value
+  } else {
+    console.error('Failed to load quiz report:', reportResult.reason)
   }
 }
 

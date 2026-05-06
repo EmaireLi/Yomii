@@ -170,6 +170,64 @@ def _migrate_word_progress_table_columns(sync_conn) -> None:
         )
 
 
+def _migrate_quiz_sessions_table_columns(sync_conn) -> None:
+    """为 quiz_sessions 表补齐历史报告字段。"""
+    inspector = inspect(sync_conn)
+    if "quiz_sessions" not in inspector.get_table_names():
+        return
+
+    column_names = {column["name"] for column in inspector.get_columns("quiz_sessions")}
+    if "consistency_score" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE quiz_sessions ADD COLUMN consistency_score FLOAT NOT NULL DEFAULT 0"
+        )
+    if "speed_score" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE quiz_sessions ADD COLUMN speed_score FLOAT NOT NULL DEFAULT 0"
+        )
+    if "report_recommendations" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE quiz_sessions ADD COLUMN report_recommendations TEXT NULL"
+        )
+    if "difficulty_breakdown" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE quiz_sessions ADD COLUMN difficulty_breakdown TEXT NULL"
+        )
+    sync_conn.exec_driver_sql(
+        "UPDATE quiz_sessions SET report_recommendations = COALESCE(report_recommendations, '')"
+    )
+    sync_conn.exec_driver_sql(
+        "UPDATE quiz_sessions SET difficulty_breakdown = COALESCE(difficulty_breakdown, '')"
+    )
+
+
+def _migrate_quiz_results_table_columns(sync_conn) -> None:
+    """为 quiz_results 表补齐整场测试保存所需字段。"""
+    inspector = inspect(sync_conn)
+    if "quiz_results" not in inspector.get_table_names():
+        return
+
+    column_names = {column["name"] for column in inspector.get_columns("quiz_results")}
+    if "session_id" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE quiz_results ADD COLUMN session_id INT NULL AFTER user_id"
+        )
+    if "difficulty" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE quiz_results ADD COLUMN difficulty VARCHAR(255) NOT NULL DEFAULT 'medium'"
+        )
+
+    index_names = {idx["name"] for idx in inspect(sync_conn).get_indexes("quiz_results")}
+    if "idx_quiz_results_session_id" not in index_names:
+        sync_conn.exec_driver_sql(
+            "CREATE INDEX idx_quiz_results_session_id ON quiz_results (session_id)"
+        )
+    if "idx_quiz_results_difficulty" not in index_names:
+        sync_conn.exec_driver_sql(
+            "CREATE INDEX idx_quiz_results_difficulty ON quiz_results (difficulty)"
+        )
+
+
 def _migrate_words_table_meaning_columns(sync_conn) -> None:
     """将 words.meaning 迁移为 japanese_meaning，并补齐 chinese_meaning。"""
     inspector = inspect(sync_conn)
@@ -235,6 +293,8 @@ async def create_mysql_tables():
         )
         await conn.run_sync(_create_selected_tables, mysql_tables)
         await conn.run_sync(_migrate_study_plans_table_columns)
+        await conn.run_sync(_migrate_quiz_sessions_table_columns)
+        await conn.run_sync(_migrate_quiz_results_table_columns)
         await conn.run_sync(_migrate_word_progress_table_columns)
 
 

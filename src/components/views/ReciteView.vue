@@ -222,7 +222,7 @@
 
                 <div class="card-content">
                   <h2 class="word-text">{{ currentWord.word }}</h2>
-                  <p class="kana-text" v-if="showLearningMeaning">[{{ currentWord.kana }}]</p>
+                  <p class="kana-text" v-if="currentWord.kana">[{{ currentWord.kana }}]</p>
                 </div>
                 
                 <!-- 收藏按钮 -->
@@ -397,7 +397,7 @@
 
                 <div class="card-content">
                   <h2 class="word-text">{{ currentReviewWord.word }}</h2>
-                  <p class="kana-text" v-if="showReviewMeaning">[{{ currentReviewWord.kana }}]</p>
+                  <p class="kana-text" v-if="currentReviewWord.kana">[{{ currentReviewWord.kana }}]</p>
                 </div>
 
                 <!-- 翻转提示 -->

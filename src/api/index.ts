@@ -144,6 +144,8 @@ type ReviewWordListApiResponse = {
 function parseTimestamp(value?: number | string | null): number {
   if (typeof value === 'number') return value
   if (typeof value === 'string') {
+    const numericValue = Number(value)
+    if (Number.isFinite(numericValue)) return numericValue
     const ms = Date.parse(value)
     return Number.isNaN(ms) ? 0 : ms
   }
@@ -351,6 +353,10 @@ function generateQuizAbilityReport(records: QuizSessionRecord[]): QuizAbilityRep
 }
 
 function normalizeQuizSession(record: any): QuizSessionRecord {
+  const completedAt = parseTimestamp(
+    record.completedAt ?? record.completed_at ?? record.createdAt ?? record.created_at
+  )
+
   return {
     id: record.id,
     difficulty: record.difficulty || 'medium',
@@ -362,7 +368,17 @@ function normalizeQuizSession(record: any): QuizSessionRecord {
     level: String(record.level ?? record.reportLevel ?? record.report_level ?? '暂无评级'),
     summary: String(record.summary ?? record.reportSummary ?? record.report_summary ?? ''),
     trendDelta: Number(record.trendDelta ?? record.trend_delta ?? 0),
-    completedAt: Number(record.completedAt ?? record.createdAt ?? record.created_at ?? Date.now())
+    consistencyScore: Number(record.consistencyScore ?? record.consistency_score ?? 0),
+    speedScore: Number(record.speedScore ?? record.speed_score ?? 0),
+    recommendations: Array.isArray(record.recommendations) ? record.recommendations.map((item: unknown) => String(item)) : [],
+    difficultyBreakdown: Array.isArray(record.difficultyBreakdown ?? record.difficulty_breakdown)
+      ? (record.difficultyBreakdown ?? record.difficulty_breakdown).map((item: any) => ({
+          difficulty: String(item?.difficulty ?? ''),
+          accuracy: Number(item?.accuracy ?? 0),
+          count: Number(item?.count ?? 0)
+        }))
+      : [],
+    completedAt: completedAt || Date.now()
   }
 }
 
@@ -559,6 +575,11 @@ export async function submitQuizAnswer(
   return response.json()
 }
 
+function normalizeQuestionIdForSubmit(questionId: number | string): number {
+  const numericId = Number(questionId)
+  return Number.isFinite(numericId) && numericId > 0 ? numericId : 0
+}
+
 /**
  * 提交整场测试，保存历史并返回能力报告
  * POST /api/quiz/session
@@ -579,7 +600,7 @@ export async function submitQuizSession(payload: {
       correct_answers: payload.correctAnswers,
       duration_seconds: payload.durationSeconds,
       answers: payload.answers.map(item => ({
-        question_id: Number(item.questionId),
+        question_id: normalizeQuestionIdForSubmit(item.questionId),
         user_answer: item.userAnswer,
         is_correct: item.isCorrect
       }))
@@ -603,8 +624,17 @@ export async function getQuizHistory(limit: number = 10): Promise<QuizSessionRec
     headers: getAuthHeaders()
   })
   assertApiResponse(response, '获取测试历史')
-  const data = await response.json() as any[]
-  return data.map(normalizeQuizSession)
+  const data = await response.json() as any[] | { sessions?: any[]; records?: any[]; history?: any[] }
+  const records = Array.isArray(data)
+    ? data
+    : Array.isArray(data.sessions)
+      ? data.sessions
+      : Array.isArray(data.records)
+        ? data.records
+        : Array.isArray(data.history)
+          ? data.history
+          : []
+  return records.map(normalizeQuizSession)
 }
 
 /**

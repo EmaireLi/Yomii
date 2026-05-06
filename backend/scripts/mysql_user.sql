@@ -135,6 +135,10 @@ CREATE TABLE quiz_sessions (
     report_level     VARCHAR(50) NOT NULL DEFAULT '入门',
     report_summary   TEXT NOT NULL,
     trend_delta      FLOAT NOT NULL DEFAULT 0,
+    consistency_score FLOAT NOT NULL DEFAULT 0,
+    speed_score      FLOAT NOT NULL DEFAULT 0,
+    report_recommendations TEXT,
+    difficulty_breakdown TEXT,
     created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

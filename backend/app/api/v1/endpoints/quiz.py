@@ -3,6 +3,7 @@
 """
 from __future__ import annotations
 
+import json
 import random
 from math import exp, sqrt
 from statistics import mean
@@ -10,6 +11,7 @@ from typing import Annotated, Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import select
 
 from app.core.deps import DictDB, UserDB, get_current_active_user
@@ -21,6 +23,50 @@ from app.models.word import Word, WordTag
 router = APIRouter()
 
 DIFFICULTY_LEVELS = {"easy", "medium", "hard"}
+
+
+def _json_dumps(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _json_loads(value: str | None, fallback: Any) -> Any:
+    if not value:
+        return fallback
+    try:
+        return json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return fallback
+
+
+def _safe_question_id(value: int | str | None) -> int | None:
+    if value is None:
+        return None
+    try:
+        question_id = int(value)
+    except (TypeError, ValueError):
+        return None
+    return question_id if question_id > 0 else None
+
+
+def _session_payload(session: QuizSession) -> dict[str, Any]:
+    completed_at = int(session.created_at.timestamp() * 1000)
+    return {
+        "id": session.id,
+        "difficulty": session.difficulty,
+        "totalQuestions": session.total_questions,
+        "correctAnswers": session.correct_answers,
+        "accuracy": round(session.accuracy * 100.0, 1),
+        "durationSeconds": session.duration_seconds,
+        "abilityScore": session.ability_score,
+        "level": session.report_level,
+        "summary": session.report_summary,
+        "trendDelta": round(session.trend_delta, 1),
+        "consistencyScore": session.consistency_score,
+        "speedScore": session.speed_score,
+        "recommendations": _json_loads(session.report_recommendations, []),
+        "difficultyBreakdown": _json_loads(session.difficulty_breakdown, []),
+        "completedAt": completed_at,
+    }
 
 
 def _to_word_payload(word: Word) -> dict[str, Any]:
@@ -269,6 +315,7 @@ async def get_quiz_questions(
             {
                 "id": str(word.id),
                 "type": "multiple-choice",
+                "questionMode": question_mode,
                 "question": question_text,
                 "word": _to_word_payload(word),
                 "options": options,
@@ -339,18 +386,6 @@ async def submit_quiz_session(
     user_db.add(session)
     await user_db.flush()
 
-    for answer in session_submit.answers:
-        user_db.add(
-            QuizResult(
-                session_id=session.id,
-                user_id=current_user.id,
-                question_id=answer.question_id,
-                user_answer=answer.user_answer,
-                is_correct=answer.is_correct,
-                difficulty=normalized_difficulty,
-            )
-        )
-
     history_statement = (
         select(QuizSession)
         .where(QuizSession.user_id == current_user.id)
@@ -366,26 +401,43 @@ async def submit_quiz_session(
     session.report_level = report["level"]
     session.report_summary = report["summary"]
     session.trend_delta = report["trend"]["delta"]
+    session.consistency_score = report["consistencyScore"]
+    session.speed_score = report["speedScore"]
+    session.report_recommendations = _json_dumps(report["recommendations"])
+    session.difficulty_breakdown = _json_dumps(report["difficultyBreakdown"])
 
     await user_db.commit()
     await user_db.refresh(session)
 
-    completed_at = int(session.created_at.timestamp() * 1000)
+    answers_saved = True
+    if session_submit.answers:
+        try:
+            for answer in session_submit.answers:
+                question_id = _safe_question_id(answer.question_id)
+                if question_id is None:
+                    answers_saved = False
+                    continue
+                user_db.add(
+                    QuizResult(
+                        session_id=session.id,
+                        user_id=current_user.id,
+                        question_id=question_id,
+                        user_answer=answer.user_answer,
+                        is_correct=answer.is_correct,
+                        difficulty=normalized_difficulty,
+                    )
+                )
+            await user_db.commit()
+        except SQLAlchemyError:
+            answers_saved = False
+            await user_db.rollback()
+
+    session_payload = _session_payload(session)
+    report["currentSession"] = session_payload
     return {
         "success": True,
-        "session": {
-            "id": session.id,
-            "difficulty": session.difficulty,
-            "totalQuestions": session.total_questions,
-            "correctAnswers": session.correct_answers,
-            "accuracy": round(session.accuracy * 100.0, 1),
-            "durationSeconds": session.duration_seconds,
-            "abilityScore": session.ability_score,
-            "level": session.report_level,
-            "summary": session.report_summary,
-            "trendDelta": session.trend_delta,
-            "completedAt": completed_at,
-        },
+        "answersSaved": answers_saved,
+        "session": session_payload,
         "report": report,
     }
 
@@ -409,22 +461,7 @@ async def get_quiz_history(
     result = await user_db.exec(statement)
     sessions = result.all()
 
-    return [
-        {
-            "id": item.id,
-            "difficulty": item.difficulty,
-            "totalQuestions": item.total_questions,
-            "correctAnswers": item.correct_answers,
-            "accuracy": round(item.accuracy * 100.0, 1),
-            "durationSeconds": item.duration_seconds,
-            "abilityScore": item.ability_score,
-            "level": item.report_level,
-            "summary": item.report_summary,
-            "trendDelta": round(item.trend_delta, 1),
-            "completedAt": int(item.created_at.timestamp() * 1000),
-        }
-        for item in sessions
-    ]
+    return [_session_payload(item) for item in sessions]
 
 
 @router.get("/report", response_model=dict)

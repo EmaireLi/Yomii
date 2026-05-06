@@ -64,6 +64,7 @@ export interface StudyStats {
 export interface QuizQuestion {
   id: string
   type: 'multiple-choice' | 'fill-blank' | 'listening'
+  questionMode?: 'kana' | 'chinese' | string
   question: string
   word: Word
   options: string[]
@@ -91,6 +92,14 @@ export interface QuizSessionRecord {
   level: string
   summary: string
   trendDelta: number
+  consistencyScore: number
+  speedScore: number
+  recommendations: string[]
+  difficultyBreakdown: Array<{
+    difficulty: string
+    accuracy: number
+    count: number
+  }>
   completedAt: number
 }
 
