@@ -73,6 +73,9 @@
               <div class="dict-description" v-if="selectedDictionary">
                 {{ selectedDictionary.description }}
               </div>
+              <div class="dict-tags" v-if="selectedDictionary?.tags?.length">
+                标签：{{ selectedDictionary.tags.join(' / ') }}
+              </div>
             </div>
 
             <div class="config-item">
@@ -128,6 +131,9 @@
               </select>
               <div class="dict-description" v-if="newSelectedDictionary">
                 {{ newSelectedDictionary.description }}
+              </div>
+              <div class="dict-tags" v-if="newSelectedDictionary?.tags?.length">
+                标签：{{ newSelectedDictionary.tags.join(' / ') }}
               </div>
             </div>
 
@@ -1479,6 +1485,13 @@ onUnmounted(() => {
   font-size: 12px;
   color: #999;
   margin-top: 8px;
+  line-height: 1.5;
+}
+
+.dict-tags {
+  font-size: 12px;
+  color: #667085;
+  margin-top: 6px;
   line-height: 1.5;
 }
 

@@ -72,6 +72,12 @@ export interface QuizQuestion {
   explanation: string
 }
 
+export interface QuizDifficultyOption {
+  value: string
+  label: string
+  tags?: string[]
+}
+
 /** 测试结果 */
 export interface QuizResult {
   questionId: string
@@ -193,6 +199,7 @@ export interface DictionaryConfig {
   description: string
   wordCount: number
   level: 'easy' | 'medium' | 'hard' | string
+  tags?: string[]
 }
 
 /** 用户数据 */

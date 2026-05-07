@@ -22,7 +22,7 @@
         <div class="selector-title">选择难度：</div>
         <div class="difficulty-buttons">
           <button
-            v-for="level in difficulties"
+            v-for="level in visibleDifficulties"
             :key="level.value"
             @click="selectedDifficulty = level.value"
             :class="['difficulty-btn', { active: selectedDifficulty === level.value }]"
@@ -36,7 +36,7 @@
         <p><el-icon class="inline-icon"><Memo /></el-icon> 预计题目数量：10-15 题</p>
         <p><el-icon class="inline-icon"><Timer /></el-icon> 预计耗时：10-15 分钟</p>
         <p><el-icon class="inline-icon"><Aim /></el-icon> 题型：多选题、填空题、听力题</p>
-        <p><el-icon class="inline-icon"><Memo /></el-icon> 快捷键：1/2/3 选难度，Enter 开始测试</p>
+        <p><el-icon class="inline-icon"><Memo /></el-icon> 快捷键：1-8 选难度，Enter 开始测试</p>
       </div>
 
       <button @click="startTest" class="btn btn-start">
@@ -166,6 +166,13 @@
           >
             下一题
           </button>
+          <button
+            type="button"
+            @click="exitTest"
+            class="btn btn-secondary"
+          >
+            退出测试
+          </button>
         </div>
 
         <!-- 解析 -->
@@ -225,7 +232,7 @@
             <span class="analysis-value" style="color: #409eff;">{{ accuracy }}%</span>
           </div>
         </div>
-        <p class="recommendation-text">快捷键：1-4 选答案，Enter/Space 提交或下一题，N 下一题</p>
+        <p class="recommendation-text">快捷键：1-4 选答案，Enter/Space 提交或下一题，N 下一题，Esc 退出测试</p>
       </el-card>
 
       <el-card v-if="abilityReport" class="section-card">
@@ -410,12 +417,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Memo, Timer, Aim, CircleCheck, CircleClose } from '@element-plus/icons-vue'
-import type { QuizAbilityReport, QuizQuestion, QuizSessionRecord } from '@/types'
+import type { QuizAbilityReport, QuizDifficultyOption, QuizQuestion, QuizSessionRecord } from '@/types'
 import { VIEWS } from '@/utils/constants'
 import {
   getQuizAbilityReport as getQuizAbilityReportAPI,
+  getQuizDifficulties as getQuizDifficultiesAPI,
   getQuizHistory as getQuizHistoryAPI,
   getQuizQuestions as getQuizQuestionsAPI,
   isAuthenticated,
@@ -431,7 +439,7 @@ const currentIndex = ref(0)
 const score = ref(0)
 const userAnswer = ref('')
 const answered = ref(false)
-const selectedDifficulty = ref('medium')
+const selectedDifficulty = ref('foundation')
 const timeRemaining = ref(600) // 10分钟
 const isLoading = ref(false)
 const isSubmittingSession = ref(false)
@@ -444,11 +452,43 @@ const abilityReport = ref<QuizAbilityReport | null>(null)
 const historyDetailVisible = ref(false)
 const selectedHistoryItem = ref<QuizSessionRecord | null>(null)
 
-const difficulties = [
-  { label: '初级', value: 'easy' },
-  { label: '中级', value: 'medium' },
-  { label: '高级', value: 'hard' }
+const fallbackDifficulties: QuizDifficultyOption[] = [
+  { label: '1. 基础（N4+N5）', value: 'foundation' },
+  { label: '2. N3 高频', value: 'n3_high' },
+  { label: '3. N3 全量', value: 'n3_full' },
+  { label: '4. N2 高频', value: 'n2_high' },
+  { label: '5. N2 全量', value: 'n2_full' },
+  { label: '6. N1 高频', value: 'n1_high' },
+  { label: '7. N1 中频', value: 'n1_mid' },
+  { label: '8. N1 低频挑战', value: 'n1_low' }
 ]
+const visibleDifficulties = ref<QuizDifficultyOption[]>(fallbackDifficulties)
+
+const difficultyLabels: Record<string, string> = {
+  foundation: '基础（N4+N5）',
+  n3_high: 'N3 高频',
+  n3_full: 'N3 全量',
+  n2_high: 'N2 高频',
+  n2_full: 'N2 全量',
+  n1_high: 'N1 高频',
+  n1_mid: 'N1 中频',
+  n1_low: 'N1 低频挑战',
+  easy: '基础（旧）',
+  medium: '综合（旧 N3）',
+  hard: '综合（旧 N2+N1）'
+}
+
+const loadQuizDifficulties = async () => {
+  try {
+    const remoteOptions = await getQuizDifficultiesAPI()
+    if (remoteOptions.length > 0) {
+      visibleDifficulties.value = remoteOptions
+    }
+  } catch (error) {
+    console.error('Failed to load quiz difficulties:', error)
+    visibleDifficulties.value = fallbackDifficulties
+  }
+}
 
 const questions = ref<QuizQuestion[]>([])
 const totalQuestions = computed(() => questions.value.length)
@@ -507,6 +547,11 @@ const startTest = async () => {
   try {
     // 从 API 获取题目
     questions.value = await getQuizQuestionsAPI(selectedDifficulty.value, 10)
+    if (questions.value.length === 0) {
+      ElMessage.warning('当前层级暂无可用题目，请切换其他难度')
+      testStarted.value = false
+      return
+    }
     
     // 启动计时器
     startTimer()
@@ -591,6 +636,28 @@ const resetTest = () => {
   }
 }
 
+const exitTest = async () => {
+  if (!testStarted.value || testCompleted.value) {
+    resetTest()
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      '退出后本次未完成测试不会保存，确定退出吗？',
+      '退出测试',
+      {
+        confirmButtonText: '退出',
+        cancelButtonText: '继续测试',
+        type: 'warning'
+      }
+    )
+    resetTest()
+  } catch {
+    // 用户取消，保持当前测试状态
+  }
+}
+
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
@@ -611,8 +678,7 @@ const startTimer = () => {
 }
 
 const difficultyText = (value: string): string => {
-  const matched = difficulties.find(item => item.value === value)
-  return matched?.label || value
+  return difficultyLabels[value] || value
 }
 
 const viewHistoryDetail = (item: QuizSessionRecord) => {
@@ -653,9 +719,14 @@ const handleKeyboard = (event: KeyboardEvent) => {
   }
 
   if (!testStarted.value) {
-    if (event.code === 'Digit1') selectedDifficulty.value = 'easy'
-    if (event.code === 'Digit2') selectedDifficulty.value = 'medium'
-    if (event.code === 'Digit3') selectedDifficulty.value = 'hard'
+    if (event.code === 'Digit1') selectedDifficulty.value = 'foundation'
+    if (event.code === 'Digit2') selectedDifficulty.value = 'n3_high'
+    if (event.code === 'Digit3') selectedDifficulty.value = 'n3_full'
+    if (event.code === 'Digit4') selectedDifficulty.value = 'n2_high'
+    if (event.code === 'Digit5') selectedDifficulty.value = 'n2_full'
+    if (event.code === 'Digit6') selectedDifficulty.value = 'n1_high'
+    if (event.code === 'Digit7') selectedDifficulty.value = 'n1_mid'
+    if (event.code === 'Digit8') selectedDifficulty.value = 'n1_low'
     if (event.code === 'Enter') {
       event.preventDefault()
       void startTest()
@@ -695,6 +766,11 @@ const handleKeyboard = (event: KeyboardEvent) => {
     event.preventDefault()
     void nextQuestion()
   }
+
+  if (event.code === 'Escape') {
+    event.preventDefault()
+    void exitTest()
+  }
 }
 
 const loadHistoryAndReport = async () => {
@@ -731,6 +807,7 @@ const handleLogout = () => {
 }
 
 onMounted(() => {
+  loadQuizDifficulties()
   loadHistoryAndReport()
   window.addEventListener('keydown', handleKeyboard)
   window.addEventListener('yomii:login', handleLogin)
@@ -801,19 +878,21 @@ onUnmounted(() => {
 }
 
 .difficulty-buttons {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
   justify-content: center;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 .difficulty-btn {
-  padding: 8px 16px;
+  min-height: 46px;
+  padding: 10px 12px;
   background: white;
   border: 2px solid #dcdfe6;
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
+  line-height: 1.35;
   transition: all 0.3s;
 }
 

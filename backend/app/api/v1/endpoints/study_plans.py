@@ -158,7 +158,7 @@ async def _pick_random_words(
     excluded = exclude_ids or set()
     level_tags = list(get_tags_by_dictionary(dictionary_id))
 
-    async def query_words(only_level_tags: bool) -> list[Word]:
+    async def query_words(only_level_tags: bool, with_excludes: bool) -> list[Word]:
         statement = select(Word)
         if only_level_tags and level_tags:
             statement = (
@@ -166,15 +166,25 @@ async def _pick_random_words(
                 .where(WordTag.tag.in_(level_tags))
                 .distinct()
             )
-        if excluded:
+        if with_excludes and excluded:
             statement = statement.where(~Word.id.in_(excluded))
         statement = statement.order_by(func.random()).limit(limit)
         result = await dict_db.exec(statement)
         return result.all()
 
-    words = await query_words(only_level_tags=True)
+    words = await query_words(only_level_tags=True, with_excludes=True)
     if len(words) < limit and level_tags:
-        extra_words = await query_words(only_level_tags=False)
+        # 标签内单词不足时，优先回退到同标签词池，而不是跨级别取词。
+        extra_words = await query_words(only_level_tags=True, with_excludes=False)
+        existing_ids = {word.id for word in words}
+        for word in extra_words:
+            if word.id not in existing_ids:
+                words.append(word)
+                existing_ids.add(word.id)
+            if len(words) >= limit:
+                break
+    elif len(words) < limit:
+        extra_words = await query_words(only_level_tags=False, with_excludes=True)
         existing_ids = {word.id for word in words}
         for word in extra_words:
             if word.id not in existing_ids:
@@ -260,9 +270,23 @@ async def get_study_plans(
 
 
 @router.get("/dictionaries", response_model=List[dict])
-async def get_dictionaries() -> List[dict]:
-    """获取后端支持的辞书列表（前后端统一来源）"""
-    return DICTIONARY_CATALOG
+async def get_dictionaries(dict_db: DictDB) -> List[dict]:
+    """获取后端支持的辞书列表（与数据库 word_tags 实际标签保持一致）"""
+    payload: list[dict[str, Any]] = []
+    for item in DICTIONARY_CATALOG:
+        tags = list(get_tags_by_dictionary(str(item["id"])))
+        count_statement = select(func.count(func.distinct(WordTag.word_id)))
+        if tags:
+            count_statement = count_statement.where(WordTag.tag.in_(tags))
+        count_result = await dict_db.exec(count_statement)
+        payload.append(
+            {
+                **item,
+                "wordCount": int(count_result.one() or 0),
+                "tags": tags,
+            }
+        )
+    return payload
 
 
 @router.get("/current", response_model=dict)

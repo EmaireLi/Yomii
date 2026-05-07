@@ -9,6 +9,7 @@ import type {
   Word,
   SearchResult,
   QuizQuestion,
+  QuizDifficultyOption,
   QuizAbilityReport,
   QuizSessionRecord,
   DictionaryConfig,
@@ -551,6 +552,19 @@ export async function getQuizQuestions(difficulty: string = 'medium', count: num
   })
   assertApiResponse(response, '获取测试题目')
   return response.json()
+}
+
+/**
+ * 获取测试难度配置
+ * GET /api/quiz/difficulties
+ */
+export async function getQuizDifficulties(): Promise<QuizDifficultyOption[]> {
+  const response = await fetch(`${API_BASE_URL}/quiz/difficulties`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取测试难度配置')
+  const data = await response.json() as QuizDifficultyOption[]
+  return Array.isArray(data) ? data : []
 }
 
 /**
@@ -1525,6 +1539,7 @@ export default {
   getRandomWordsAPI,
   getAllWords,
   getQuizQuestions,
+  getQuizDifficulties,
   submitQuizAnswer,
   submitQuizSession,
   getQuizHistory,
