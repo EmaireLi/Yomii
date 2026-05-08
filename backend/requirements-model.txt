@@ -21,4 +21,4 @@ tokenicer>=0.0.4
 logbar>=0.0.5
 ninja>=1.13.0
 maturin>=1.9.6
-defuser>=0.2.0
+defuser==0.0.21

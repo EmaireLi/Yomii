@@ -185,14 +185,20 @@ def build_fallback_revision(payload: InferRequest) -> dict[str, Any]:
     }
 
 
-def create_app(task: str, model_path: str, model_version: str | None, adapter_path: str | None) -> FastAPI:
+def create_app(
+    task: str,
+    model_path: str,
+    model_version: str | None,
+    adapter_path: str | None,
+    device_map: str,
+) -> FastAPI:
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        device_map="auto",
+        device_map=device_map,
         trust_remote_code=True,
     )
     if adapter_path:
@@ -214,7 +220,8 @@ def create_app(task: str, model_path: str, model_version: str | None, adapter_pa
             add_generation_prompt=True,
             enable_thinking=False,
         )
-        inputs = tokenizer(text, return_tensors="pt").to(model.device)
+        model_device = next(model.parameters()).device
+        inputs = {key: value.to(model_device) for key, value in tokenizer(text, return_tensors="pt").items()}
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
@@ -262,11 +269,18 @@ def main() -> int:
     parser.add_argument("--model", required=True)
     parser.add_argument("--adapter", default="")
     parser.add_argument("--model-version", default="")
+    parser.add_argument("--device-map", default="cpu")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
     args = parser.parse_args()
 
-    app = create_app(args.task, args.model, args.model_version or None, args.adapter or None)
+    app = create_app(
+        args.task,
+        args.model,
+        args.model_version or None,
+        args.adapter or None,
+        args.device_map,
+    )
     uvicorn.run(app, host=args.host, port=args.port)
     return 0
 
