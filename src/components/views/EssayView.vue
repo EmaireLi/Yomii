@@ -1,35 +1,40 @@
 <template>
   <section class="view-section essay-view">
-    <div class="essay-view-title"
-      @mousemove.stop
-      @pointermove.stop
-      @touchmove.stop>
-      <span>作文评价</span> 
-      <span class="badge">AI Ready</span>
+    <div class="essay-view-title" @mousemove.stop @pointermove.stop @touchmove.stop>
+      <span>作文评价</span>
+      <span class="badge">Dual Model</span>
     </div>
 
-    <!-- 编辑和提交作文 -->
-    <div v-if="!showEvaluationOnly" class="essay-editor"
-      @mousemove.stop
-      @pointermove.stop
-      @touchmove.stop>
+    <div class="essay-editor" @mousemove.stop @pointermove.stop @touchmove.stop>
       <el-card class="section-card">
         <template #header>
           <div class="card-header"><el-icon class="inline-icon"><EditPen /></el-icon> 写作练习</div>
         </template>
-        <p class="hint">请用日语写一篇短文。支持未来 AI 自动评分。</p>
 
-        <div class="form-group">
-          <label for="topic">选择话题：</label>
-          <select v-model="selectedTopic" class="topic-select">
-            <option value="">-- 选择一个话题 --</option>
-            <option value="daily-life">日常生活</option>
-            <option value="travel">旅行经历</option>
-            <option value="hobbies">爱好兴趣</option>
-            <option value="family">家庭成员</option>
-            <option value="future-plan">未来计划</option>
-            <option value="custom">自定义话题</option>
-          </select>
+        <p class="hint">提交后将按 JLPT 风格异步生成评分报告和修改建议。</p>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="topic">选择话题：</label>
+            <select v-model="selectedTopic" class="topic-select">
+              <option value="">-- 选择一个话题 --</option>
+              <option value="daily-life">日常生活</option>
+              <option value="travel">旅行经历</option>
+              <option value="hobbies">爱好兴趣</option>
+              <option value="family">家庭成员</option>
+              <option value="future-plan">未来计划</option>
+              <option value="custom">自定义话题</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="target-level">目标等级：</label>
+            <select v-model="targetLevel" class="topic-select">
+              <option v-for="level in jlptLevels" :key="level" :value="level">
+                {{ level }}
+              </option>
+            </select>
+          </div>
         </div>
 
         <div v-if="selectedTopic === 'custom'" class="form-group">
@@ -50,154 +55,226 @@
             placeholder="请用日语写作..."
             rows="12"
             @input="updateWordCount"
-          ></textarea>
+          />
           <div class="word-count">
             <span>字数：{{ wordCount }}</span>
+            <span class="target">目标：{{ targetLevel }}</span>
           </div>
         </div>
 
         <div class="button-group">
-          <button
-            @click="submitEssay"
-            :disabled="!canSubmit"
-            class="btn btn-submit"
-          >
+          <button @click="submitEssay" :disabled="!canSubmit" class="btn btn-submit">
             <span v-if="!isSubmitting"><el-icon class="inline-icon"><Promotion /></el-icon> 提交作文</span>
             <span v-else>提交中...</span>
           </button>
-          <button @click="clearForm" class="btn btn-secondary">
-            清空
-          </button>
+          <button @click="clearForm" class="btn btn-secondary">清空</button>
         </div>
       </el-card>
     </div>
 
-    <!-- 作文历史记录 -->
-    <div class="essays-history"
-      @mousemove.stop
-      @pointermove.stop
-      @touchmove.stop>
+    <div class="essays-history" @mousemove.stop @pointermove.stop @touchmove.stop>
       <el-card class="section-card">
         <template #header>
-          <div class="card-header"><el-icon class="inline-icon"><Collection /></el-icon> 作文历史记录</div>
+          <div class="card-header header-between">
+            <span><el-icon class="inline-icon"><Collection /></el-icon> 作文历史记录</span>
+            <el-button link type="primary" @click="loadEssayHistory()">
+              <el-icon><RefreshRight /></el-icon>
+              刷新
+            </el-button>
+          </div>
         </template>
 
-      <div v-if="essays.length === 0" style="padding: 40px 20px; text-align: center;">
-        <el-empty description="还没有提交任何作文，快去练习吧" />
-      </div>
+        <div v-if="essays.length === 0" class="empty-wrap">
+          <el-empty description="还没有提交任何作文，快去练习吧" />
+        </div>
 
-      <el-table v-else :data="essays" style="width: 100%" stripe>
-        <el-table-column label="提交时间" min-width="160">
-          <template #default="scope">
-            {{ formatDate(scope.row.submitTime) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="话题" min-width="120">
-          <template #default="scope">
-            {{ scope.row.topic === 'custom' ? scope.row.title : getTopicLabel(scope.row.topic) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="字数" width="80" prop="wordCount"></el-table-column>
-        <el-table-column label="评分" width="80">
-          <template #default="scope">
-            <template v-if="scope.row.score">
-              <span :style="{ color: scope.row.score.overallScore >= 80 ? '#67C23A' : '#E6A23C', fontWeight: 'bold' }">
-                {{ scope.row.score.overallScore }}
-              </span>
+        <el-table v-else :data="essays" style="width: 100%" stripe>
+          <el-table-column label="提交时间" min-width="160">
+            <template #default="scope">
+              {{ formatDate(scope.row.submitTime) }}
             </template>
-            <span v-else style="color: #909399;">待评</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="90" fixed="right">
-          <template #default="scope">
-            <el-button type="primary" link size="small" @click="viewHistoryDetail(scope.row)">详情报告</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          </el-table-column>
+          <el-table-column label="话题" min-width="120">
+            <template #default="scope">
+              {{ scope.row.topic === 'custom' ? scope.row.title : getTopicLabel(scope.row.topic) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="目标等级" width="90">
+            <template #default="scope">
+              {{ scope.row.targetLevel }}
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="110">
+            <template #default="scope">
+              <el-tag :type="statusTagType(scope.row.status)" effect="light">
+                {{ statusLabel(scope.row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="总分" width="80">
+            <template #default="scope">
+              <template v-if="scope.row.scoreReport">
+                <span class="score-value">{{ scope.row.scoreReport.overallScore }}</span>
+              </template>
+              <span v-else class="pending-text">--</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="110" fixed="right">
+            <template #default="scope">
+              <el-button type="primary" link size="small" @click="viewHistoryDetail(scope.row)">详情报告</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </el-card>
     </div>
 
-    <!-- 提示 -->
-    <el-card class="section-card"
-      @mousemove.stop
-      @pointermove.stop
-      @touchmove.stop>
+    <el-card class="section-card" @mousemove.stop @pointermove.stop @touchmove.stop>
       <template #header>
         <div class="card-header"><el-icon class="inline-icon"><Opportunity /></el-icon> 写作建议</div>
       </template>
-      <ul>
-        <li>确保内容与选定话题相关</li>
-        <li>使用正确的日语语法和表达</li>
-        <li>使用多样的词汇和句式</li>
-        <li>AI 评分系统正在优化中，目前支持人工评分和样本评分</li>
+      <ul class="tips-list">
+        <li>围绕题目展开，优先保证任务完成度。</li>
+        <li>段落之间使用连接词，提升连贯性。</li>
+        <li>先追求句子正确，再追求表达复杂度。</li>
+        <li>报告会给出评分维度、错误摘要、逐句修改建议和修正版。</li>
       </ul>
     </el-card>
 
-    <!-- 作文详情与评分报告弹窗 -->
-    <el-dialog
-      v-model="historyDetailVisible"
-      title="作文详细报告"
-      width="600px"
-    >
+    <el-dialog v-model="historyDetailVisible" title="作文详细报告" width="880px">
       <div v-if="selectedHistoryItem" class="history-detail-body">
-        <h3 style="margin-top: 0;">{{ selectedHistoryItem.topic === 'custom' ? selectedHistoryItem.title : getTopicLabel(selectedHistoryItem.topic) }}</h3>
-        <p style="color: #909399; font-size: 13px; margin-bottom: 20px;">
-          提交时间: {{ formatDate(selectedHistoryItem.submitTime) }} | 字数: {{ selectedHistoryItem.wordCount }}
-        </p>
+        <div class="detail-header">
+          <div>
+            <h3>{{ selectedHistoryItem.topic === 'custom' ? selectedHistoryItem.title : getTopicLabel(selectedHistoryItem.topic) }}</h3>
+            <p>
+              提交时间：{{ formatDate(selectedHistoryItem.submitTime) }}
+              <span class="meta-divider">|</span>
+              字数：{{ selectedHistoryItem.wordCount }}
+              <span class="meta-divider">|</span>
+              目标等级：{{ selectedHistoryItem.targetLevel }}
+            </p>
+          </div>
+          <div class="detail-actions">
+            <el-tag :type="statusTagType(selectedHistoryItem.status)" effect="light">
+              {{ statusLabel(selectedHistoryItem.status) }}
+            </el-tag>
+            <el-button
+              v-if="selectedHistoryItem.status === 'failed'"
+              size="small"
+              type="primary"
+              @click="retryEvaluation(selectedHistoryItem.id)"
+            >
+              重新评测
+            </el-button>
+            <el-button
+              v-else-if="selectedHistoryItem.status !== 'completed'"
+              size="small"
+              @click="refreshEssayReport(selectedHistoryItem.id)"
+            >
+              刷新状态
+            </el-button>
+          </div>
+        </div>
 
-        <template v-if="selectedHistoryItem.score">
-          <el-row :gutter="20" style="margin-bottom: 20px; border: 1px solid #EBEEF5; padding: 15px; border-radius: 8px; background: #FAFAFA;">
-            <el-col :span="8" style="text-align: center; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid #EBEEF5;">
-              <el-progress
-                type="dashboard"
-                :percentage="selectedHistoryItem.score.overallScore"
-                :color="selectedHistoryItem.score.overallScore >= 80 ? '#67C23A' : '#E6A23C'"
-                :width="90"
-              >
-                <template #default="{ percentage }">
-                  <span style="font-size: 20px; font-weight: bold;">{{ percentage }}</span>
-                  <div style="font-size: 12px; color: #909399;">总分</div>
-                </template>
-              </el-progress>
-            </el-col>
-            <el-col :span="16">
-              <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
-                <span style="width: 45px; text-align: right; font-size: 12px; color: #606266;">语法</span>
-                <el-progress style="flex: 1;" :percentage="selectedHistoryItem.score.gramarScore" :stroke-width="8" />
-              </div>
-              <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
-                <span style="width: 45px; text-align: right; font-size: 12px; color: #606266;">词汇</span>
-                <el-progress style="flex: 1;" :percentage="selectedHistoryItem.score.vocabularyScore" :stroke-width="8" />
-              </div>
-              <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
-                <span style="width: 45px; text-align: right; font-size: 12px; color: #606266;">流畅度</span>
-                <el-progress style="flex: 1;" :percentage="selectedHistoryItem.score.fluencyScore" :stroke-width="8" />
-              </div>
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="width: 45px; text-align: right; font-size: 12px; color: #606266;">连贯性</span>
-                <el-progress style="flex: 1;" :percentage="selectedHistoryItem.score.coherenceScore" :stroke-width="8" />
-              </div>
-            </el-col>
-          </el-row>
-
-          <div style="margin-bottom: 20px; background-color: #Fdf6ec; padding: 15px; border-radius: 6px; border: 1px solid #faecd8;">
-            <h4 style="margin: 0 0 10px 0; color: #E6A23C; font-size: 14px; display: flex; align-items: center;">
-              <el-icon style="margin-right: 5px;"><ChatDotRound /></el-icon> AI 综合评价
-            </h4>
-            <p style="margin: 0; line-height: 1.6; color: #606266; font-size: 14px;">{{ selectedHistoryItem.score.comments }}</p>
+        <template v-if="selectedHistoryItem.status === 'completed' && selectedHistoryItem.scoreReport">
+          <div class="report-grid">
+            <div class="score-card overall">
+              <div class="score-card-label">总分</div>
+              <div class="score-card-value">{{ selectedHistoryItem.scoreReport.overallScore }}</div>
+              <div class="score-card-sub">{{ selectedHistoryItem.scoreReport.levelEstimate }}</div>
+            </div>
+            <div class="score-card">
+              <div class="score-card-label">任务完成度</div>
+              <div class="score-card-value small">{{ selectedHistoryItem.scoreReport.taskCompletionScore }}</div>
+            </div>
+            <div class="score-card">
+              <div class="score-card-label">语法</div>
+              <div class="score-card-value small">{{ selectedHistoryItem.scoreReport.grammarScore }}</div>
+            </div>
+            <div class="score-card">
+              <div class="score-card-label">词汇</div>
+              <div class="score-card-value small">{{ selectedHistoryItem.scoreReport.vocabularyScore }}</div>
+            </div>
+            <div class="score-card">
+              <div class="score-card-label">连贯性</div>
+              <div class="score-card-value small">{{ selectedHistoryItem.scoreReport.coherenceScore }}</div>
+            </div>
+            <div class="score-card">
+              <div class="score-card-label">自然度</div>
+              <div class="score-card-value small">{{ selectedHistoryItem.scoreReport.naturalnessScore }}</div>
+            </div>
+            <div class="score-card">
+              <div class="score-card-label">等级匹配度</div>
+              <div class="score-card-value small">{{ selectedHistoryItem.scoreReport.jlptFitScore }}</div>
+            </div>
           </div>
 
-          <div style="margin-bottom: 20px;">
-            <h4 style="margin: 0 0 10px 0; color: #303133; font-size: 14px; display: flex; align-items: center;">
-              <el-icon style="margin-right: 5px;"><Document /></el-icon> 原文内容
-            </h4>
-            <div style="padding: 15px; background-color: #F8F9FA; border: 1px solid #E4E7ED; border-radius: 6px; font-size: 14px; line-height: 1.8; color: #303133; white-space: pre-wrap; max-height: 300px; overflow-y: auto;">{{ selectedHistoryItem.content }}</div>
+          <div class="panel">
+            <h4><el-icon><Finished /></el-icon> 评分总结</h4>
+            <p>{{ selectedHistoryItem.scoreReport.summary }}</p>
+            <p class="panel-muted">{{ selectedHistoryItem.scoreReport.comments }}</p>
+          </div>
+
+          <div v-if="selectedHistoryItem.revisionReport" class="panel">
+            <h4><el-icon><MagicStick /></el-icon> 重点问题</h4>
+            <div v-if="selectedHistoryItem.revisionReport.issues.length > 0" class="issue-list">
+              <div v-for="(issue, index) in selectedHistoryItem.revisionReport.issues" :key="`${selectedHistoryItem.id}-issue-${index}`" class="issue-card">
+                <div class="issue-source">{{ issue.source }}</div>
+                <div class="issue-suggestion">建议：{{ issue.suggestion }}</div>
+                <div class="issue-explanation">{{ issue.explanation }}</div>
+              </div>
+            </div>
+            <el-empty v-else description="当前未生成重点问题列表" />
+          </div>
+
+          <div v-if="selectedHistoryItem.revisionReport" class="panel">
+            <h4><el-icon><Edit /></el-icon> 逐句修改建议</h4>
+            <div v-if="selectedHistoryItem.revisionReport.sentenceSuggestions.length > 0" class="sentence-list">
+              <div
+                v-for="(suggestion, index) in selectedHistoryItem.revisionReport.sentenceSuggestions"
+                :key="`${selectedHistoryItem.id}-sentence-${index}`"
+                class="sentence-card"
+              >
+                <div class="sentence-original">原句：{{ suggestion.original }}</div>
+                <div class="sentence-suggested">建议：{{ suggestion.suggested }}</div>
+                <div class="sentence-reason">{{ suggestion.reason }}</div>
+              </div>
+            </div>
+            <el-empty v-else description="当前未生成逐句建议" />
+          </div>
+
+          <div v-if="selectedHistoryItem.revisionReport" class="panel">
+            <h4><el-icon><DocumentChecked /></el-icon> 修正版</h4>
+            <div class="content-box">{{ selectedHistoryItem.revisionReport.fullRevision }}</div>
+            <p class="panel-muted">{{ selectedHistoryItem.revisionReport.revisionNotes }}</p>
+          </div>
+
+          <div class="panel">
+            <h4><el-icon><Document /></el-icon> 原文内容</h4>
+            <div class="content-box">{{ selectedHistoryItem.content }}</div>
           </div>
         </template>
+
+        <template v-else-if="selectedHistoryItem.status === 'failed'">
+          <el-result
+            icon="error"
+            title="评测失败"
+            :sub-title="selectedHistoryItem.errorMessage || '模型服务未返回有效结果'"
+          >
+            <template #extra>
+              <el-button type="primary" @click="retryEvaluation(selectedHistoryItem.id)">重新评测</el-button>
+            </template>
+          </el-result>
+        </template>
+
         <template v-else>
-          <el-empty description="该作文正在评测中，请稍后查看" />
+          <div class="pending-panel">
+            <el-icon class="loading-icon"><Loading /></el-icon>
+            <div class="pending-title">{{ statusLabel(selectedHistoryItem.status) }}</div>
+            <p class="panel-muted">评分模型和修改模型正在异步处理中，完成后可直接查看完整报告。</p>
+          </div>
         </template>
       </div>
+
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="historyDetailVisible = false">关闭</el-button>
@@ -208,157 +285,226 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { EditPen, Promotion, Collection, Calendar, Memo, Loading, ChatDotRound, Opportunity, Document } from '@element-plus/icons-vue'
-import type { Essay, EssayScore } from '@/types'
-import { submitEssayAPI, getEssayHistoryAPI, generateMockEssayScore, isAuthenticated } from '@/api'
+import {
+  ChatDotRound,
+  Collection,
+  Document,
+  DocumentChecked,
+  Edit,
+  EditPen,
+  Finished,
+  Loading,
+  MagicStick,
+  Opportunity,
+  Promotion,
+  RefreshRight
+} from '@element-plus/icons-vue'
+import type { Essay } from '@/types'
+import {
+  getEssayHistoryAPI,
+  getEssayReportAPI,
+  isAuthenticated,
+  requestEssayEvaluationAPI,
+  submitEssayAPI
+} from '@/api'
 
-/**
- * 话题选项
- */
 const topics = {
   'daily-life': '日常生活',
-  'travel': '旅行经历',
-  'hobbies': '爱好兴趣',
-  'family': '家庭成员',
+  travel: '旅行经历',
+  hobbies: '爱好兴趣',
+  family: '家庭成员',
   'future-plan': '未来计划',
-  'custom': '自定义话题'
+  custom: '自定义话题'
 }
 
-/**
- * 编辑器状态
- */
+const jlptLevels = ['N5', 'N4', 'N3', 'N2', 'N1']
+const activeStatuses = new Set(['pending', 'scoring', 'revising'])
+
 const selectedTopic = ref<string>('')
 const customTopic = ref<string>('')
+const targetLevel = ref<string>('N3')
 const essayContent = ref<string>('')
 const wordCount = ref<number>(0)
 const isSubmitting = ref<boolean>(false)
-
-/**
- * 历史记录和评分
- */
 const essays = ref<Essay[]>([])
-const selectedEssay = ref<Essay | null>(null)
-const showEvaluationOnly = ref<boolean>(false)
-
-/**
- * 历史记录与详情
- */
 const historyDetailVisible = ref<boolean>(false)
 const selectedHistoryItem = ref<Essay | null>(null)
 
-const viewHistoryDetail = (item: Essay) => {
-  selectedHistoryItem.value = item
-  historyDetailVisible.value = true
-}
+let pollTimer: number | null = null
 
-/**
- * 获取话题统计标签
- */
-const getTopicLabel = (topic: string): string => {
-  return topics[topic as keyof typeof topics] || '自定义话题'
-}
-
-/**
- * 是否可以提交
- */
 const canSubmit = computed(() => {
-  const topic = selectedTopic.value === 'custom' ? customTopic.value : selectedTopic.value
-  return !!topic && essayContent.value.trim().length > 0 && !isSubmitting.value
+  const topic = selectedTopic.value === 'custom' ? customTopic.value.trim() : selectedTopic.value
+  return topic.length > 0 && essayContent.value.trim().length > 0 && !isSubmitting.value
 })
 
-/**
- * 更新字数统计
- */
+const hasActiveEssay = computed(() => essays.value.some(item => activeStatuses.has(item.status)))
+
 const updateWordCount = () => {
   wordCount.value = essayContent.value.length
 }
 
-/**
- * 提交作文
- */
+const getTopicLabel = (topic: string): string => topics[topic as keyof typeof topics] || '自定义话题'
+
+const statusLabel = (status: string): string => {
+  switch (status) {
+    case 'pending':
+      return '待评测'
+    case 'scoring':
+      return '评分中'
+    case 'revising':
+      return '修改中'
+    case 'completed':
+      return '已完成'
+    case 'failed':
+      return '失败'
+    default:
+      return status
+  }
+}
+
+const statusTagType = (status: string): '' | 'info' | 'warning' | 'success' | 'danger' => {
+  switch (status) {
+    case 'completed':
+      return 'success'
+    case 'failed':
+      return 'danger'
+    case 'scoring':
+    case 'revising':
+      return 'warning'
+    default:
+      return 'info'
+  }
+}
+
+const formatDate = (timestamp: number): string => {
+  if (!timestamp) return '--'
+  return new Date(timestamp).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+const replaceEssay = (essay: Essay) => {
+  const index = essays.value.findIndex(item => item.id === essay.id)
+  if (index >= 0) {
+    essays.value.splice(index, 1, essay)
+  } else {
+    essays.value.unshift(essay)
+  }
+  if (selectedHistoryItem.value?.id === essay.id) {
+    selectedHistoryItem.value = essay
+  }
+}
+
+const stopPolling = () => {
+  if (pollTimer !== null) {
+    window.clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+const ensurePolling = () => {
+  if (!hasActiveEssay.value || pollTimer !== null) return
+  pollTimer = window.setInterval(async () => {
+    await loadEssayHistory(false)
+  }, 4000)
+}
+
+const syncPollingState = () => {
+  if (hasActiveEssay.value) ensurePolling()
+  else stopPolling()
+}
+
+const loadEssayHistory = async (showMessage: boolean = false) => {
+  try {
+    essays.value = await getEssayHistoryAPI()
+    syncPollingState()
+    if (showMessage) ElMessage.success('已刷新作文历史')
+  } catch (error: any) {
+    console.error('加载作文历史失败:', error)
+    if (showMessage) ElMessage.error(error.message || '加载作文历史失败')
+  }
+}
+
+const refreshEssayReport = async (essayId: string, showMessage: boolean = false) => {
+  try {
+    const report = await getEssayReportAPI(essayId)
+    replaceEssay(report.essay)
+    syncPollingState()
+    if (showMessage) ElMessage.success('已更新作文报告')
+  } catch (error: any) {
+    console.error('获取作文报告失败:', error)
+    if (showMessage) ElMessage.error(error.message || '获取作文报告失败')
+  }
+}
+
+const viewHistoryDetail = async (item: Essay) => {
+  selectedHistoryItem.value = item
+  historyDetailVisible.value = true
+  await refreshEssayReport(item.id)
+}
+
 const submitEssay = async () => {
   if (!isAuthenticated()) {
     ElMessage.warning('请先登录才能提交作文')
     window.dispatchEvent(new CustomEvent('open-login-dialog'))
     return
   }
-  
+
   if (!canSubmit.value) return
 
   isSubmitting.value = true
-
   try {
-    const topic = selectedTopic.value === 'custom' ? customTopic.value : selectedTopic.value
-    
-    // 调用 API 提交作文
+    const topic = selectedTopic.value === 'custom' ? customTopic.value.trim() : selectedTopic.value
     const essay = await submitEssayAPI({
       title: topic,
       topic: selectedTopic.value,
-      content: essayContent.value,
-      wordCount: wordCount.value
+      content: essayContent.value.trim(),
+      wordCount: wordCount.value,
+      targetLevel: targetLevel.value
     })
-
     essays.value.unshift(essay)
-
-    // 模拟 AI 评分（真实环境中由后端处理）
-    setTimeout(async () => {
-      const score = generateMockEssayScore(essay.id)
-      const updatedEssay = essays.value.find(e => e.id === essay.id)
-      if (updatedEssay) {
-        updatedEssay.score = score
-        selectedEssay.value = updatedEssay
-      }
-    }, 1500)
-
-    // 清空表单
     clearForm()
+    syncPollingState()
+    ElMessage.success('作文已提交，正在生成评分报告和修改建议')
   } catch (error: any) {
-    alert(`提交失败: ${error.message}`)
+    ElMessage.error(error.message || '提交作文失败')
   } finally {
     isSubmitting.value = false
   }
 }
 
-/**
- * 清空表单
- */
+const retryEvaluation = async (essayId: string) => {
+  try {
+    const essay = await requestEssayEvaluationAPI(essayId)
+    replaceEssay(essay)
+    syncPollingState()
+    ElMessage.success('已重新触发作文评测')
+  } catch (error: any) {
+    ElMessage.error(error.message || '重新评测失败')
+  }
+}
+
 const clearForm = () => {
   selectedTopic.value = ''
   customTopic.value = ''
+  targetLevel.value = 'N3'
   essayContent.value = ''
   wordCount.value = 0
 }
 
-/**
- * 选择作文查看详情
- */
-const selectEssay = (essay: Essay) => {
-  selectedEssay.value = selectedEssay.value?.id === essay.id ? null : essay
-}
+onMounted(async () => {
+  await loadEssayHistory()
+})
 
-/**
- * 格式化日期
- */
-const formatDate = (timestamp: number): string => {
-  const date = new Date(timestamp)
-  return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
-}
-
-/**
- * 加载历史作文
- */
-const loadEssayHistory = async () => {
-  try {
-    essays.value = await getEssayHistoryAPI()
-  } catch (error) {
-    console.error('加载作文历史失败:', error)
-  }
-}
-
-// 页面加载时获取历史记录
-loadEssayHistory()
+onBeforeUnmount(() => {
+  stopPolling()
+})
 </script>
 
 <style scoped>
@@ -367,7 +513,7 @@ loadEssayHistory()
 }
 
 .essay-view-title {
-  color: #8B4513;
+  color: #8b4513;
   font-size: 24px;
   margin-bottom: 10px;
 }
@@ -375,7 +521,7 @@ loadEssayHistory()
 .badge {
   font-size: 12px;
   background: #f0f9eb;
-  color: #000000;
+  color: #000;
   padding: 4px 8px;
   border-radius: 4px;
   margin-left: 8px;
@@ -388,7 +534,13 @@ loadEssayHistory()
 .card-header {
   font-size: 18px;
   font-weight: 600;
-  color: #000000;
+  color: #000;
+}
+
+.header-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .inline-icon {
@@ -397,8 +549,14 @@ loadEssayHistory()
 }
 
 .hint {
-  color: #333333;
-  margin-bottom: 25px;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .form-group {
@@ -409,7 +567,7 @@ loadEssayHistory()
   display: block;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #000000;
+  color: #000;
 }
 
 .topic-select,
@@ -424,7 +582,8 @@ loadEssayHistory()
 }
 
 .topic-select:focus,
-.topic-input:focus {
+.topic-input:focus,
+.essay-textarea:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
@@ -441,238 +600,221 @@ loadEssayHistory()
   transition: border-color 0.3s;
 }
 
-.essay-textarea:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-}
-
 .word-count {
   margin-top: 8px;
-  text-align: right;
-  font-size: 12px;
-  color: #333333;
-}
-
-.word-count .warning {
-  color: #f56c6c;
-  font-weight: 600;
-}
-
-.essays-history {
-  margin-top: 40px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: #333333;
-}
-
-.essay-item {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  margin-bottom: 15px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-}
-
-.essay-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-}
-
-.essay-title {
-  margin: 0 0 8px;
-  color: #000000;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.essay-header .meta {
-  margin: 0;
   font-size: 12px;
-  color: #333333;
+  color: #333;
 }
 
-.btn-view {
-  flex-shrink: 0;
+.target {
+  color: #606266;
 }
 
-.score-detail {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #f0f0f0;
-  animation: slideDown 0.3s ease;
-}
-
-.score-summary {
-  display: flex;
-  gap: 30px;
-  margin-bottom: 30px;
-}
-
-.main-score {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 120px;
-  height: 120px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
-  color: white;
-}
-
-.score-number {
-  font-size: 48px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.score-label {
-  font-size: 12px;
-  margin-top: 8px;
-  opacity: 0.9;
-}
-
-.score-breakdown {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-.score-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.score-item .score-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #333333;
-}
-
-.score-bar {
-  height: 8px;
-  background: #f0f0f0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.score-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-  transition: width 0.5s ease;
+.empty-wrap {
+  padding: 40px 20px;
+  text-align: center;
 }
 
 .score-value {
-  font-size: 13px;
-  font-weight: 600;
-  color: #667eea;
+  color: #67c23a;
+  font-weight: 700;
 }
 
-.comments-section {
-  margin-bottom: 25px;
-  padding: 15px;
-  background: #f5f7fa;
-  border-radius: 8px;
+.pending-text {
+  color: #909399;
 }
 
-.comments-section h4 {
-  margin: 0 0 10px;
-  color: #000000;
-  font-size: 14px;
-}
-
-.comment-text {
-  margin: 0 0 10px;
-  color: #333333;
-  line-height: 1.6;
-}
-
-.ai-note {
+.tips-list {
   margin: 0;
-  font-size: 12px;
-  color: #222222;
-  font-style: italic;
-}
-
-.essay-content-view {
-  margin-top: 25px;
-  padding: 15px;
-  background: #fafafa;
-  border-left: 4px solid #667eea;
-  border-radius: 4px;
-}
-
-.essay-content-view h4 {
-  margin: 0 0 10px;
-  color: #000000;
+  padding-left: 20px;
+  color: #333;
   font-size: 14px;
+  line-height: 1.8;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.detail-header h3 {
+  margin: 0 0 8px;
+  color: #303133;
+}
+
+.detail-header p {
+  margin: 0;
+  color: #909399;
+  font-size: 13px;
+}
+
+.meta-divider {
+  margin: 0 8px;
+}
+
+.detail-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.score-card {
+  padding: 16px;
+  border: 1px solid #ebeef5;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.score-card.overall {
+  background: linear-gradient(135deg, #fef6e8 0%, #fff 100%);
+  border-color: #f2d5a5;
+}
+
+.score-card-label {
+  font-size: 12px;
+  color: #909399;
+}
+
+.score-card-value {
+  margin-top: 6px;
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 700;
+  color: #303133;
+}
+
+.score-card-value.small {
+  font-size: 26px;
+}
+
+.score-card-sub {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #e6a23c;
+}
+
+.panel {
+  margin-bottom: 18px;
+  padding: 18px;
+  border: 1px solid #ebeef5;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.panel h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  color: #303133;
+}
+
+.panel p {
+  margin: 0;
+  line-height: 1.8;
+  color: #303133;
+}
+
+.panel-muted {
+  margin-top: 10px !important;
+  color: #909399 !important;
+  font-size: 13px;
+}
+
+.issue-list,
+.sentence-list {
+  display: grid;
+  gap: 12px;
+}
+
+.issue-card,
+.sentence-card {
+  padding: 14px;
+  border-radius: 10px;
+  background: #f7f9fc;
+  border: 1px solid #e4e7ed;
+}
+
+.issue-source,
+.sentence-original {
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 6px;
+}
+
+.issue-suggestion,
+.sentence-suggested {
+  color: #409eff;
+  margin-bottom: 6px;
+}
+
+.issue-explanation,
+.sentence-reason {
+  color: #606266;
+  line-height: 1.7;
 }
 
 .content-box {
-  color: #333333;
+  padding: 15px;
+  background: #f8f9fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  font-size: 14px;
   line-height: 1.8;
+  color: #303133;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 14px;
 }
 
-.tips-section {
-  background: #ecf5ff;
-  padding: 20px;
-  border-radius: 12px;
-  margin-top: 40px;
-  border-left: 4px solid #667eea;
+.pending-panel {
+  padding: 40px 20px;
+  text-align: center;
 }
 
-.tips-section h3 {
-  margin-top: 0;
-  color: #667eea;
-  font-size: 16px;
+.loading-icon {
+  font-size: 28px;
+  color: #e6a23c;
+  animation: spin 1.2s linear infinite;
 }
 
-.tips-section ul {
-  margin: 10px 0 0;
-  padding-left: 20px;
-  color: #333333;
-  font-size: 14px;
-  line-height: 1.8;
+.pending-title {
+  margin-top: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
 }
 
-.tips-section li {
-  margin-bottom: 8px;
-}
-
-@keyframes slideDown {
+@keyframes spin {
   from {
-    opacity: 0;
-    max-height: 0;
+    transform: rotate(0deg);
   }
   to {
-    opacity: 1;
-    max-height: 1000px;
+    transform: rotate(360deg);
   }
 }
 
-.expand-enter-active,
-.expand-leave-active {
-  transition: all 0.3s ease;
-}
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
 
-.expand-enter-from {
-  opacity: 0;
-  max-height: 0;
-}
+  .detail-header {
+    flex-direction: column;
+  }
 
-.expand-leave-to {
-  opacity: 0;
-  max-height: 0;
+  .report-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

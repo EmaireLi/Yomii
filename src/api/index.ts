@@ -17,6 +17,8 @@ import type {
   StudyStats,
   Essay,
   EssayScore,
+  EssayRevision,
+  EssayEvaluationReport,
   StudyPlan,
   LearningSession,
   User,
@@ -864,16 +866,24 @@ export async function submitEssayAPI(essayData: {
   topic: string
   content: string
   wordCount: number
+  targetLevel: string
 }): Promise<Essay> {
   if (USE_MOCK_API) {
-    // 模拟本地作文创建
     const essay: Essay = {
       id: `essay_${Date.now()}`,
       title: essayData.title,
       content: essayData.content,
       topic: essayData.topic,
       wordCount: essayData.wordCount,
-      submitTime: Date.now()
+      targetLevel: essayData.targetLevel,
+      status: 'pending',
+      submitTime: Date.now(),
+      evaluationRequestedAt: Date.now(),
+      errorMessage: '',
+      modelVersions: {
+        score: 'mock-jlpt-score-v1',
+        revision: 'mock-jlpt-revision-v1'
+      }
     }
     return essay
   }
@@ -885,19 +895,13 @@ export async function submitEssayAPI(essayData: {
       title: essayData.title,
       topic: essayData.topic,
       content: essayData.content,
-      word_count: essayData.wordCount
+      word_count: essayData.wordCount,
+      target_level: essayData.targetLevel
     })
   })
   assertApiResponse(response, '提交作文')
   const data = await response.json() as any
-  return {
-    id: String(data.id),
-    title: data.title,
-    content: data.content,
-    topic: data.topic,
-    wordCount: data.wordCount || data.word_count,
-    submitTime: data.submitTime || data.submit_time || Date.now()
-  }
+  return normalizeEssay(data)
 }
 
 /**
@@ -906,9 +910,7 @@ export async function submitEssayAPI(essayData: {
  */
 export async function getEssayHistoryAPI(limit: number = 20): Promise<Essay[]> {
   if (USE_MOCK_API) {
-    // 从 localStorage 获取本地存储的作文
-    const stored = localStorage.getItem('yomii_essays')
-    return stored ? JSON.parse(stored) : []
+    return []
   }
   
   const response = await fetch(`${API_BASE_URL}/essays/history?limit=${limit}`, {
@@ -916,96 +918,249 @@ export async function getEssayHistoryAPI(limit: number = 20): Promise<Essay[]> {
   })
   assertApiResponse(response, '获取作文历史')
   const data = await response.json() as any[]
-  return data.map(item => ({
-    id: String(item.id),
-    title: item.title,
-    content: item.content,
-    topic: item.topic,
-    wordCount: item.wordCount || item.word_count,
-    submitTime: item.submitTime || item.submit_time || 0,
-    score: item.score ? {
-      id: String(item.score.id),
-      essayId: String(item.score.essayId || item.score.essay_id),
-      overallScore: item.score.overallScore || item.score.overall_score,
-      gramarScore: item.score.gramarScore || item.score.grammar_score,
-      vocabularyScore: item.score.vocabularyScore || item.score.vocabulary_score,
-      fluencyScore: item.score.fluencyScore || item.score.fluency_score,
-      coherenceScore: item.score.coherenceScore || item.score.coherence_score,
-      comments: item.score.comments,
-      aiEvaluated: item.score.aiEvaluated ?? item.score.ai_evaluated,
-      evaluationTime: item.score.evaluationTime || item.score.evaluation_time || 0
-    } : undefined
-  }))
+  return data.map(normalizeEssay)
 }
 
 /**
- * 获取作文评分（AI 评测）
- * GET /api/essays/:essayId/score
+ * 触发作文评测
+ * POST /api/essays/:essayId/evaluate
  */
-export async function getEssayScore(essayId: string): Promise<EssayScore> {
+export async function requestEssayEvaluationAPI(essayId: string): Promise<Essay> {
   if (USE_MOCK_API) {
-    return generateMockEssayScore(essayId)
+    const mockReport = generateMockEssayReport({
+      id: essayId,
+      title: '',
+      topic: 'custom',
+      content: '',
+      wordCount: 0,
+      targetLevel: 'N3'
+    })
+    return mockReport.essay
   }
   
-  const response = await fetch(`${API_BASE_URL}/essays/${essayId}/score`, {
+  const response = await fetch(`${API_BASE_URL}/essays/${essayId}/evaluate`, {
+    method: 'POST',
     headers: getAuthHeaders()
   })
-  assertApiResponse(response, '获取作文评分')
+  assertApiResponse(response, '触发作文评测')
   const data = await response.json() as any
-  return {
-    id: String(data.id),
-    essayId: String(data.essayId || data.essay_id),
-    overallScore: data.overallScore || data.overall_score,
-    gramarScore: data.gramarScore || data.grammar_score,
-    vocabularyScore: data.vocabularyScore || data.vocabulary_score,
-    fluencyScore: data.fluencyScore || data.fluency_score,
-    coherenceScore: data.coherenceScore || data.coherence_score,
-    comments: data.comments,
-    aiEvaluated: data.aiEvaluated ?? data.ai_evaluated,
-    evaluationTime: data.evaluationTime || data.evaluation_time || 0
-  }
+  return normalizeEssay(data.essay ?? data)
 }
 
 /**
- * 生成模拟作文评分（用于 Mock 模式和测试）
- * 预留 AI 评分接口，未来直接调用真实 AI 服务
+ * 获取作文完整报告
+ * GET /api/essays/:essayId/report
  */
-export function generateMockEssayScore(essayId: string): EssayScore {
-  // 生成随机评分（实际应用中由 AI 模型生成）
-  const randomScore = (base: number = 70, range: number = 25): number => {
-    return Math.min(100, Math.max(0, base + Math.random() * range - range / 2))
+export async function getEssayReportAPI(essayId: string): Promise<EssayEvaluationReport> {
+  if (USE_MOCK_API) {
+    return generateMockEssayReport({
+      id: essayId,
+      title: '',
+      topic: 'custom',
+      content: '',
+      wordCount: 0,
+      targetLevel: 'N3'
+    })
   }
   
-  const scores = {
-    gramarScore: Math.round(randomScore(75)),
-    vocabularyScore: Math.round(randomScore(72)),
-    fluencyScore: Math.round(randomScore(70)),
-    coherenceScore: Math.round(randomScore(68))
+  const response = await fetch(`${API_BASE_URL}/essays/${essayId}/report`, {
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '获取作文报告')
+  const data = await response.json() as any
+  return normalizeEssayReport(data)
+}
+
+/**
+ * 兼容旧调用：仅获取评分摘要
+ */
+export async function getEssayScore(essayId: string): Promise<EssayScore> {
+  const report = await getEssayReportAPI(essayId)
+  if (!report.scoreReport) {
+    throw new Error('作文评测尚未完成')
   }
-  
-  const overallScore = Math.round(
-    (scores.gramarScore + scores.vocabularyScore + scores.fluencyScore + scores.coherenceScore) / 4
-  )
+  return report.scoreReport
+}
 
-  const commentsArray = [
-    '语法结构清晰，词汇运用恰当，整体流畅自然。建议多加练习复杂句式。',
-    '表达简洁有力，逻辑层次分明，词汇选择得体。可以尝试使用更多的从句来丰富表达。',
-    '文章结构完整，思路清晰，语言简洁。建议增加更多具体例子来支撑观点。',
-    '表达流畅自然，用词准确恰当，句式多样。整体质量较好，继续保持！',
-    '逻辑严密，论证有力，文笔优美。是一篇不错的作文，值得称赞。'
-  ]
-
+function normalizeEssayScore(data: any): EssayScore {
   return {
-    id: `score_${Date.now()}`,
-    essayId,
+    id: String(data?.id ?? ''),
+    essayId: String(data?.essayId ?? data?.essay_id ?? ''),
+    overallScore: Number(data?.overallScore ?? data?.overall_score ?? 0),
+    taskCompletionScore: Number(data?.taskCompletionScore ?? data?.task_completion_score ?? 0),
+    grammarScore: Number(data?.grammarScore ?? data?.grammar_score ?? 0),
+    vocabularyScore: Number(data?.vocabularyScore ?? data?.vocabulary_score ?? 0),
+    coherenceScore: Number(data?.coherenceScore ?? data?.coherence_score ?? 0),
+    naturalnessScore: Number(data?.naturalnessScore ?? data?.naturalness_score ?? 0),
+    jlptFitScore: Number(data?.jlptFitScore ?? data?.jlpt_fit_score ?? 0),
+    levelEstimate: String(data?.levelEstimate ?? data?.level_estimate ?? ''),
+    summary: String(data?.summary ?? ''),
+    comments: String(data?.comments ?? ''),
+    aiEvaluated: Boolean(data?.aiEvaluated ?? data?.ai_evaluated ?? false),
+    modelVersion: String(data?.modelVersion ?? data?.model_version ?? ''),
+    evaluationTime: parseTimestamp(data?.evaluationTime ?? data?.evaluation_time)
+  }
+}
+
+function normalizeEssayRevision(data: any): EssayRevision {
+  return {
+    id: String(data?.id ?? ''),
+    essayId: String(data?.essayId ?? data?.essay_id ?? ''),
+    issues: Array.isArray(data?.issues) ? data.issues : [],
+    sentenceSuggestions: Array.isArray(data?.sentenceSuggestions ?? data?.sentence_suggestions)
+      ? (data?.sentenceSuggestions ?? data?.sentence_suggestions)
+      : [],
+    fullRevision: String(data?.fullRevision ?? data?.full_revision ?? ''),
+    revisionNotes: String(data?.revisionNotes ?? data?.revision_notes ?? ''),
+    modelVersion: String(data?.modelVersion ?? data?.model_version ?? ''),
+    generatedAt: parseTimestamp(data?.generatedAt ?? data?.generated_at)
+  }
+}
+
+function normalizeEssay(data: any): Essay {
+  return {
+    id: String(data?.id ?? ''),
+    title: String(data?.title ?? ''),
+    content: String(data?.content ?? ''),
+    topic: String(data?.topic ?? ''),
+    wordCount: Number(data?.wordCount ?? data?.word_count ?? 0),
+    targetLevel: String(data?.targetLevel ?? data?.target_level ?? 'N3'),
+    status: String(data?.status ?? 'pending'),
+    submitTime: parseTimestamp(data?.submitTime ?? data?.submit_time),
+    evaluationRequestedAt: parseTimestamp(data?.evaluationRequestedAt ?? data?.evaluation_requested_at),
+    evaluationCompletedAt: parseTimestamp(data?.evaluationCompletedAt ?? data?.evaluation_completed_at),
+    errorMessage: String(data?.errorMessage ?? data?.error_message ?? ''),
+    scoreReport: data?.scoreReport ?? data?.score_report ? normalizeEssayScore(data.scoreReport ?? data.score_report) : undefined,
+    revisionReport: data?.revisionReport ?? data?.revision_report ? normalizeEssayRevision(data.revisionReport ?? data.revision_report) : undefined,
+    modelVersions: data?.modelVersions ?? data?.model_versions ?? {}
+  }
+}
+
+function normalizeEssayReport(data: any): EssayEvaluationReport {
+  return {
+    essay: normalizeEssay(data?.essay ?? {}),
+    status: String(data?.status ?? data?.essay?.status ?? 'pending'),
+    scoreReport: data?.scoreReport ?? data?.score_report ? normalizeEssayScore(data.scoreReport ?? data.score_report) : null,
+    revisionReport: data?.revisionReport ?? data?.revision_report ? normalizeEssayRevision(data.revisionReport ?? data.revision_report) : null,
+    job: data?.job
+      ? {
+          id: String(data.job.id ?? ''),
+          essayId: String(data.job.essayId ?? data.job.essay_id ?? ''),
+          status: String(data.job.status ?? ''),
+          errorMessage: String(data.job.errorMessage ?? data.job.error_message ?? ''),
+          scoreModelVersion: String(data.job.scoreModelVersion ?? data.job.score_model_version ?? ''),
+          revisionModelVersion: String(data.job.revisionModelVersion ?? data.job.revision_model_version ?? ''),
+          startedAt: parseTimestamp(data.job.startedAt ?? data.job.started_at),
+          completedAt: parseTimestamp(data.job.completedAt ?? data.job.completed_at)
+        }
+      : null,
+    modelVersions: data?.modelVersions ?? data?.model_versions ?? {},
+    errorMessage: String(data?.errorMessage ?? data?.error_message ?? '')
+  }
+}
+
+export function generateMockEssayReport(input: {
+  id: string
+  title: string
+  topic: string
+  content: string
+  wordCount: number
+  targetLevel: string
+}): EssayEvaluationReport {
+  const randomScore = (base: number = 70, range: number = 18): number => {
+    return Math.min(100, Math.max(0, Math.round(base + Math.random() * range - range / 2)))
+  }
+  const grammarScore = randomScore(74)
+  const vocabularyScore = randomScore(72)
+  const coherenceScore = randomScore(70)
+  const naturalnessScore = randomScore(71)
+  const taskCompletionScore = randomScore(76)
+  const jlptFitScore = randomScore(73)
+  const overallScore = Math.round(
+    taskCompletionScore * 0.2
+    + grammarScore * 0.22
+    + vocabularyScore * 0.2
+    + coherenceScore * 0.16
+    + naturalnessScore * 0.12
+    + jlptFitScore * 0.1
+  )
+  const now = Date.now()
+  const scoreReport: EssayScore = {
+    id: `score_${now}`,
+    essayId: input.id,
     overallScore,
-    gramarScore: scores.gramarScore,
-    vocabularyScore: scores.vocabularyScore,
-    fluencyScore: scores.fluencyScore,
-    coherenceScore: scores.coherenceScore,
-    comments: commentsArray[Math.floor(Math.random() * commentsArray.length)]!,
-    aiEvaluated: false,  // Mock 评分，非 AI 评分
-    evaluationTime: Date.now()
+    taskCompletionScore,
+    grammarScore,
+    vocabularyScore,
+    coherenceScore,
+    naturalnessScore,
+    jlptFitScore,
+    levelEstimate: overallScore >= 80 ? 'N2' : overallScore >= 70 ? 'N3' : 'N4',
+    summary: '已生成研究原型评分报告，可用于验证双模型链路。',
+    comments: '评分模型已按 JLPT 风格维度给出总评。',
+    aiEvaluated: false,
+    modelVersion: 'mock-jlpt-score-v1',
+    evaluationTime: now
+  }
+  const revisionReport: EssayRevision = {
+    id: `revision_${now}`,
+    essayId: input.id,
+    issues: [
+      {
+        source: input.content.slice(0, 32),
+        suggestion: input.content.slice(0, 32),
+        explanation: '建议补充连接词或更完整的背景信息。',
+        severity: 'medium'
+      }
+    ],
+    sentenceSuggestions: [
+      {
+        original: input.content.slice(0, 60),
+        suggested: input.content ? `また、${input.content.slice(0, 60)}` : '',
+        reason: '增加连接词可提升连贯性。'
+      }
+    ],
+    fullRevision: input.content,
+    revisionNotes: '修改模型已给出逐句建议和修正版。',
+    modelVersion: 'mock-jlpt-revision-v1',
+    generatedAt: now
+  }
+  const essay: Essay = {
+    id: input.id,
+    title: input.title,
+    content: input.content,
+    topic: input.topic,
+    wordCount: input.wordCount,
+    targetLevel: input.targetLevel,
+    status: 'completed',
+    submitTime: now,
+    evaluationRequestedAt: now,
+    evaluationCompletedAt: now,
+    errorMessage: '',
+    scoreReport,
+    revisionReport,
+    modelVersions: {
+      score: scoreReport.modelVersion,
+      revision: revisionReport.modelVersion
+    }
+  }
+  return {
+    essay,
+    status: essay.status,
+    scoreReport,
+    revisionReport,
+    job: {
+      id: `job_${now}`,
+      essayId: input.id,
+      status: 'completed',
+      errorMessage: '',
+      scoreModelVersion: scoreReport.modelVersion,
+      revisionModelVersion: revisionReport.modelVersion,
+      startedAt: now,
+      completedAt: now
+    },
+    modelVersions: essay.modelVersions ?? {},
+    errorMessage: ''
   }
 }
 
@@ -1554,8 +1709,10 @@ export default {
   getUserProgress,
   submitEssayAPI,
   getEssayHistoryAPI,
+  requestEssayEvaluationAPI,
+  getEssayReportAPI,
   getEssayScore,
-  generateMockEssayScore,
+  generateMockEssayReport,
   // 学习计划相关
   getDictionaryCatalog,
   getStudyPlans,

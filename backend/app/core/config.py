@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     AI_API_KEY: str = ""
     AI_API_URL: str = ""
     AI_MODEL: str = "gpt-4"
+    ESSAY_SCORE_MODEL_URL: str = ""
+    ESSAY_SCORE_MODEL_NAME: str = "mock-jlpt-score-v1"
+    ESSAY_REVISION_MODEL_URL: str = ""
+    ESSAY_REVISION_MODEL_NAME: str = "mock-jlpt-revision-v1"
+    ESSAY_MODEL_TIMEOUT_SECONDS: float = 30.0
     
     model_config = SettingsConfigDict(
         env_file=".env",

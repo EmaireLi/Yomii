@@ -17,22 +17,151 @@
 ### 环境要求
 - Node.js 18+
 - npm 8+
+- Python 3.11+
+- MySQL 8+
 
-### 安装和运行
+### 安装和运行（前后端 + 本地模型）
 
 ```bash
-# 1. 进入项目目录
+# 终端 1：前端
 cd yomii
-
-# 2. 安装依赖
 npm install
-
-# 3. 启动开发服务器
 npm run dev
-
-# 4. 打开浏览器访问
-# http://localhost:5174
 ```
+
+再开 3 个终端：
+
+```powershell
+# 终端 2：启动后端
+cd backend
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+```powershell
+# 终端 3：启动评分模型服务
+cd .
+backend\.venv-training\Scripts\python.exe `
+  backend\training\serve_qwen_adapter.py `
+  --task score `
+  --adapter backend\models\score-lora `
+  --port 8011
+```
+
+```powershell
+# 终端 4：启动修改模型服务
+cd .
+backend\.venv-training\Scripts\python.exe `
+  backend\training\serve_qwen_adapter.py `
+  --task revision `
+  --adapter backend\models\revision-lora `
+  --port 8012
+```
+
+如果你只想跑前后端联调，不启动本地模型，可以把 `backend/.env` 里的两个模型 URL 留空，然后只执行前端和后端这两个终端命令。
+
+访问地址：
+- 前端：`http://localhost:5173`
+- 后端 Swagger：`http://127.0.0.1:8000/api/docs`
+- 评分模型：`http://127.0.0.1:8011/infer`
+- 修改模型：`http://127.0.0.1:8012/infer`
+
+### 后端环境变量
+
+后端默认从 `backend/.env` 读取配置，至少需要配置 MySQL。
+
+作文双模型原型的关键配置：
+
+```env
+ESSAY_SCORE_MODEL_URL=http://127.0.0.1:8011/infer
+ESSAY_SCORE_MODEL_NAME=qwen3-1.7b-score-lora
+ESSAY_REVISION_MODEL_URL=http://127.0.0.1:8012/infer
+ESSAY_REVISION_MODEL_NAME=qwen3-1.7b-revision-lora
+ESSAY_MODEL_TIMEOUT_SECONDS=45
+```
+
+说明：
+- 两个 `URL` 都留空：后端使用内置 mock 评分/改写结果，适合只做页面联调。
+- 配置为上面的本地地址：表示“后端要去这两个地址调用模型”。
+- 这只是接口地址配置，不会自动帮你启动模型进程。
+- 所以 `.env` 配好一次之后，后面仍然需要分别启动：
+  - 后端 `uvicorn`
+  - `score` 模型服务
+  - `revision` 模型服务
+
+### 常用启动命令速查
+
+完整模式：
+
+```powershell
+# 终端 1：前端
+cd yomii
+npm install
+npm run dev
+```
+
+```powershell
+# 终端 2：后端
+cd yomii\backend
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+```powershell
+# 终端 3：评分模型
+cd yomii
+backend\.venv-training\Scripts\python.exe backend\training\serve_qwen_adapter.py --task score --adapter backend\models\score-lora --port 8011
+```
+
+```powershell
+# 终端 4：修改模型
+cd yomii
+backend\.venv-training\Scripts\python.exe backend\training\serve_qwen_adapter.py --task revision --adapter backend\models\revision-lora --port 8012
+```
+
+仅联调模式：
+
+```powershell
+# 终端 1：前端
+cd yomii
+npm install
+npm run dev
+```
+
+```powershell
+# 终端 2：后端（确保 backend/.env 中模型 URL 为空）
+cd yomii\backend
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+### 作文双模型原型运行方式
+
+当前作文模块已支持异步双模型链路：
+
+1. 提交作文
+2. 后端创建评测任务
+3. 评分模型输出 JLPT 风格结构化评分
+4. 修改模型输出问题列表、逐句建议和修正版
+5. 前端历史记录页查看状态和完整报告
+
+如果你还没有本地模型服务，可以先只启动前后端，作文模块会走 mock 结果，链路仍然完整。
+
+### 8GB 显存本地训练方案
+
+如果你要在本机 `8GB` 显存下训练作文模型，当前仓库默认路线是：
+
+- base model: `Qwen/Qwen3-1.7B`
+- `4-bit QLoRA`
+- 双 adapter：
+  - `score-lora`
+  - `revision-lora`
+
+训练目录：
+
+- [backend/training/README.md](./backend/training/README.md)
+
+这套方案是研究原型，不是商用许可方案。
 
 ### 构建生产版本
 
@@ -118,10 +247,17 @@ yomii/
 
 ### 📝 测试评估 (Test)
 分级考试系统：
-- 🎓 三个难度等级（简单/中级/困难）
+- 🎓 多个难度等级（基础到 N1 低频挑战）
 - 📋 10 题快速测试
 - ✔️ 即时反馈和详解
 - 🏆 得分统计
+
+### ✍️ 作文评价 (Essay)
+双模型作文评测系统：
+- 🧭 **JLPT 风格评分** - 任务完成度、语法、词汇、连贯性、自然度、等级匹配度
+- 🛠️ **作文修改建议** - 重点问题、逐句建议、完整修正版
+- 🕓 **异步评测状态** - 待评测 / 评分中 / 修改中 / 已完成 / 失败
+- 🧾 **历史报告** - 支持回看每篇作文的评分与修正版
 
 ## ⚡ API 系统
 
@@ -150,6 +286,10 @@ VITE_API_URL=http://api.example.com/api
 | | 随机 | `GET /words/random?count=10` |
 | **测试** | 获取题目 | `GET /quiz/questions?difficulty=medium&count=10` |
 | | 提交答案 | `POST /quiz/submit` |
+| **作文** | 提交作文 | `POST /essays/submit` |
+| | 触发评测 | `POST /essays/:id/evaluate` |
+| | 获取报告 | `GET /essays/:id/report` |
+| | 获取历史 | `GET /essays/history` |
 | **用户** | 更新单词进度 | `POST /user/progress/:wordId` |
 | | 获取统计 | `GET /user/stats` |
 | | 搜索历史 | `GET /user/search-history` |
@@ -265,6 +405,8 @@ npm run dev
 - [ ] `.env.local` 配置是否正确
 - [ ] `VITE_USE_MOCK=true`（开发时）
 - [ ] 后端服务是否运行（生产时）
+- [ ] MySQL 是否可连接
+- [ ] 作文双模型服务地址是否配置正确（如有）
 - [ ] 查看浏览器控制台的错误信息
 
 ## 📚 开发工具推荐
