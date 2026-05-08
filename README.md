@@ -20,7 +20,7 @@
 - Python 3.11+
 - MySQL 8+
 
-### 安装和运行（前后端 + 本地模型）
+### 安装和运行（前后端 + 模型）
 
 ```bash
 # 终端 1：前端
@@ -38,33 +38,15 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-```powershell
-# 终端 3：启动评分模型服务
-cd .
-backend\.venv-training\Scripts\python.exe `
-  backend\training\serve_qwen_adapter.py `
-  --task score `
-  --adapter backend\models\score-lora `
-  --port 8011
-```
+作文评测模块默认建议两种方式：
 
-```powershell
-# 终端 4：启动修改模型服务
-cd .
-backend\.venv-training\Scripts\python.exe `
-  backend\training\serve_qwen_adapter.py `
-  --task revision `
-  --adapter backend\models\revision-lora `
-  --port 8012
-```
-
-如果你只想跑前后端联调，不启动本地模型，可以把 `backend/.env` 里的两个模型 URL 留空，然后只执行前端和后端这两个终端命令。
+- 默认完整模式：启动前端、后端、评分模型、修改模型四个进程
+- 如果模型服务依赖还没装，先执行：`pip install -r backend/requirements-model.txt`
+- 如果临时不想启动模型，再把 `backend/.env` 里的模型 URL 留空，后端会走内置 mock 结果
 
 访问地址：
 - 前端：`http://localhost:5173`
 - 后端 Swagger：`http://127.0.0.1:8000/api/docs`
-- 评分模型：`http://127.0.0.1:8011/infer`
-- 修改模型：`http://127.0.0.1:8012/infer`
 
 ### 后端环境变量
 
@@ -81,17 +63,13 @@ ESSAY_MODEL_TIMEOUT_SECONDS=45
 ```
 
 说明：
-- 两个 `URL` 都留空：后端使用内置 mock 评分/改写结果，适合只做页面联调。
-- 配置为上面的本地地址：表示“后端要去这两个地址调用模型”。
-- 这只是接口地址配置，不会自动帮你启动模型进程。
-- 所以 `.env` 配好一次之后，后面仍然需要分别启动：
-  - 后端 `uvicorn`
-  - `score` 模型服务
-  - `revision` 模型服务
+- 默认按上面的本地地址启动模型服务，由后端统一编排调用。
+- 如果你已经有现成模型服务，也可以把这两个 `URL` 改成对应接口地址。
+- 两个 `URL` 都留空时，后端使用内置 mock 评分/改写结果。
 
 ### 常用启动命令速查
 
-完整模式：
+标准运行模式：
 
 ```powershell
 # 终端 1：前端
@@ -109,15 +87,28 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ```powershell
 # 终端 3：评分模型
-cd yomii
-backend\.venv-training\Scripts\python.exe backend\training\serve_qwen_adapter.py --task score --adapter backend\models\score-lora --port 8011
+cd yomii\backend
+pip install -r requirements-model.txt
+python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-gptq-int4 --adapter models\score-lora --model-version qwen3-1.7b-score-lora --port 8011
 ```
 
 ```powershell
 # 终端 4：修改模型
-cd yomii
-backend\.venv-training\Scripts\python.exe backend\training\serve_qwen_adapter.py --task revision --adapter backend\models\revision-lora --port 8012
+cd yomii\backend
+pip install -r requirements-model.txt
+python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-gptq-int4 --adapter models\revision-lora --model-version qwen3-1.7b-revision-lora --port 8012
 ```
+
+### 作文模块的两种接法
+
+1. `默认本地模型` 模式  
+安装 `backend/requirements-model.txt`，并启动评分模型和修改模型服务。
+
+2. `现成模型服务` 模式  
+把 `ESSAY_SCORE_MODEL_URL` / `ESSAY_REVISION_MODEL_URL` 改成你已有的推理接口地址，后端会按统一协议调用。
+
+3. `mock` 模式  
+把 `backend/.env` 里的两个模型 URL 留空，适合暂时只演示前后端链路。
 
 仅联调模式：
 
@@ -145,11 +136,11 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 4. 修改模型输出问题列表、逐句建议和修正版
 5. 前端历史记录页查看状态和完整报告
 
-如果你还没有本地模型服务，可以先只启动前后端，作文模块会走 mock 结果，链路仍然完整。
+如果你没有模型服务，可以先只启动前后端，作文模块会走 mock 结果，链路仍然完整。
 
-### 8GB 显存本地训练方案
+### 模型训练与接入说明
 
-如果你要在本机 `8GB` 显存下训练作文模型，当前仓库默认路线是：
+这个项目的作文 AI 曾按下面的路线完成研究原型训练：
 
 - base model: `Qwen/Qwen3-1.7B`
 - `4-bit QLoRA`
@@ -157,11 +148,30 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
   - `score-lora`
   - `revision-lora`
 
-训练目录：
+训练代码目录：
 
 - [backend/training/README.md](./backend/training/README.md)
 
+训练阶段使用的是 `Qwen3-1.7B + QLoRA 4-bit`。训练产物是两个 LoRA adapter，后端通过统一接口调用评分和修改能力。当前仓库保留了训练代码，但为了控制空间，训练数据和临时缓存已经清理。
+
 这套方案是研究原型，不是商用许可方案。
+
+## 项目总结
+
+这个项目目前包含四条完整链路：
+
+1. 查词：前端检索 + 后端词典库 + 搜索历史/收藏持久化  
+2. 背单词：学习计划、词级标签、学习同步、复习逻辑  
+3. 测试：基于 `word_tags` 的分级出题、测试记录与能力报告  
+4. 作文：前端提交作文，后端异步编排评分与修改，并保存历史报告
+
+作文 AI 的实现路径是：
+
+1. 先用 `Qwen3-1.7B` 做双 adapter 微调  
+2. 一个 adapter 专门做 JLPT 风格评分  
+3. 一个 adapter 专门做作文修改建议和修正版生成  
+4. 后端通过统一的作文服务接口编排调用  
+5. 实际部署时可以接 mock、现成推理服务，或你后续自己的模型服务
 
 ### 构建生产版本
 
@@ -177,6 +187,8 @@ npm run type-check
 ```
 
 ## 📖 文档导航
+
+- [项目总结](./PROJECT_SUMMARY.md)
 
 > 📌 **推荐首先阅读**: [COMPREHENSIVE_GUIDE.md](./COMPREHENSIVE_GUIDE.md) - 综合开发指南（包含所有功能、修复和开发文档）
 

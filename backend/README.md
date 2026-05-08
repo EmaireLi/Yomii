@@ -73,6 +73,12 @@ cd backend
 pip install -r requirements.txt
 ```
 
+如果你后续要恢复本地模型服务，再额外安装：
+
+```bash
+pip install -r requirements-model.txt
+```
+
 ### 2. 配置环境变量
 
 ```bash
@@ -93,10 +99,10 @@ MYSQL_DATABASE=yomii
 作文双模型原型新增配置：
 
 ```env
-ESSAY_SCORE_MODEL_URL=
-ESSAY_SCORE_MODEL_NAME=mock-jlpt-score-v1
-ESSAY_REVISION_MODEL_URL=
-ESSAY_REVISION_MODEL_NAME=mock-jlpt-revision-v1
+ESSAY_SCORE_MODEL_URL=http://127.0.0.1:8011/infer
+ESSAY_SCORE_MODEL_NAME=qwen3-1.7b-score-lora
+ESSAY_REVISION_MODEL_URL=http://127.0.0.1:8012/infer
+ESSAY_REVISION_MODEL_NAME=qwen3-1.7b-revision-lora
 ESSAY_MODEL_TIMEOUT_SECONDS=30
 ```
 
@@ -104,9 +110,10 @@ ESSAY_MODEL_TIMEOUT_SECONDS=30
 - `ESSAY_SCORE_MODEL_URL`：后端调用评分模型时使用的 HTTP 地址
 - `ESSAY_REVISION_MODEL_URL`：后端调用修改模型时使用的 HTTP 地址
 - 这里配置的是“调用目标”，不是“自动启动服务”
-- 两个 URL 都留空时，后端自动走 mock 评分与 mock 修改结果，适合先做联调
-- 如果你填的是 `http://127.0.0.1:8011/infer` / `http://127.0.0.1:8012/infer`，那你仍然需要手动把这两个模型服务进程启动起来
-- 推荐评分模型和修改模型拆成两个独立服务，由本后端统一编排
+- 默认应启动本地评分模型和修改模型服务，并使用上述本地地址
+- 如果你已经有现成模型服务，可以把这两个 URL 改成对应的接口地址
+- 两个 URL 都留空时，后端自动走 mock 评分与 mock 修改结果
+- 模型服务额外依赖放在 `requirements-model.txt`
 
 ### 3. 启动 MySQL
 
@@ -138,14 +145,18 @@ MySQL 表结构会在启动时自动补齐，包括作文双模型新增的：
 - Swagger UI: http://localhost:8000/api/docs
 - ReDoc: http://localhost:8000/api/redoc
 
-## 启动顺序（前后端 + 本地双模型）
+## 启动顺序（标准后端模式）
 
 先区分两件事：
 
 1. `.env`：告诉后端“去哪个地址找模型”
-2. 启动命令：真正把后端和两个模型服务进程跑起来
+2. 启动命令：真正把后端进程跑起来
 
-所以即使 `.env` 已经配置好，第一次或每次重启后，仍然要按下面顺序启动进程。
+当前仓库的推荐方式是：
+
+- 默认启动本地评分模型和修改模型服务
+- 或者把 URL 指向现成接口，由后端调用
+- 只有在不需要真实模型时，才把 URL 留空走 mock
 
 ### 终端 1：后端
 
@@ -158,23 +169,17 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ### 终端 2：评分模型
 
 ```powershell
-cd ..
-backend\.venv-training\Scripts\python.exe `
-  backend\training\serve_qwen_adapter.py `
-  --task score `
-  --adapter backend\models\score-lora `
-  --port 8011
+cd backend
+pip install -r requirements-model.txt
+python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-gptq-int4 --adapter models\score-lora --model-version qwen3-1.7b-score-lora --port 8011
 ```
 
 ### 终端 3：修改模型
 
 ```powershell
-cd ..
-backend\.venv-training\Scripts\python.exe `
-  backend\training\serve_qwen_adapter.py `
-  --task revision `
-  --adapter backend\models\revision-lora `
-  --port 8012
+cd backend
+pip install -r requirements-model.txt
+python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-gptq-int4 --adapter models\revision-lora --model-version qwen3-1.7b-revision-lora --port 8012
 ```
 
 ### 对应 `.env`
@@ -189,7 +194,7 @@ ESSAY_MODEL_TIMEOUT_SECONDS=45
 
 ### 常用命令速查
 
-完整模式：
+标准模式：
 
 ```powershell
 # 终端 1：后端
@@ -200,14 +205,16 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ```powershell
 # 终端 2：评分模型
-cd yomii
-backend\.venv-training\Scripts\python.exe backend\training\serve_qwen_adapter.py --task score --adapter backend\models\score-lora --port 8011
+cd yomii\backend
+pip install -r requirements-model.txt
+python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-gptq-int4 --adapter models\score-lora --model-version qwen3-1.7b-score-lora --port 8011
 ```
 
 ```powershell
 # 终端 3：修改模型
-cd yomii
-backend\.venv-training\Scripts\python.exe backend\training\serve_qwen_adapter.py --task revision --adapter backend\models\revision-lora --port 8012
+cd yomii\backend
+pip install -r requirements-model.txt
+python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-gptq-int4 --adapter models\revision-lora --model-version qwen3-1.7b-revision-lora --port 8012
 ```
 
 仅联调模式：
@@ -239,6 +246,28 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 3. 评分模型返回 JLPT 风格结构化评分
 4. 修改模型返回问题列表、逐句建议和修正版
 5. 前端轮询或刷新历史记录查看最终报告
+
+## 训练与最终部署说明
+
+当前项目区分两个阶段：
+
+1. 训练阶段：使用 `Qwen3-1.7B + QLoRA 4-bit` 分别训练 `score-lora` 和 `revision-lora`
+2. 最终接入阶段：后端通过统一作文接口调用评分和修改服务，服务可以是 mock、现成模型服务，或后续你自己的推理服务
+
+为了控制磁盘占用，训练完成后可以清理：
+
+- `backend/data/essay_raw`
+- `backend/data/essay_processed`
+- `backend/data/essay_teacher`
+- 旧的 Hugging Face 训练缓存
+- 旧的 `Qwen3-1.7B` 全量底座缓存
+
+最终部署只保留：
+
+- `backend/models/score-lora`
+- `backend/models/revision-lora`
+- `backend/training/` 下的训练和服务代码
+- `backend/requirements-model.txt` 作为可选本地模型运行依赖清单
 
 ### 主要接口
 

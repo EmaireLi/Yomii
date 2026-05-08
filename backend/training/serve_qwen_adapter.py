@@ -3,8 +3,19 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import os
+import sys
 from pathlib import Path
 from typing import Any
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 import torch
 from fastapi import FastAPI, HTTPException

@@ -5,13 +5,30 @@
 - `score-lora`: JLPT 风格作文评分
 - `revision-lora`: 作文修改建议与修正版生成
 
+当前项目分两个阶段：
+
+1. 训练阶段：`Qwen3-1.7B + QLoRA 4-bit`
+2. 最终接入阶段：后端通过统一接口调用评分和修改服务
+
+如果只是保留项目成果，可以清理训练数据和旧训练缓存，只保留：
+
+- `backend/models/score-lora`
+- `backend/models/revision-lora`
+- `backend/training/` 下的训练与服务代码
+
 ## 1. 安装训练依赖
 
 ```powershell
 cd backend
-python -m venv venv
-venv\Scripts\activate
+pip install -r requirements.txt
 pip install -r training\requirements.txt
+```
+
+如果你只需要恢复本地模型服务，不重新训练，可以只安装：
+
+```powershell
+cd backend
+pip install -r requirements-model.txt
 ```
 
 ## 2. 准备原始数据
@@ -138,19 +155,32 @@ python training\train_revision_lora.py --config training\configs\revision_lora.y
 
 - `backend/models/revision-lora/`
 
-## 7. 启动推理服务
+## 7. 服务接入说明
 
-评分模型：
+当前仓库保留了训练和服务代码。默认完整运行时，建议直接启动本地评分模型和修改模型服务。
 
-```powershell
-python training\serve_qwen_adapter.py --task score --adapter backend\models\score-lora --port 8011
-```
-
-修改模型：
+本地模型服务依赖：
 
 ```powershell
-python training\serve_qwen_adapter.py --task revision --adapter backend\models\revision-lora --port 8012
+cd backend
+pip install -r requirements-model.txt
 ```
+
+本地评分模型：
+
+```powershell
+python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-gptq-int4 --adapter models\score-lora --model-version qwen3-1.7b-score-lora --port 8011
+```
+
+本地修改模型：
+
+```powershell
+python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-gptq-int4 --adapter models\revision-lora --model-version qwen3-1.7b-revision-lora --port 8012
+```
+
+如果你有现成模型服务，只需要让它提供统一的评分/修改接口，然后在 `backend/.env` 中配置 URL。
+
+如果你不需要接真实模型，直接把 URL 留空，后端会走 mock 结果。
 
 ## 8. 配置后端
 
