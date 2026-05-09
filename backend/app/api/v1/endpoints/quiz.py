@@ -3,24 +3,81 @@
 """
 from __future__ import annotations
 
+import json
 import random
+from datetime import timedelta
 from math import exp, sqrt
 from statistics import mean
 from typing import Annotated, Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import select
 
 from app.core.deps import DictDB, UserDB, get_current_active_user
-from app.core.word_levels import get_tags_by_difficulty
+from app.core.word_levels import (
+    get_difficulty_label,
+    get_difficulty_target_seconds,
+    get_difficulty_weight,
+    get_quiz_difficulty_catalog,
+    get_tags_by_difficulty,
+)
 from app.models.quiz import QuizResult, QuizSession, QuizSessionSubmit, QuizSubmit
 from app.models.user import User
 from app.models.word import Word, WordTag
 
 router = APIRouter()
 
-DIFFICULTY_LEVELS = {"easy", "medium", "hard"}
+DIFFICULTY_LEVELS = {item["value"] for item in get_quiz_difficulty_catalog()} | {"easy", "medium", "hard"}
+REPORT_RECENT_WINDOW_DAYS = 90
+REPORT_WEIGHT_HALF_LIFE_DAYS = 21
+REPORT_MIN_RECENT_SESSIONS = 3
+
+
+def _json_dumps(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _json_loads(value: str | None, fallback: Any) -> Any:
+    if not value:
+        return fallback
+    try:
+        return json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return fallback
+
+
+def _safe_question_id(value: int | str | None) -> int | None:
+    if value is None:
+        return None
+    try:
+        question_id = int(value)
+    except (TypeError, ValueError):
+        return None
+    return question_id if question_id > 0 else None
+
+
+def _session_payload(session: QuizSession) -> dict[str, Any]:
+    completed_at = int(session.created_at.timestamp() * 1000)
+    return {
+        "id": session.id,
+        "difficulty": session.difficulty,
+        "difficultyLabel": get_difficulty_label(session.difficulty),
+        "totalQuestions": session.total_questions,
+        "correctAnswers": session.correct_answers,
+        "accuracy": round(session.accuracy * 100.0, 1),
+        "durationSeconds": session.duration_seconds,
+        "abilityScore": session.ability_score,
+        "level": session.report_level,
+        "summary": session.report_summary,
+        "trendDelta": round(session.trend_delta, 1),
+        "consistencyScore": session.consistency_score,
+        "speedScore": session.speed_score,
+        "recommendations": _json_loads(session.report_recommendations, []),
+        "difficultyBreakdown": _json_loads(session.difficulty_breakdown, []),
+        "completedAt": completed_at,
+    }
 
 
 def _to_word_payload(word: Word) -> dict[str, Any]:
@@ -52,22 +109,31 @@ def _build_options(correct: str, candidates: list[str], size: int = 4) -> list[s
     return options[:size]
 
 
-def _speed_score(avg_seconds_per_question: float) -> float:
+def _speed_score(avg_seconds_per_question: float, difficulty: str) -> float:
     if avg_seconds_per_question <= 0:
         return 100.0
-    score = 100.0 * (45.0 / avg_seconds_per_question)
-    return max(40.0, min(100.0, score))
+    target_seconds = float(get_difficulty_target_seconds(difficulty))
+    score = 100.0 * (target_seconds / avg_seconds_per_question)
+    return max(35.0, min(100.0, score))
 
 
 def _ability_level(score: float) -> str:
-    if score >= 90:
-        return "JLPT N2+"
+    if score >= 96:
+        return "N1 低频挑战"
+    if score >= 91:
+        return "N1 中频"
+    if score >= 86:
+        return "N1 高频"
     if score >= 80:
-        return "JLPT N3"
-    if score >= 70:
-        return "JLPT N4"
-    if score >= 60:
-        return "JLPT N5"
+        return "N2 全量"
+    if score >= 73:
+        return "N2 高频"
+    if score >= 66:
+        return "N3 全量"
+    if score >= 58:
+        return "N3 高频"
+    if score >= 48:
+        return "N4+N5"
     return "入门阶段"
 
 
@@ -79,13 +145,25 @@ def _trend_direction(delta: float) -> str:
     return "stable"
 
 
-def _build_summary(score: float, direction: str) -> str:
+def _build_summary(score: float, direction: str, level: str) -> str:
     trend_text = {
         "up": "近期表现明显提升",
         "down": "近期表现出现回落",
         "stable": "近期表现整体稳定",
     }[direction]
-    return f"综合能力分 {score:.1f}，{trend_text}。建议持续按周进行测试并针对薄弱项复习。"
+    return f"当前能力定位接近 {level}，综合能力分 {score:.1f}，{trend_text}。建议持续按周进行测试并针对薄弱项复习。"
+
+
+def _select_recent_sessions(sessions: list[QuizSession]) -> list[QuizSession]:
+    if not sessions:
+        return []
+
+    latest_time = max(item.created_at for item in sessions)
+    recent_cutoff = latest_time - timedelta(days=REPORT_RECENT_WINDOW_DAYS)
+    recent_sessions = [item for item in sessions if item.created_at >= recent_cutoff]
+    if len(recent_sessions) >= REPORT_MIN_RECENT_SESSIONS:
+        return recent_sessions
+    return sessions[-REPORT_MIN_RECENT_SESSIONS:] if len(sessions) > REPORT_MIN_RECENT_SESSIONS else sessions
 
 
 def _build_report(sessions: list[QuizSession]) -> dict[str, Any]:
@@ -105,54 +183,64 @@ def _build_report(sessions: list[QuizSession]) -> dict[str, Any]:
             "difficultyBreakdown": [],
         }
 
-    accuracy_series = [max(0.0, min(1.0, item.accuracy)) * 100.0 for item in sessions]
-    sec_per_q_series = [
-        item.duration_seconds / item.total_questions
-        for item in sessions
-        if item.total_questions > 0 and item.duration_seconds > 0
-    ]
+    report_sessions = _select_recent_sessions(sessions)
+    accuracy_series = [max(0.0, min(1.0, item.accuracy)) * 100.0 for item in report_sessions]
+    mastery_series: list[float] = []
+    sec_per_q_series: list[float] = []
+    difficulty_score_series: list[float] = []
+    latest_time = max(item.created_at for item in report_sessions)
+    for item in report_sessions:
+        difficulty_weight = get_difficulty_weight(item.difficulty)
+        accuracy_pct = max(0.0, min(1.0, item.accuracy)) * 100.0
+        mastery_series.append(min(100.0, accuracy_pct * difficulty_weight))
+        difficulty_score_series.append(min(100.0, difficulty_weight * 100.0 / 1.3))
+        if item.total_questions > 0 and item.duration_seconds > 0:
+            sec_per_q_series.append(item.duration_seconds / item.total_questions)
 
     weighted_sum = 0.0
     weight_total = 0.0
-    n = len(accuracy_series)
-    for idx, value in enumerate(accuracy_series):
-        # 时间衰减加权，越新的记录权重越高
-        weight = exp((idx - (n - 1)) / 4)
+    for item, value in zip(report_sessions, mastery_series):
+        # 按真实时间衰减：越久以前的测试越不影响当前综合能力。
+        age_days = max(0.0, (latest_time - item.created_at).total_seconds() / 86400.0)
+        weight = exp(-age_days / REPORT_WEIGHT_HALF_LIFE_DAYS)
         weighted_sum += value * weight
         weight_total += weight
-    weighted_accuracy = weighted_sum / weight_total if weight_total else 0.0
+    weighted_mastery = weighted_sum / weight_total if weight_total else 0.0
 
-    if len(accuracy_series) >= 6:
-        previous_avg = mean(accuracy_series[-6:-3])
-        recent_avg = mean(accuracy_series[-3:])
-    elif len(accuracy_series) >= 2:
-        previous_avg = accuracy_series[0]
-        recent_avg = accuracy_series[-1]
+    if len(mastery_series) >= 6:
+        previous_avg = mean(mastery_series[-6:-3])
+        recent_avg = mean(mastery_series[-3:])
+    elif len(mastery_series) >= 2:
+        previous_avg = mastery_series[0]
+        recent_avg = mastery_series[-1]
     else:
-        previous_avg = accuracy_series[0]
-        recent_avg = accuracy_series[0]
+        previous_avg = mastery_series[0]
+        recent_avg = mastery_series[0]
 
     trend_delta = recent_avg - previous_avg
     trend_direction = _trend_direction(trend_delta)
 
-    avg_accuracy = mean(accuracy_series)
-    variance = mean([(value - avg_accuracy) ** 2 for value in accuracy_series])
-    consistency_score = max(0.0, min(100.0, 100.0 - sqrt(variance) * 2.2))
+    avg_mastery = mean(mastery_series)
+    variance = mean([(value - avg_mastery) ** 2 for value in mastery_series])
+    consistency_score = max(0.0, min(100.0, 100.0 - sqrt(variance) * 1.9))
 
-    speed_score = _speed_score(mean(sec_per_q_series)) if sec_per_q_series else 75.0
+    latest_difficulty = report_sessions[-1].difficulty
+    speed_score = _speed_score(mean(sec_per_q_series), latest_difficulty) if sec_per_q_series else 72.0
+    difficulty_score = mean(difficulty_score_series) if difficulty_score_series else 50.0
     overall_score = round(
-        weighted_accuracy * 0.72 + consistency_score * 0.18 + speed_score * 0.10,
+        weighted_mastery * 0.55 + difficulty_score * 0.2 + consistency_score * 0.15 + speed_score * 0.1,
         1,
     )
     level = _ability_level(overall_score)
 
     difficulty_stats: dict[str, list[float]] = {}
-    for session in sessions:
+    for session in report_sessions:
         difficulty_stats.setdefault(session.difficulty, []).append(session.accuracy * 100.0)
 
     difficulty_breakdown = [
         {
             "difficulty": key,
+            "label": get_difficulty_label(key),
             "accuracy": round(mean(values), 1),
             "count": len(values),
         }
@@ -161,6 +249,10 @@ def _build_report(sessions: list[QuizSession]) -> dict[str, Any]:
     difficulty_breakdown.sort(key=lambda item: item["accuracy"])
 
     recommendations: list[str] = []
+    if len(report_sessions) < len(sessions):
+        recommendations.append(
+            f"综合能力已按最近 {REPORT_RECENT_WINDOW_DAYS} 天内的测试优先计算，较早历史记录仅保留展示。"
+        )
     if trend_direction == "down":
         recommendations.append("近期准确率回落，建议先复习错题词汇，再进行同难度复测。")
     elif trend_direction == "up":
@@ -171,7 +263,12 @@ def _build_report(sessions: list[QuizSession]) -> dict[str, Any]:
     if difficulty_breakdown:
         weakest = difficulty_breakdown[0]
         recommendations.append(
-            f"当前薄弱难度为 {weakest['difficulty']}（平均正确率 {weakest['accuracy']}%），可优先加强该层级训练。"
+            f"当前薄弱层级为 {weakest['label']}（平均正确率 {weakest['accuracy']}%），可优先加强该层级训练。"
+        )
+    strongest_difficulty = max(report_sessions, key=lambda item: get_difficulty_weight(item.difficulty))
+    if strongest_difficulty.accuracy >= 0.78:
+        recommendations.append(
+            f"最近已能稳定应对 {get_difficulty_label(strongest_difficulty.difficulty)}，可以逐步向更高层级测试。"
         )
 
     latest = sessions[-1]
@@ -184,14 +281,15 @@ def _build_report(sessions: list[QuizSession]) -> dict[str, Any]:
         "consistencyScore": round(consistency_score, 1),
         "speedScore": round(speed_score, 1),
         "historyCount": len(sessions),
-        "basedOnSessions": len(sessions),
+        "basedOnSessions": len(report_sessions),
         "recommendations": recommendations,
-        "summary": _build_summary(overall_score, trend_direction),
+        "summary": _build_summary(overall_score, trend_direction, level),
         "generatedAt": generated_at,
         "currentSession": {
             "sessionId": latest.id,
             "accuracy": round(latest.accuracy * 100.0, 1),
             "difficulty": latest.difficulty,
+            "difficultyLabel": get_difficulty_label(latest.difficulty),
             "totalQuestions": latest.total_questions,
             "correctAnswers": latest.correct_answers,
             "durationSeconds": latest.duration_seconds,
@@ -203,6 +301,19 @@ def _build_report(sessions: list[QuizSession]) -> dict[str, Any]:
         },
         "difficultyBreakdown": difficulty_breakdown,
     }
+
+
+@router.get("/difficulties", response_model=List[dict])
+async def get_quiz_difficulties() -> List[dict]:
+    """获取测试难度分层配置"""
+    return [
+        {
+            "value": item["value"],
+            "label": item["label"],
+            "tags": item["tags"],
+        }
+        for item in get_quiz_difficulty_catalog()
+    ]
 
 
 @router.get("/questions", response_model=List[dict])
@@ -234,8 +345,8 @@ async def get_quiz_questions(
     result = await dict_db.exec(statement)
     raw_words = result.all()
 
-    # 若词典缺失级别标签，回退到全词库，避免页面空题。
-    if not raw_words and level_tags:
+    # 仅在难度未映射出标签时回退到全词库；有标签时保持同标签出题。
+    if not raw_words and not level_tags:
         fallback_statement = select(Word).order_by(func.random()).limit(max(40, count * 4))
         fallback_result = await dict_db.exec(fallback_statement)
         raw_words = fallback_result.all()
@@ -269,6 +380,7 @@ async def get_quiz_questions(
             {
                 "id": str(word.id),
                 "type": "multiple-choice",
+                "questionMode": question_mode,
                 "question": question_text,
                 "word": _to_word_payload(word),
                 "options": options,
@@ -339,18 +451,6 @@ async def submit_quiz_session(
     user_db.add(session)
     await user_db.flush()
 
-    for answer in session_submit.answers:
-        user_db.add(
-            QuizResult(
-                session_id=session.id,
-                user_id=current_user.id,
-                question_id=answer.question_id,
-                user_answer=answer.user_answer,
-                is_correct=answer.is_correct,
-                difficulty=normalized_difficulty,
-            )
-        )
-
     history_statement = (
         select(QuizSession)
         .where(QuizSession.user_id == current_user.id)
@@ -366,26 +466,43 @@ async def submit_quiz_session(
     session.report_level = report["level"]
     session.report_summary = report["summary"]
     session.trend_delta = report["trend"]["delta"]
+    session.consistency_score = report["consistencyScore"]
+    session.speed_score = report["speedScore"]
+    session.report_recommendations = _json_dumps(report["recommendations"])
+    session.difficulty_breakdown = _json_dumps(report["difficultyBreakdown"])
 
     await user_db.commit()
     await user_db.refresh(session)
 
-    completed_at = int(session.created_at.timestamp() * 1000)
+    answers_saved = True
+    if session_submit.answers:
+        try:
+            for answer in session_submit.answers:
+                question_id = _safe_question_id(answer.question_id)
+                if question_id is None:
+                    answers_saved = False
+                    continue
+                user_db.add(
+                    QuizResult(
+                        session_id=session.id,
+                        user_id=current_user.id,
+                        question_id=question_id,
+                        user_answer=answer.user_answer,
+                        is_correct=answer.is_correct,
+                        difficulty=normalized_difficulty,
+                    )
+                )
+            await user_db.commit()
+        except SQLAlchemyError:
+            answers_saved = False
+            await user_db.rollback()
+
+    session_payload = _session_payload(session)
+    report["currentSession"] = session_payload
     return {
         "success": True,
-        "session": {
-            "id": session.id,
-            "difficulty": session.difficulty,
-            "totalQuestions": session.total_questions,
-            "correctAnswers": session.correct_answers,
-            "accuracy": round(session.accuracy * 100.0, 1),
-            "durationSeconds": session.duration_seconds,
-            "abilityScore": session.ability_score,
-            "level": session.report_level,
-            "summary": session.report_summary,
-            "trendDelta": session.trend_delta,
-            "completedAt": completed_at,
-        },
+        "answersSaved": answers_saved,
+        "session": session_payload,
         "report": report,
     }
 
@@ -409,22 +526,7 @@ async def get_quiz_history(
     result = await user_db.exec(statement)
     sessions = result.all()
 
-    return [
-        {
-            "id": item.id,
-            "difficulty": item.difficulty,
-            "totalQuestions": item.total_questions,
-            "correctAnswers": item.correct_answers,
-            "accuracy": round(item.accuracy * 100.0, 1),
-            "durationSeconds": item.duration_seconds,
-            "abilityScore": item.ability_score,
-            "level": item.report_level,
-            "summary": item.report_summary,
-            "trendDelta": round(item.trend_delta, 1),
-            "completedAt": int(item.created_at.timestamp() * 1000),
-        }
-        for item in sessions
-    ]
+    return [_session_payload(item) for item in sessions]
 
 
 @router.get("/report", response_model=dict)

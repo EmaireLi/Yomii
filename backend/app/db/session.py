@@ -170,6 +170,146 @@ def _migrate_word_progress_table_columns(sync_conn) -> None:
         )
 
 
+def _migrate_quiz_sessions_table_columns(sync_conn) -> None:
+    """为 quiz_sessions 表补齐历史报告字段。"""
+    inspector = inspect(sync_conn)
+    if "quiz_sessions" not in inspector.get_table_names():
+        return
+
+    column_names = {column["name"] for column in inspector.get_columns("quiz_sessions")}
+    if "consistency_score" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE quiz_sessions ADD COLUMN consistency_score FLOAT NOT NULL DEFAULT 0"
+        )
+    if "speed_score" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE quiz_sessions ADD COLUMN speed_score FLOAT NOT NULL DEFAULT 0"
+        )
+    if "report_recommendations" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE quiz_sessions ADD COLUMN report_recommendations TEXT NULL"
+        )
+    if "difficulty_breakdown" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE quiz_sessions ADD COLUMN difficulty_breakdown TEXT NULL"
+        )
+    sync_conn.exec_driver_sql(
+        "UPDATE quiz_sessions SET report_recommendations = COALESCE(report_recommendations, '')"
+    )
+    sync_conn.exec_driver_sql(
+        "UPDATE quiz_sessions SET difficulty_breakdown = COALESCE(difficulty_breakdown, '')"
+    )
+
+
+def _migrate_quiz_results_table_columns(sync_conn) -> None:
+    """为 quiz_results 表补齐整场测试保存所需字段。"""
+    inspector = inspect(sync_conn)
+    if "quiz_results" not in inspector.get_table_names():
+        return
+
+    column_names = {column["name"] for column in inspector.get_columns("quiz_results")}
+    if "session_id" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE quiz_results ADD COLUMN session_id INT NULL AFTER user_id"
+        )
+    if "difficulty" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE quiz_results ADD COLUMN difficulty VARCHAR(255) NOT NULL DEFAULT 'medium'"
+        )
+
+    index_names = {idx["name"] for idx in inspect(sync_conn).get_indexes("quiz_results")}
+    if "idx_quiz_results_session_id" not in index_names:
+        sync_conn.exec_driver_sql(
+            "CREATE INDEX idx_quiz_results_session_id ON quiz_results (session_id)"
+        )
+    if "idx_quiz_results_difficulty" not in index_names:
+        sync_conn.exec_driver_sql(
+            "CREATE INDEX idx_quiz_results_difficulty ON quiz_results (difficulty)"
+        )
+
+
+def _migrate_essays_table_columns(sync_conn) -> None:
+    """为 essays 表补齐双模型评测所需字段。"""
+    inspector = inspect(sync_conn)
+    if "essays" not in inspector.get_table_names():
+        return
+
+    column_names = {column["name"] for column in inspector.get_columns("essays")}
+    if "target_level" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essays ADD COLUMN target_level VARCHAR(32) NOT NULL DEFAULT 'N3'"
+        )
+    if "status" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essays ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'pending'"
+        )
+    if "evaluation_requested_at" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essays ADD COLUMN evaluation_requested_at DATETIME NULL"
+        )
+    if "evaluation_completed_at" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essays ADD COLUMN evaluation_completed_at DATETIME NULL"
+        )
+    if "last_error" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essays ADD COLUMN last_error TEXT NULL"
+        )
+
+    sync_conn.exec_driver_sql("UPDATE essays SET status = COALESCE(status, 'pending')")
+    sync_conn.exec_driver_sql("UPDATE essays SET target_level = COALESCE(target_level, 'N3')")
+    sync_conn.exec_driver_sql("UPDATE essays SET last_error = COALESCE(last_error, '')")
+
+
+def _migrate_essay_scores_table_columns(sync_conn) -> None:
+    """为 essay_scores 表补齐结构化评分字段。"""
+    inspector = inspect(sync_conn)
+    if "essay_scores" not in inspector.get_table_names():
+        return
+
+    column_names = {column["name"] for column in inspector.get_columns("essay_scores")}
+    if "task_completion_score" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essay_scores ADD COLUMN task_completion_score INT NOT NULL DEFAULT 0"
+        )
+    if "naturalness_score" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essay_scores ADD COLUMN naturalness_score INT NOT NULL DEFAULT 0"
+        )
+    if "jlpt_fit_score" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essay_scores ADD COLUMN jlpt_fit_score INT NOT NULL DEFAULT 0"
+        )
+    if "level_estimate" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essay_scores ADD COLUMN level_estimate VARCHAR(32) NOT NULL DEFAULT 'N5'"
+        )
+    if "summary" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essay_scores ADD COLUMN summary TEXT NULL"
+        )
+    if "model_version" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essay_scores ADD COLUMN model_version VARCHAR(128) NOT NULL DEFAULT ''"
+        )
+
+    sync_conn.exec_driver_sql(
+        "UPDATE essay_scores SET task_completion_score = CASE WHEN task_completion_score = 0 THEN overall_score ELSE task_completion_score END"
+    )
+    sync_conn.exec_driver_sql(
+        "UPDATE essay_scores SET naturalness_score = CASE WHEN naturalness_score = 0 THEN COALESCE(fluency_score, overall_score) ELSE naturalness_score END"
+    )
+    sync_conn.exec_driver_sql(
+        "UPDATE essay_scores SET jlpt_fit_score = CASE WHEN jlpt_fit_score = 0 THEN overall_score ELSE jlpt_fit_score END"
+    )
+    sync_conn.exec_driver_sql(
+        "UPDATE essay_scores SET level_estimate = CASE WHEN level_estimate = '' THEN 'N5' ELSE level_estimate END"
+    )
+    sync_conn.exec_driver_sql(
+        "UPDATE essay_scores SET summary = COALESCE(summary, comments, '')"
+    )
+
+
 def _migrate_words_table_meaning_columns(sync_conn) -> None:
     """将 words.meaning 迁移为 japanese_meaning，并补齐 chinese_meaning。"""
     inspector = inspect(sync_conn)
@@ -212,7 +352,7 @@ async def create_mysql_tables():
     from app.models.favorite import Favorite, SearchHistory
     from app.models.stats import StudyStats
     from app.models.quiz import QuizResult, QuizSession
-    from app.models.essay import Essay, EssayScore
+    from app.models.essay import Essay, EssayScore, EssayRevision, EssayJob
     from app.models.study_plan import StudyPlan, LearningSession
     mysql_tables = _model_tables(
         User,
@@ -224,6 +364,8 @@ async def create_mysql_tables():
         QuizResult,
         Essay,
         EssayScore,
+        EssayRevision,
+        EssayJob,
         StudyPlan,
         LearningSession,
     )
@@ -235,7 +377,11 @@ async def create_mysql_tables():
         )
         await conn.run_sync(_create_selected_tables, mysql_tables)
         await conn.run_sync(_migrate_study_plans_table_columns)
+        await conn.run_sync(_migrate_quiz_sessions_table_columns)
+        await conn.run_sync(_migrate_quiz_results_table_columns)
         await conn.run_sync(_migrate_word_progress_table_columns)
+        await conn.run_sync(_migrate_essays_table_columns)
+        await conn.run_sync(_migrate_essay_scores_table_columns)
 
 
 async def create_db_and_tables():

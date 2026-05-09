@@ -63,12 +63,12 @@ export const DEFAULT_STUDY_PLAN = {
 
 // 辞书列表
 export const DICTIONARIES = [
-  { id: 'common', name: '常用词典', description: '基础级别（N5-N4）', wordCount: 1500, level: 'easy' },
-  { id: 'daily', name: '日常词典', description: '中等级别（N3）', wordCount: 2500, level: 'medium' },
-  { id: 'jlpt3', name: 'JLPT N3', description: '中等级别（N3）', wordCount: 3700, level: 'medium' },
-  { id: 'jlpt2', name: 'JLPT N2', description: '高级别（N2-N1）', wordCount: 6000, level: 'hard' },
-  { id: 'jlpt1', name: 'JLPT N1', description: '高级别（N2-N1）', wordCount: 10000, level: 'hard' },
-  { id: 'business', name: '商务词典', description: '高级别（N2-N1）', wordCount: 2000, level: 'hard' }
+  { id: 'common', name: '常用词典', description: '基础级别（N4+N5）', wordCount: 1568, level: 'easy', tags: ['N4+N5'] },
+  { id: 'daily', name: '日常高频', description: 'N3 高频词', wordCount: 454, level: 'medium', tags: ['N3-高频'] },
+  { id: 'jlpt3', name: 'JLPT N3', description: 'N3 全量（高频 + 中低频）', wordCount: 1588, level: 'medium', tags: ['N3-高频', 'N3-中低频'] },
+  { id: 'jlpt2', name: 'JLPT N2', description: 'N2 全量（高频 + 中低频）', wordCount: 2933, level: 'hard', tags: ['N2-高频', 'N2-中低频'] },
+  { id: 'jlpt1', name: 'JLPT N1', description: 'N1 全量（高频 + 中频 + 低频）', wordCount: 4082, level: 'hard', tags: ['N1-高频', 'N1-中频', 'N1-低频'] },
+  { id: 'business', name: '高阶高频', description: '兼容旧计划，使用 N2/N1 高频标签', wordCount: 3358, level: 'hard', tags: ['N2-高频', 'N1-高频', 'N1-中频'] }
 ]
 
 // 单词数量预设选项

@@ -6,6 +6,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+from sqlalchemy import Column, Text
 from sqlmodel import SQLModel, Field
 
 
@@ -62,7 +63,7 @@ class QuizSubmit(SQLModel):
 
 class QuizAnswerItem(SQLModel):
     """一次测试中的单题答题记录"""
-    question_id: int
+    question_id: int | str | None = None
     user_answer: str
     is_correct: bool
 
@@ -79,6 +80,10 @@ class QuizSessionBase(SQLModel):
     report_level: str = Field(default="入门")
     report_summary: str = Field(default="")
     trend_delta: float = Field(default=0.0)
+    consistency_score: float = Field(default=0.0, ge=0.0, le=100.0)
+    speed_score: float = Field(default=0.0, ge=0.0, le=100.0)
+    report_recommendations: str = Field(default="", sa_column=Column(Text, nullable=False))
+    difficulty_breakdown: str = Field(default="", sa_column=Column(Text, nullable=False))
 
 
 class QuizSession(QuizSessionBase, table=True):

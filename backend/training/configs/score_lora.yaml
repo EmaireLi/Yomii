@@ -1,0 +1,29 @@
+model_name: Qwen/Qwen3-1.7B
+task_name: score
+train_file: backend/data/essay_processed/score_train.jsonl
+eval_file: backend/data/essay_processed/score_eval.jsonl
+output_dir: backend/models/score-lora
+max_seq_length: 1024
+per_device_train_batch_size: 1
+per_device_eval_batch_size: 1
+gradient_accumulation_steps: 16
+learning_rate: 2.0e-4
+num_train_epochs: 3
+warmup_ratio: 0.03
+logging_steps: 10
+save_strategy: epoch
+evaluation_strategy: epoch
+save_total_limit: 2
+max_train_samples:
+max_eval_samples:
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.05
+target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj

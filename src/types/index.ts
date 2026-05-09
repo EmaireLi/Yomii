@@ -64,11 +64,18 @@ export interface StudyStats {
 export interface QuizQuestion {
   id: string
   type: 'multiple-choice' | 'fill-blank' | 'listening'
+  questionMode?: 'kana' | 'chinese' | string
   question: string
   word: Word
   options: string[]
   correctAnswer: string
   explanation: string
+}
+
+export interface QuizDifficultyOption {
+  value: string
+  label: string
+  tags?: string[]
 }
 
 /** 测试结果 */
@@ -91,6 +98,14 @@ export interface QuizSessionRecord {
   level: string
   summary: string
   trendDelta: number
+  consistencyScore: number
+  speedScore: number
+  recommendations: string[]
+  difficultyBreakdown: Array<{
+    difficulty: string
+    accuracy: number
+    count: number
+  }>
   completedAt: number
 }
 
@@ -124,8 +139,18 @@ export interface Essay {
   content: string
   topic: string
   wordCount: number
+  targetLevel: string
+  status: 'pending' | 'scoring' | 'revising' | 'completed' | 'failed' | string
   submitTime: number
-  score?: EssayScore
+  evaluationRequestedAt?: number
+  evaluationCompletedAt?: number
+  errorMessage?: string
+  scoreReport?: EssayScore
+  revisionReport?: EssayRevision
+  modelVersions?: {
+    score?: string
+    revision?: string
+  }
 }
 
 /** 作文评分（AI 评测就绪） */
@@ -133,13 +158,64 @@ export interface EssayScore {
   id: string
   essayId: string
   overallScore: number
-  gramarScore: number        // 语法分
-  vocabularyScore: number    // 词汇分
-  fluencyScore: number       // 流畅度
-  coherenceScore: number     // 连贯性
+  taskCompletionScore: number
+  grammarScore: number
+  vocabularyScore: number
+  coherenceScore: number
+  naturalnessScore: number
+  jlptFitScore: number
+  levelEstimate: string
+  summary: string
   comments: string
-  aiEvaluated: boolean       // 是否由 AI 评论
+  aiEvaluated: boolean
+  modelVersion: string
   evaluationTime: number
+}
+
+export interface EssayRevisionIssue {
+  source: string
+  suggestion: string
+  explanation: string
+  severity: string
+}
+
+export interface EssaySentenceSuggestion {
+  original: string
+  suggested: string
+  reason: string
+}
+
+export interface EssayRevision {
+  id: string
+  essayId: string
+  issues: EssayRevisionIssue[]
+  sentenceSuggestions: EssaySentenceSuggestion[]
+  fullRevision: string
+  revisionNotes: string
+  modelVersion: string
+  generatedAt: number
+}
+
+export interface EssayEvaluationReport {
+  essay: Essay
+  status: Essay['status']
+  scoreReport: EssayScore | null
+  revisionReport: EssayRevision | null
+  job?: {
+    id: string
+    essayId: string
+    status: string
+    errorMessage: string
+    scoreModelVersion: string
+    revisionModelVersion: string
+    startedAt: number
+    completedAt: number
+  } | null
+  modelVersions: {
+    score?: string
+    revision?: string
+  }
+  errorMessage?: string
 }
 
 /** 应用配置 */
@@ -184,6 +260,7 @@ export interface DictionaryConfig {
   description: string
   wordCount: number
   level: 'easy' | 'medium' | 'hard' | string
+  tags?: string[]
 }
 
 /** 用户数据 */

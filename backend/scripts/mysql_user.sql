@@ -135,6 +135,10 @@ CREATE TABLE quiz_sessions (
     report_level     VARCHAR(50) NOT NULL DEFAULT '入门',
     report_summary   TEXT NOT NULL,
     trend_delta      FLOAT NOT NULL DEFAULT 0,
+    consistency_score FLOAT NOT NULL DEFAULT 0,
+    speed_score      FLOAT NOT NULL DEFAULT 0,
+    report_recommendations TEXT,
+    difficulty_breakdown TEXT,
     created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -175,11 +179,17 @@ CREATE TABLE essays (
     content         TEXT NOT NULL,                        -- 作文内容
     topic           VARCHAR(255) DEFAULT '',              -- 主题
     word_count      INT DEFAULT 0,                        -- 字数
+    target_level    VARCHAR(32) NOT NULL DEFAULT 'N3',    -- 目标JLPT等级
+    status          VARCHAR(32) NOT NULL DEFAULT 'pending', -- 评测状态
     submit_time     DATETIME DEFAULT CURRENT_TIMESTAMP,
+    evaluation_requested_at DATETIME NULL,
+    evaluation_completed_at DATETIME NULL,
+    last_error      TEXT NULL,
     
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_essays_user_id (user_id),
-    INDEX idx_essays_submit_time (submit_time)
+    INDEX idx_essays_submit_time (submit_time),
+    INDEX idx_essays_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
@@ -189,12 +199,17 @@ CREATE TABLE essay_scores (
     id               INT PRIMARY KEY AUTO_INCREMENT,
     essay_id         INT NOT NULL,                        -- 作文ID
     overall_score    INT DEFAULT 0,                       -- 总分 (0-100)
+    task_completion_score INT DEFAULT 0,                  -- 任务完成度
     grammar_score    INT DEFAULT 0,                       -- 语法分
     vocabulary_score INT DEFAULT 0,                       -- 词汇分
-    fluency_score    INT DEFAULT 0,                       -- 流畅度分
     coherence_score  INT DEFAULT 0,                       -- 连贯性分
+    naturalness_score INT DEFAULT 0,                      -- 自然度
+    jlpt_fit_score   INT DEFAULT 0,                       -- 等级匹配度
+    level_estimate   VARCHAR(32) NOT NULL DEFAULT 'N5',   -- 估计等级
+    summary          TEXT,                                -- 总结
     comments         TEXT,                                -- 评语
     ai_evaluated     BOOLEAN DEFAULT FALSE,               -- 是否AI评测
+    model_version    VARCHAR(128) NOT NULL DEFAULT '',    -- 模型版本
     evaluation_time  DATETIME DEFAULT CURRENT_TIMESTAMP,
     
     FOREIGN KEY (essay_id) REFERENCES essays(id) ON DELETE CASCADE,
@@ -202,7 +217,42 @@ CREATE TABLE essay_scores (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 10. study_plans - 学习计划表
+-- 10. essay_revisions - 作文修改建议表
+-- ============================================================
+CREATE TABLE essay_revisions (
+    id               INT PRIMARY KEY AUTO_INCREMENT,
+    essay_id         INT NOT NULL,                        -- 作文ID
+    issues_json      TEXT NOT NULL,                       -- 重点问题JSON
+    sentence_suggestions_json TEXT NOT NULL,              -- 逐句建议JSON
+    full_revision    TEXT NOT NULL,                       -- 完整改写版本
+    revision_notes   TEXT NOT NULL,                       -- 改写说明
+    model_version    VARCHAR(128) NOT NULL DEFAULT '',    -- 模型版本
+    generated_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (essay_id) REFERENCES essays(id) ON DELETE CASCADE,
+    INDEX idx_essay_revisions_essay_id (essay_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 11. essay_jobs - 作文评测任务表
+-- ============================================================
+CREATE TABLE essay_jobs (
+    id               INT PRIMARY KEY AUTO_INCREMENT,
+    essay_id         INT NOT NULL,                        -- 作文ID
+    status           VARCHAR(32) NOT NULL DEFAULT 'pending',
+    error_message    TEXT NOT NULL,                       -- 错误信息
+    score_model_version VARCHAR(128) NOT NULL DEFAULT '',
+    revision_model_version VARCHAR(128) NOT NULL DEFAULT '',
+    started_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at     DATETIME NULL,
+
+    FOREIGN KEY (essay_id) REFERENCES essays(id) ON DELETE CASCADE,
+    INDEX idx_essay_jobs_essay_id (essay_id),
+    INDEX idx_essay_jobs_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 12. study_plans - 学习计划表
 -- ============================================================
 CREATE TABLE study_plans (
     id           INT PRIMARY KEY AUTO_INCREMENT,

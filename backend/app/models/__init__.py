@@ -12,7 +12,7 @@ MySQL (用户库):
 - SearchHistory: 搜索历史
 - StudyStats: 学习统计
 - QuizResult: 测试结果
-- Essay, EssayScore: 作文和评分
+- Essay, EssayScore, EssayRevision, EssayJob: 作文评测
 - StudyPlan, LearningSession: 学习计划
 """
 
@@ -33,7 +33,17 @@ from .user import User, UserCreate, UserUpdate, UserInDB
 from .progress import WordProgress, WordProgressCreate, WordProgressRead, ProgressStatus
 from .favorite import Favorite, FavoriteCreate, FavoriteRead, SearchHistory, SearchHistoryCreate, SearchHistoryRead
 from .stats import StudyStats, StudyStatsUpdate, StudyStatsRead
-from .essay import Essay, EssayScore, EssayCreate, EssayRead, EssayScoreRead
+from .essay import (
+    Essay,
+    EssayScore,
+    EssayRevision,
+    EssayJob,
+    EssayCreate,
+    EssayRead,
+    EssayScoreRead,
+    EssayRevisionRead,
+    EssayJobRead,
+)
 from .study_plan import StudyPlan, LearningSession, StudyPlanCreate, StudyPlanUpdate, LearningSessionCreate
 
 __all__ = [
@@ -50,7 +60,8 @@ __all__ = [
     # MySQL - Stats
     "StudyStats", "StudyStatsUpdate", "StudyStatsRead",
     # MySQL - Essay
-    "Essay", "EssayScore", "EssayCreate", "EssayRead", "EssayScoreRead",
+    "Essay", "EssayScore", "EssayRevision", "EssayJob",
+    "EssayCreate", "EssayRead", "EssayScoreRead", "EssayRevisionRead", "EssayJobRead",
     # MySQL - Study Plan
     "StudyPlan", "LearningSession", "StudyPlanCreate", "StudyPlanUpdate", "LearningSessionCreate",
 ]
