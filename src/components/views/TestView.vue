@@ -100,12 +100,22 @@
               <el-tag :type="scope.row.accuracy >= 80 ? 'success' : 'info'">{{ scope.row.level }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="90" fixed="right">
+          <el-table-column label="操作" width="150" fixed="right">
             <template #default="scope">
               <el-button type="primary" link size="small" @click="viewHistoryDetail(scope.row)">详情报告</el-button>
+              <el-button type="danger" link size="small" @click="confirmDeleteQuiz(scope.row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
+        <div class="pagination-wrap" v-if="quizTotal > quizLimit">
+          <el-pagination
+            v-model:current-page="quizPage"
+            :page-size="quizLimit"
+            :total="quizTotal"
+            layout="prev, pager, next"
+            @current-change="(p: number) => loadHistoryAndReport(p)"
+          />
+        </div>
       </el-card>
     </div>
 
@@ -308,12 +318,22 @@
               <el-tag :type="scope.row.accuracy >= 80 ? 'success' : 'info'">{{ scope.row.level }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="90" fixed="right">
+          <el-table-column label="操作" width="150" fixed="right">
             <template #default="scope">
               <el-button type="primary" link size="small" @click="viewHistoryDetail(scope.row)">详情报告</el-button>
+              <el-button type="danger" link size="small" @click="confirmDeleteQuiz(scope.row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
+        <div class="pagination-wrap" v-if="quizTotal > quizLimit">
+          <el-pagination
+            v-model:current-page="quizPage"
+            :page-size="quizLimit"
+            :total="quizTotal"
+            layout="prev, pager, next"
+            @current-change="(p: number) => loadHistoryAndReport(p)"
+          />
+        </div>
       </el-card>
     </div>
 
@@ -422,6 +442,7 @@ import { Memo, Timer, Aim, CircleCheck, CircleClose } from '@element-plus/icons-
 import type { QuizAbilityReport, QuizDifficultyOption, QuizQuestion, QuizSessionRecord } from '@/types'
 import { VIEWS } from '@/utils/constants'
 import {
+  deleteQuizSessionAPI,
   getQuizAbilityReport as getQuizAbilityReportAPI,
   getQuizDifficulties as getQuizDifficultiesAPI,
   getQuizHistory as getQuizHistoryAPI,
@@ -446,6 +467,9 @@ const isSubmittingSession = ref(false)
 const testStartAt = ref(0)
 const answerRecords = ref<Array<{ questionId: string; userAnswer: string; isCorrect: boolean }>>([])
 const quizHistory = ref<QuizSessionRecord[]>([])
+const quizTotal = ref<number>(0)
+const quizPage = ref<number>(1)
+const quizLimit = 10
 const abilityReport = ref<QuizAbilityReport | null>(null)
 
 // 历史视图状态
@@ -600,7 +624,7 @@ const finishTest = async () => {
       answers: answerRecords.value
     })
     abilityReport.value = response.report
-    quizHistory.value = [response.session, ...quizHistory.value.filter(item => item.id !== response.session.id)].slice(0, 10)
+    quizPage.value = 1
     await loadHistoryAndReport()
   } catch (error) {
     console.error('Failed to submit quiz session:', error)
@@ -608,6 +632,31 @@ const finishTest = async () => {
     ElMessage.warning(`历史记录保存失败：${message}`)
   } finally {
     isSubmittingSession.value = false
+  }
+}
+
+const confirmDeleteQuiz = async (item: QuizSessionRecord) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要删除这条测试记录吗？此操作不可恢复。',
+      '删除确认',
+      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
+    )
+    await deleteQuizSessionAPI(item.id)
+    quizHistory.value = quizHistory.value.filter(s => s.id !== item.id)
+    if (selectedHistoryItem.value?.id === item.id) {
+      historyDetailVisible.value = false
+      selectedHistoryItem.value = null
+    }
+    ElMessage.success('测试记录已删除')
+    quizTotal.value = Math.max(0, quizTotal.value - 1)
+    if (quizHistory.value.length === 0 && quizPage.value > 1) {
+      quizPage.value--
+      await loadHistoryAndReport()
+    }
+  } catch (error: any) {
+    if (error?.toString().includes('cancel')) return
+    ElMessage.error(error.message || '删除失败')
   }
 }
 
@@ -773,19 +822,22 @@ const handleKeyboard = (event: KeyboardEvent) => {
   }
 }
 
-const loadHistoryAndReport = async () => {
+const loadHistoryAndReport = async (page?: number) => {
   if (!isAuthenticated()) {
     quizHistory.value = []
     abilityReport.value = null
     return
   }
+  if (page !== undefined) quizPage.value = page
+  const skip = (quizPage.value - 1) * quizLimit
   const [historyResult, reportResult] = await Promise.allSettled([
-    getQuizHistoryAPI(10),
+    getQuizHistoryAPI(skip, quizLimit),
     getQuizAbilityReportAPI(20)
   ])
 
   if (historyResult.status === 'fulfilled') {
-    quizHistory.value = historyResult.value
+    quizHistory.value = historyResult.value.items
+    quizTotal.value = historyResult.value.total
   } else {
     console.error('Failed to load quiz history:', historyResult.reason)
   }
@@ -1329,5 +1381,11 @@ onUnmounted(() => {
 .expand-enter-active,
 .expand-leave-active {
   transition: all 0.3s ease;
+}
+
+.pagination-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 8px;
 }
 </style>

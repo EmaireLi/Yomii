@@ -52,6 +52,7 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 .env
+backend/.env
 venv/
 .venv/
 backend/data/

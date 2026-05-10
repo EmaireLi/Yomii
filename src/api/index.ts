@@ -635,22 +635,29 @@ export async function submitQuizSession(payload: {
  * 获取测试历史记录
  * GET /api/quiz/history
  */
-export async function getQuizHistory(limit: number = 10): Promise<QuizSessionRecord[]> {
-  const response = await fetch(`${API_BASE_URL}/quiz/history?limit=${limit}`, {
+export async function getQuizHistory(skip: number = 0, limit: number = 10): Promise<{ items: QuizSessionRecord[]; total: number }> {
+  const response = await fetch(`${API_BASE_URL}/quiz/history?skip=${skip}&limit=${limit}`, {
     headers: getAuthHeaders()
   })
   assertApiResponse(response, '获取测试历史')
-  const data = await response.json() as any[] | { sessions?: any[]; records?: any[]; history?: any[] }
-  const records = Array.isArray(data)
-    ? data
-    : Array.isArray(data.sessions)
-      ? data.sessions
-      : Array.isArray(data.records)
-        ? data.records
-        : Array.isArray(data.history)
-          ? data.history
-          : []
-  return records.map(normalizeQuizSession)
+  const data = await response.json() as { items?: any[]; total?: number }
+  return {
+    items: (data.items || []).map(normalizeQuizSession),
+    total: data.total ?? 0
+  }
+}
+
+/**
+ * 删除单条测试记录
+ * DELETE /api/quiz/sessions/:sessionId
+ */
+export async function deleteQuizSessionAPI(sessionId: string): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(`${API_BASE_URL}/quiz/sessions/${sessionId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '删除测试记录')
+  return response.json()
 }
 
 /**
@@ -908,17 +915,36 @@ export async function submitEssayAPI(essayData: {
  * 获取作文历史
  * GET /api/essays/history
  */
-export async function getEssayHistoryAPI(limit: number = 20): Promise<Essay[]> {
+export async function getEssayHistoryAPI(skip: number = 0, limit: number = 20): Promise<{ items: Essay[]; total: number }> {
   if (USE_MOCK_API) {
-    return []
+    return { items: [], total: 0 }
   }
-  
-  const response = await fetch(`${API_BASE_URL}/essays/history?limit=${limit}`, {
+
+  const response = await fetch(`${API_BASE_URL}/essays/history?skip=${skip}&limit=${limit}`, {
     headers: getAuthHeaders()
   })
   assertApiResponse(response, '获取作文历史')
-  const data = await response.json() as any[]
-  return data.map(normalizeEssay)
+  const data = await response.json() as { items?: any[]; total?: number }
+  return {
+    items: (data.items || []).map(normalizeEssay),
+    total: data.total ?? 0
+  }
+}
+
+/**
+ * 删除作文
+ * DELETE /api/essays/:essayId
+ */
+export async function deleteEssayAPI(essayId: string): Promise<{ success: boolean; message: string }> {
+  if (USE_MOCK_API) {
+    return { success: true, message: '作文已删除' }
+  }
+  const response = await fetch(`${API_BASE_URL}/essays/${essayId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  })
+  assertApiResponse(response, '删除作文')
+  return response.json()
 }
 
 /**
@@ -1011,7 +1037,12 @@ function normalizeEssayRevision(data: any): EssayRevision {
       ? (data?.sentenceSuggestions ?? data?.sentence_suggestions)
       : [],
     fullRevision: String(data?.fullRevision ?? data?.full_revision ?? ''),
+    expandedRevision: String(data?.expandedRevision ?? data?.expanded_revision ?? ''),
+    polishedRevision: String(data?.polishedRevision ?? data?.polished_revision ?? ''),
     revisionNotes: String(data?.revisionNotes ?? data?.revision_notes ?? ''),
+    revisedScore: data?.revisedScore ?? data?.revised_score
+      ? normalizeEssayScore(data.revisedScore ?? data.revised_score)
+      : null,
     modelVersion: String(data?.modelVersion ?? data?.model_version ?? ''),
     generatedAt: parseTimestamp(data?.generatedAt ?? data?.generated_at)
   }
@@ -1698,6 +1729,7 @@ export default {
   submitQuizAnswer,
   submitQuizSession,
   getQuizHistory,
+  deleteQuizSessionAPI,
   getQuizAbilityReport,
   updateWordProgress,
   getStudyStats,
@@ -1709,6 +1741,7 @@ export default {
   getUserProgress,
   submitEssayAPI,
   getEssayHistoryAPI,
+  deleteEssayAPI,
   requestEssayEvaluationAPI,
   getEssayReportAPI,
   getEssayScore,

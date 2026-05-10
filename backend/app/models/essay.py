@@ -66,7 +66,10 @@ class EssayRevisionBase(SQLModel):
     issues_json: str = Field(default="[]", sa_column=Column(Text, nullable=False))
     sentence_suggestions_json: str = Field(default="[]", sa_column=Column(Text, nullable=False))
     full_revision: str = Field(default="", sa_column=Column(Text, nullable=False))
+    expanded_revision: str = Field(default="", sa_column=Column(Text, nullable=False))
+    polished_revision: str = Field(default="", sa_column=Column(Text, nullable=False))
     revision_notes: str = Field(default="", sa_column=Column(Text, nullable=False))
+    revised_score_json: str = Field(default="", sa_column=Column(Text, nullable=False))
     model_version: str = ""
 
 

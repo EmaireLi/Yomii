@@ -225,7 +225,10 @@ CREATE TABLE essay_revisions (
     issues_json      TEXT NOT NULL,                       -- 重点问题JSON
     sentence_suggestions_json TEXT NOT NULL,              -- 逐句建议JSON
     full_revision    TEXT NOT NULL,                       -- 完整改写版本
+    expanded_revision TEXT NOT NULL,                      -- 扩写版本
+    polished_revision TEXT NOT NULL,                      -- 润色版本
     revision_notes   TEXT NOT NULL,                       -- 改写说明
+    revised_score_json TEXT NOT NULL,                     -- 修改后重评分
     model_version    VARCHAR(128) NOT NULL DEFAULT '',    -- 模型版本
     generated_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
 

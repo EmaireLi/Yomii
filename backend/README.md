@@ -100,10 +100,14 @@ MYSQL_DATABASE=yomii
 
 ```env
 ESSAY_SCORE_MODEL_URL=http://127.0.0.1:8011/infer
-ESSAY_SCORE_MODEL_NAME=qwen3-1.7b-score-lora
+ESSAY_SCORE_MODEL_NAME=qwen3-1.7b-score-merged
 ESSAY_REVISION_MODEL_URL=http://127.0.0.1:8012/infer
-ESSAY_REVISION_MODEL_NAME=qwen3-1.7b-revision-lora
+ESSAY_REVISION_MODEL_NAME=qwen3-1.7b-revision-merged
 ESSAY_MODEL_TIMEOUT_SECONDS=30
+DEEPSEEK_API_KEY=your_deepseek_api_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_TIMEOUT_SECONDS=60
 ```
 
 说明：
@@ -112,8 +116,11 @@ ESSAY_MODEL_TIMEOUT_SECONDS=30
 - 这里配置的是“调用目标”，不是“自动启动服务”
 - 默认应启动本地评分模型和修改模型服务，并使用上述本地地址
 - 如果你已经有现成模型服务，可以把这两个 URL 改成对应的接口地址
-- 两个 URL 都留空时，后端自动走 mock 评分与 mock 修改结果
+- 作文原文评分会同时纳入本地评分模型与 `DeepSeek V4 Flash` 的候选结果，再由后端择优返回
+- 作文修订会同时纳入本地修订、规则增强修订与 `DeepSeek` 修订，再按复评分择优返回
+- 只有本地模型、DeepSeek 与最终规则链路都无法提供更优结果时，才会回落到最后的保守结果
 - 模型服务额外依赖放在 `requirements-model.txt`
+- `DEEPSEEK_API_KEY` 只能放在本地 `backend/.env`，不要提交到 GitHub
 
 ### 3. 启动 MySQL
 
@@ -171,7 +178,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```powershell
 cd backend
 pip install -r requirements-model.txt
-python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-gptq-int4 --adapter models\score-lora --model-version qwen3-1.7b-score-lora --port 8011
+python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-score-merged --model-version qwen3-1.7b-score-merged --port 8011 --device-map auto --quantize bnb-nf4
 ```
 
 ### 终端 3：修改模型
@@ -179,16 +186,16 @@ python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-gpt
 ```powershell
 cd backend
 pip install -r requirements-model.txt
-python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-gptq-int4 --adapter models\revision-lora --model-version qwen3-1.7b-revision-lora --port 8012
+python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-revision-merged --model-version qwen3-1.7b-revision-merged --port 8012 --device-map auto --quantize bnb-nf4
 ```
 
 ### 对应 `.env`
 
 ```env
 ESSAY_SCORE_MODEL_URL=http://127.0.0.1:8011/infer
-ESSAY_SCORE_MODEL_NAME=qwen3-1.7b-score-lora
+ESSAY_SCORE_MODEL_NAME=qwen3-1.7b-score-merged
 ESSAY_REVISION_MODEL_URL=http://127.0.0.1:8012/infer
-ESSAY_REVISION_MODEL_NAME=qwen3-1.7b-revision-lora
+ESSAY_REVISION_MODEL_NAME=qwen3-1.7b-revision-merged
 ESSAY_MODEL_TIMEOUT_SECONDS=45
 ```
 
@@ -207,14 +214,14 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 # 终端 2：评分模型
 cd yomii\backend
 pip install -r requirements-model.txt
-python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-gptq-int4 --adapter models\score-lora --model-version qwen3-1.7b-score-lora --port 8011
+python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-score-merged --model-version qwen3-1.7b-score-merged --port 8011 --device-map auto --quantize bnb-nf4
 ```
 
 ```powershell
 # 终端 3：修改模型
 cd yomii\backend
 pip install -r requirements-model.txt
-python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-gptq-int4 --adapter models\revision-lora --model-version qwen3-1.7b-revision-lora --port 8012
+python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-revision-merged --model-version qwen3-1.7b-revision-merged --port 8012 --device-map auto --quantize bnb-nf4
 ```
 
 仅联调模式：
@@ -225,6 +232,40 @@ cd yomii\backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+### DeepSeek 配置与运行
+
+1. 复制配置模板：
+
+```powershell
+cd backend
+Copy-Item .env.example .env
+```
+
+2. 编辑 `backend/.env`，至少填写：
+
+```env
+DEEPSEEK_API_KEY=your_real_api_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_TIMEOUT_SECONDS=60
+```
+
+3. 直接测试第三方兜底接口：
+
+```powershell
+cd backend
+pip install -r requirements.txt
+python scripts/test_deepseek_fallback.py --task score
+python scripts/test_deepseek_fallback.py --task revision
+```
+
+4. 正式运行时无需单独启动 DeepSeek 进程；后端会在作文评分与修订链路中自动把它作为比较候选。
+
+注意：
+- `backend/.env` 存放真实 API 密钥，只能保留在本地
+- `.env` 已加入 `.gitignore`，不要上传到 GitHub
+- 如果要分享项目给他人，只提供 `.env.example`，不要提供真实 `.env`
 
 ## 数据库说明
 
@@ -243,16 +284,22 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 1. 用户提交作文
 2. 后端保存作文并创建 `essay_jobs`
-3. 评分模型返回 JLPT 风格结构化评分
-4. 修改模型返回问题列表、逐句建议和修正版
+3. 本地评分模型与 `DeepSeek` 评分候选参与比较，后端择优生成原文评分
+4. 本地修订、规则增强修订与 `DeepSeek` 修订参与比较，后端按复评分择优生成最终修正版
 5. 前端轮询或刷新历史记录查看最终报告
+
+当前作文择优顺序：
+1. 原文评分：本地评分模型 vs `DeepSeek V4 Flash`
+2. 修订候选：本地修订 vs 规则增强修订 vs `DeepSeek` 修订
+3. 对修订候选重新评分，选出复评分最高的版本
+4. 若仍无可信候选，才返回最后的保守结果
 
 ## 训练与最终部署说明
 
 当前项目区分两个阶段：
 
 1. 训练阶段：使用 `Qwen3-1.7B + QLoRA 4-bit` 分别训练 `score-lora` 和 `revision-lora`
-2. 最终接入阶段：后端通过统一作文接口调用评分和修改服务，服务可以是 mock、现成模型服务，或后续你自己的推理服务
+2. 最终接入阶段：后端通过统一作文接口调用评分和修改服务，并把本地模型与 `DeepSeek` 一并纳入比较，择优返回
 
 为了控制磁盘占用，训练完成后可以清理：
 
@@ -346,6 +393,8 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
     }
   ],
   "full_revision": "...",
+  "expanded_revision": "...",
+  "polished_revision": "...",
   "revision_notes": "...",
   "model_version": "revision-model-v1"
 }

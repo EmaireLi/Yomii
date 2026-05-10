@@ -119,12 +119,22 @@
               <span v-else class="pending-text">--</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="110" fixed="right">
+          <el-table-column label="操作" width="180" fixed="right">
             <template #default="scope">
               <el-button type="primary" link size="small" @click="viewHistoryDetail(scope.row)">详情报告</el-button>
+              <el-button type="danger" link size="small" @click="confirmDeleteEssay(scope.row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
+        <div class="pagination-wrap" v-if="essayTotal > essayLimit">
+          <el-pagination
+            v-model:current-page="essayPage"
+            :page-size="essayLimit"
+            :total="essayTotal"
+            layout="prev, pager, next"
+            @current-change="onEssayPageChange"
+          />
+        </div>
       </el-card>
     </div>
 
@@ -214,6 +224,40 @@
             <p class="panel-muted">{{ selectedHistoryItem.scoreReport.comments }}</p>
           </div>
 
+          <div v-if="selectedHistoryItem.revisionReport?.revisedScore" class="panel score-compare-panel">
+            <h4><el-icon><TrendCharts /></el-icon> 修改前后分数对比</h4>
+            <div class="score-compare-grid">
+              <div class="compare-col">
+                <div class="compare-label">修改前</div>
+                <div class="compare-value">{{ selectedHistoryItem.scoreReport.overallScore }}</div>
+                <div class="compare-sub">{{ selectedHistoryItem.scoreReport.levelEstimate }}</div>
+              </div>
+              <div class="compare-arrow">
+                <el-icon :size="28" :color="scoreDeltaColor">
+                  <ArrowRightBold />
+                </el-icon>
+              </div>
+              <div class="compare-col">
+                <div class="compare-label">修改后</div>
+                <div class="compare-value" :class="scoreDeltaClass">{{ selectedHistoryItem.revisionReport.revisedScore.overallScore }}</div>
+                <div class="compare-sub">{{ selectedHistoryItem.revisionReport.revisedScore.levelEstimate }}</div>
+              </div>
+              <div class="compare-delta">
+                <el-tag :type="scoreDeltaType" effect="dark">
+                  {{ scoreDeltaText }}
+                </el-tag>
+              </div>
+            </div>
+            <el-alert
+              v-if="scoreDeltaNegative"
+              title="修改后评分下降"
+              type="warning"
+              :description="`修正版评分(${selectedHistoryItem.revisionReport.revisedScore.overallScore}分) 低于原文评分(${selectedHistoryItem.scoreReport.overallScore}分)。建议手动检查修正内容，酌情采纳。`"
+              show-icon
+              :closable="false"
+            />
+          </div>
+
           <div v-if="selectedHistoryItem.revisionReport" class="panel">
             <h4><el-icon><MagicStick /></el-icon> 重点问题</h4>
             <div v-if="selectedHistoryItem.revisionReport.issues.length > 0" class="issue-list">
@@ -248,6 +292,24 @@
             <p class="panel-muted">{{ selectedHistoryItem.revisionReport.revisionNotes }}</p>
           </div>
 
+          <div
+            v-if="selectedHistoryItem.revisionReport?.expandedRevision"
+            class="panel"
+          >
+            <h4><el-icon><DocumentChecked /></el-icon> 扩写版</h4>
+            <div class="content-box">{{ selectedHistoryItem.revisionReport.expandedRevision }}</div>
+            <p class="panel-muted">该版本用于在不跑题的前提下补充细节和展开表达。</p>
+          </div>
+
+          <div
+            v-if="selectedHistoryItem.revisionReport?.polishedRevision"
+            class="panel"
+          >
+            <h4><el-icon><DocumentChecked /></el-icon> 润色版</h4>
+            <div class="content-box">{{ selectedHistoryItem.revisionReport.polishedRevision }}</div>
+            <p class="panel-muted">该版本用于在保持原意的前提下提升自然度和表达质量。</p>
+          </div>
+
           <div class="panel">
             <h4><el-icon><Document /></el-icon> 原文内容</h4>
             <div class="content-box">{{ selectedHistoryItem.content }}</div>
@@ -270,7 +332,18 @@
           <div class="pending-panel">
             <el-icon class="loading-icon"><Loading /></el-icon>
             <div class="pending-title">{{ statusLabel(selectedHistoryItem.status) }}</div>
-            <p class="panel-muted">评分模型和修改模型正在异步处理中，完成后可直接查看完整报告。</p>
+            <p class="panel-muted">
+              {{ selectedHistoryItem.errorMessage || '评分模型和修改模型正在异步处理中，完成后可直接查看完整报告。' }}
+            </p>
+            <el-button
+              v-if="isModelWaiting(selectedHistoryItem)"
+              size="small"
+              type="primary"
+              @click="autoRetryEvaluation(selectedHistoryItem.id)"
+              :disabled="isRetrying"
+            >
+              {{ isRetrying ? '重试中...' : '立即重试' }}
+            </el-button>
           </div>
         </template>
       </div>
@@ -285,9 +358,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
+  ArrowRightBold,
   ChatDotRound,
   Collection,
   Document,
@@ -299,10 +373,12 @@ import {
   MagicStick,
   Opportunity,
   Promotion,
-  RefreshRight
+  RefreshRight,
+  TrendCharts
 } from '@element-plus/icons-vue'
 import type { Essay } from '@/types'
 import {
+  deleteEssayAPI,
   getEssayHistoryAPI,
   getEssayReportAPI,
   isAuthenticated,
@@ -329,6 +405,9 @@ const essayContent = ref<string>('')
 const wordCount = ref<number>(0)
 const isSubmitting = ref<boolean>(false)
 const essays = ref<Essay[]>([])
+const essayTotal = ref<number>(0)
+const essayPage = ref<number>(1)
+const essayLimit = 15
 const historyDetailVisible = ref<boolean>(false)
 const selectedHistoryItem = ref<Essay | null>(null)
 
@@ -340,6 +419,46 @@ const canSubmit = computed(() => {
 })
 
 const hasActiveEssay = computed(() => essays.value.some(item => activeStatuses.has(item.status)))
+const isRetrying = ref<boolean>(false)
+let retryTimer: number | null = null
+
+const isModelWaiting = (essay: Essay | null): boolean => {
+  return !!essay && essay.status === 'pending' && (essay.errorMessage || '').includes('模型服务未就绪')
+}
+
+const scoreDelta = computed(() => {
+  const report = selectedHistoryItem.value?.revisionReport
+  const original = selectedHistoryItem.value?.scoreReport
+  if (!report?.revisedScore || !original) return 0
+  return report.revisedScore.overallScore - original.overallScore
+})
+
+const scoreDeltaType = computed<'success' | 'danger' | 'info'>(() => {
+  if (scoreDelta.value > 0) return 'success'
+  if (scoreDelta.value < 0) return 'danger'
+  return 'info'
+})
+
+const scoreDeltaColor = computed(() => {
+  if (scoreDelta.value > 0) return '#67c23a'
+  if (scoreDelta.value < 0) return '#f56c6c'
+  return '#909399'
+})
+
+const scoreDeltaText = computed(() => {
+  const d = scoreDelta.value
+  if (d > 0) return `+${d} 分`
+  if (d < 0) return `${d} 分`
+  return '持平'
+})
+
+const scoreDeltaNegative = computed(() => scoreDelta.value < 0)
+
+const scoreDeltaClass = computed(() => {
+  if (scoreDelta.value > 0) return 'improved'
+  if (scoreDelta.value < 0) return 'declined'
+  return ''
+})
 
 const updateWordCount = () => {
   wordCount.value = essayContent.value.length
@@ -408,6 +527,42 @@ const stopPolling = () => {
   }
 }
 
+const stopRetryTimer = () => {
+  if (retryTimer !== null) {
+    window.clearInterval(retryTimer)
+    retryTimer = null
+  }
+}
+
+const autoRetryEvaluation = async (essayId: string) => {
+  isRetrying.value = true
+  try {
+    const essay = await requestEssayEvaluationAPI(essayId)
+    replaceEssay(essay)
+    await refreshEssayReport(essayId)
+  } catch (error: any) {
+    console.error('重试评测失败:', error)
+  } finally {
+    isRetrying.value = false
+  }
+}
+
+const startAutoRetry = (essayId: string) => {
+  stopRetryTimer()
+  retryTimer = window.setInterval(async () => {
+    if (isRetrying.value) return
+    try {
+      const essay = await requestEssayEvaluationAPI(essayId)
+      replaceEssay(essay)
+      if (essay.status === 'completed' || essay.status === 'failed') {
+        stopRetryTimer()
+      }
+    } catch {
+      // model still unavailable, keep retrying
+    }
+  }, 8000)
+}
+
 const ensurePolling = () => {
   if (!hasActiveEssay.value || pollTimer !== null) return
   pollTimer = window.setInterval(async () => {
@@ -422,13 +577,21 @@ const syncPollingState = () => {
 
 const loadEssayHistory = async (showMessage: boolean = false) => {
   try {
-    essays.value = await getEssayHistoryAPI()
+    const skip = (essayPage.value - 1) * essayLimit
+    const result = await getEssayHistoryAPI(skip, essayLimit)
+    essays.value = result.items
+    essayTotal.value = result.total
     syncPollingState()
     if (showMessage) ElMessage.success('已刷新作文历史')
   } catch (error: any) {
     console.error('加载作文历史失败:', error)
     if (showMessage) ElMessage.error(error.message || '加载作文历史失败')
   }
+}
+
+const onEssayPageChange = (page: number) => {
+  essayPage.value = page
+  loadEssayHistory()
 }
 
 const refreshEssayReport = async (essayId: string, showMessage: boolean = false) => {
@@ -443,10 +606,41 @@ const refreshEssayReport = async (essayId: string, showMessage: boolean = false)
   }
 }
 
+const confirmDeleteEssay = async (item: Essay) => {
+  try {
+    const { ElMessageBox } = await import('element-plus')
+    await ElMessageBox.confirm(
+      '确定要删除这篇作文及其评测报告吗？此操作不可恢复。',
+      '删除确认',
+      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
+    )
+    await deleteEssayAPI(item.id)
+    essays.value = essays.value.filter(e => e.id !== item.id)
+    if (selectedHistoryItem.value?.id === item.id) {
+      historyDetailVisible.value = false
+      selectedHistoryItem.value = null
+    }
+    ElMessage.success('作文已删除')
+    essayTotal.value = Math.max(0, essayTotal.value - 1)
+    // 如果当前页空了，回到前一页
+    if (essays.value.length === 0 && essayPage.value > 1) {
+      essayPage.value--
+      await loadEssayHistory()
+    }
+  } catch (error: any) {
+    if (error?.toString().includes('cancel')) return
+    ElMessage.error(error.message || '删除失败')
+  }
+}
+
 const viewHistoryDetail = async (item: Essay) => {
   selectedHistoryItem.value = item
   historyDetailVisible.value = true
+  stopRetryTimer()
   await refreshEssayReport(item.id)
+  if (isModelWaiting(item)) {
+    startAutoRetry(item.id)
+  }
 }
 
 const submitEssay = async () => {
@@ -498,12 +692,17 @@ const clearForm = () => {
   wordCount.value = 0
 }
 
+watch(historyDetailVisible, (visible) => {
+  if (!visible) stopRetryTimer()
+})
+
 onMounted(async () => {
   await loadEssayHistory()
 })
 
 onBeforeUnmount(() => {
   stopPolling()
+  stopRetryTimer()
 })
 </script>
 
@@ -730,6 +929,66 @@ onBeforeUnmount(() => {
   margin-top: 10px !important;
   color: #909399 !important;
   font-size: 13px;
+}
+
+.score-compare-panel {
+  background: linear-gradient(135deg, #f0f9eb 0%, #fff 100%);
+  border-color: #c2e7b0;
+}
+
+.score-compare-grid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 10px 0;
+}
+
+.compare-col {
+  text-align: center;
+  min-width: 100px;
+}
+
+.compare-label {
+  font-size: 13px;
+  color: #909399;
+  margin-bottom: 6px;
+}
+
+.compare-value {
+  font-size: 36px;
+  font-weight: 700;
+  color: #303133;
+  line-height: 1;
+}
+
+.compare-value.improved {
+  color: #67c23a;
+}
+
+.compare-value.declined {
+  color: #f56c6c;
+}
+
+.compare-sub {
+  font-size: 13px;
+  color: #e6a23c;
+  margin-top: 6px;
+}
+
+.compare-arrow {
+  display: flex;
+  align-items: center;
+}
+
+.compare-delta {
+  min-width: 70px;
+}
+
+.pagination-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 8px;
 }
 
 .issue-list,

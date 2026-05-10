@@ -191,7 +191,10 @@ export interface EssayRevision {
   issues: EssayRevisionIssue[]
   sentenceSuggestions: EssaySentenceSuggestion[]
   fullRevision: string
+  expandedRevision: string
+  polishedRevision: string
   revisionNotes: string
+  revisedScore?: EssayScore | null
   modelVersion: string
   generatedAt: number
 }

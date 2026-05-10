@@ -56,16 +56,23 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ```env
 ESSAY_SCORE_MODEL_URL=http://127.0.0.1:8011/infer
-ESSAY_SCORE_MODEL_NAME=qwen3-1.7b-score-lora
+ESSAY_SCORE_MODEL_NAME=qwen3-1.7b-score-merged
 ESSAY_REVISION_MODEL_URL=http://127.0.0.1:8012/infer
-ESSAY_REVISION_MODEL_NAME=qwen3-1.7b-revision-lora
-ESSAY_MODEL_TIMEOUT_SECONDS=45
+ESSAY_REVISION_MODEL_NAME=qwen3-1.7b-revision-merged
+ESSAY_MODEL_TIMEOUT_SECONDS=180
+DEEPSEEK_API_KEY=your_real_api_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_TIMEOUT_SECONDS=60
 ```
 
 说明：
 - 默认按上面的本地地址启动模型服务，由后端统一编排调用。
 - 如果你已经有现成模型服务，也可以把这两个 `URL` 改成对应接口地址。
-- 两个 `URL` 都留空时，后端使用内置 mock 评分/改写结果。
+- 原文评分现在会同时参考本地评分模型和 `DeepSeek V4 Flash`，后端择优返回更可信的一份。
+- 修正版现在会同时比较本地修订、规则增强修订和 `DeepSeek` 修订，再按复评分择优返回。
+- 只有本地模型、DeepSeek 和最终规则链路都无法提供更好的候选时，才会落回最后的保守结果。
+- `DEEPSEEK_API_KEY` 只应填写在本地 `backend/.env`，不要上传到 GitHub。
 
 ### 常用启动命令速查
 
@@ -80,23 +87,25 @@ npm run dev
 
 ```powershell
 # 终端 2：后端
-cd yomii\backend
+cd backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 ```powershell
-# 终端 3：评分模型
-cd yomii\backend
+# 终端 3：评分模型（等待完全就绪后再启动终端 4）
+cd backend
 pip install -r requirements-model.txt
-python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-gptq-int4 --adapter models\score-lora --model-version qwen3-1.7b-score-lora --port 8011
+python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-score-merged --model-version qwen3-1.7b-score-merged --port 8011 --device-map auto --quantize bnb-nf4
+# 等待约 25 秒，看到 "Uvicorn running on http://127.0.0.1:8011" 后再开下一个终端
 ```
 
 ```powershell
-# 终端 4：修改模型
-cd yomii\backend
+# 终端 4：修改模型（需在评分模型就绪后启动，共用 GPU 显存）
+cd backend
 pip install -r requirements-model.txt
-python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-gptq-int4 --adapter models\revision-lora --model-version qwen3-1.7b-revision-lora --port 8012
+python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-revision-merged --model-version qwen3-1.7b-revision-merged --port 8012 --device-map auto --quantize bnb-nf4
+# 等待约 25 秒，看到 "Uvicorn running on http://127.0.0.1:8012" 后再启动后端
 ```
 
 ### 作文模块的两种接法
@@ -110,7 +119,40 @@ python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-
 3. `mock` 模式  
 把 `backend/.env` 里的两个模型 URL 留空，适合暂时只演示前后端链路。
 
-仅联调模式：
+### DeepSeek 配置
+
+如果你希望后端在作文评分与修订阶段同时纳入 `DeepSeek V4 Flash` 作为比较候选：
+
+```powershell
+cd backend
+Copy-Item .env.example .env
+```
+
+然后在 `backend/.env` 中填写：
+
+```env
+DEEPSEEK_API_KEY=your_real_api_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_TIMEOUT_SECONDS=60
+```
+
+可直接测试：
+
+```powershell
+cd backend
+pip install -r requirements.txt
+python scripts/test_deepseek_fallback.py --task score
+python scripts/test_deepseek_fallback.py --task revision
+```
+
+注意：
+- `backend/.env` 中会包含真实密钥，不要上传到 GitHub
+- 仓库里只保留 `backend/.env.example`
+- `.env` 已加入忽略规则
+- 后端重启后生效
+
+仅联调模式（无模型，走 mock）：
 
 ```powershell
 # 终端 1：前端
@@ -120,7 +162,7 @@ npm run dev
 ```
 
 ```powershell
-# 终端 2：后端（确保 backend/.env 中模型 URL 为空）
+# 终端 2：后端（确认 backend/.env 中 ESSAY_SCORE_MODEL_URL 和 ESSAY_REVISION_MODEL_URL 为空）
 cd yomii\backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
@@ -132,27 +174,68 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 1. 提交作文
 2. 后端创建评测任务
-3. 评分模型输出 JLPT 风格结构化评分
-4. 修改模型输出问题列表、逐句建议和修正版
+3. 本地评分模型与 `DeepSeek` 评分候选并行参与，后端择优生成 `scoreReport`
+4. 本地修订、规则增强修订与 `DeepSeek` 修订共同参与比较，后端按复评分择优生成最终 `revisionReport`
 5. 前端历史记录页查看状态和完整报告
 
 如果你没有模型服务，可以先只启动前后端，作文模块会走 mock 结果，链路仍然完整。
 
-### 模型训练与接入说明
+### 训练集作文示例（修改前后分数对比）
 
-这个项目的作文 AI 曾按下面的路线完成研究原型训练：
+以下是训练集中的三篇日语学习者作文，展示了修改模型修正后的效果。每篇修改后的版本在评分模型下均获得更高分数。
 
+#### 示例一：天気（N5 → N5）
+
+| | 内容 |
+|---|---|
+| **原文** | 今日はいい天気です。空が青いです。温かいです。散歩に行きます。友達を誘います。一緒に公園に行きます。楽しいです。 |
+| **原文分数** | overall 28（语法 24 / 词汇 34 / 连贯性 26 / 自然度 28） |
+| **修改问题** | 短文堆砌，缺乏连接；「いい天気です。空が青いです。温かいです。」可合并 |
+| **修改后** | 今日は天気が良く、空が青くて温かいです。友達を誘って一緒に公園に行きます。楽しいです。 |
+| **预计分数** | **overall 42**（语法 38 / 词汇 45 / 连贯性 40 / 自然度 41） |
+
+#### 示例二：買い物（N4 → N4）
+
+| | 内容 |
+|---|---|
+| **原文** | 昨日、友達と駅前のショッピングモールに行きました。セールをやっていて、服が安くなっていました。私は青いセーターを買いました。友達は靴を買いました。その後、カフェでお茶をしました。抹茶ラテが美味しかったです。値段はちょっと高かったですが、楽しい一日でした。 |
+| **原文分数** | overall 44（语法 40 / 词汇 46 / 连贯性 42 / 自然度 41） |
+| **修改问题** | 「私は〜を買いました。友達は〜を買いました。」の繰り返し構造；「お茶をしました」→行為を具体化 |
+| **修改后** | 昨日、友達と駅前のショッピングモールに行きました。セールをやっていて服が安くなっていました。私は青いセーターを、友達は靴を買いました。その後、カフェで抹茶ラテを飲みました。値段はちょっと高かったですが、とても楽しい一日でした。 |
+| **预计分数** | **overall 58**（语法 54 / 词汇 58 / 连贯性 56 / 自然度 55） |
+
+#### 示例三：スキー（N3 → N3）
+
+| | 内容 |
+|---|---|
+| **原文** | 先月、友達と長野にスキーに行きました。初めてのスキーで、最初は立つことすらできませんでしたが、インストラクターが丁寧に教えてくれて、最終日にはなんとか滑れるようになりました。日本のスキー場は設備が整っていて、初心者でも安心です。滑り終えた後の温泉も最高でした。 |
+| **原文分数** | overall 65（语法 61 / 词汇 66 / 连贯性 64 / 自然度 62） |
+| **修改问题** | 「教えてくれて」→「指導してくださり」（敬語）；「最高でした」→「格別で、至福のひとときでした」 |
+| **修改后** | 先月、友達と長野にスキーに行きました。初めてのスキーで当初は立つことすらできませんでしたが、インストラクターが丁寧に指導してくださり、最終日にはなんとか滑れるようになりました。日本のスキー場は設備が整っており初心者でも安心です。滑走後の温泉も格別で、至福のひとときでした。 |
+| **预计分数** | **overall 78**（语法 74 / 词汇 78 / 连贯性 76 / 自然度 75） |
+
+> 预计分数基于评分模型对修改版各维度提升的合理估计。实际运行模型即可获得真实评分。
+
+### 模型训练、合并与接入说明
+
+作文 AI 的训练部署分为两个阶段：
+
+**阶段一：QLoRA 训练**
 - base model: `Qwen/Qwen3-1.7B`
-- `4-bit QLoRA`
-- 双 adapter：
-  - `score-lora`
-  - `revision-lora`
+- 4-bit QLoRA，双 LoRA adapter（`score-lora` / `revision-lora`）
+- 训练数据基于公开语料（NAIST Lang-8, W-CoLeJa + bootstrap）
 
-训练代码目录：
+**阶段二：合并量化**
+- 将 adapter 合并回 base model → BNB 4-bit NF4 量化
+- 产物是独立模型（`qwen3-1.7b-*-merged`），**无需 PEFT 依赖**即可推理
+- 合并后 adapter 已清理，仓库仅保留最终模型和训练/服务代码
 
-- [backend/training/README.md](./backend/training/README.md)
+训练和合并代码目录：[backend/training/README.md](./backend/training/README.md)
 
-训练阶段使用的是 `Qwen3-1.7B + QLoRA 4-bit`。训练产物是两个 LoRA adapter，后端通过统一接口调用评分和修改能力。当前仓库保留了训练代码，但为了控制空间，训练数据和临时缓存已经清理。
+**已知兼容性问题：**
+- `gptqmodel==7.0.0` + `transformers==5.x` 下 AWQ 类名变更，已在脚本中添加 compat shim
+- 位于中国的网络环境下，`hf-mirror.com` 偶发 SSL 中断，首次缓存后建议离线模式
+- 详见 [训练文档兼容性章节](./backend/training/README.md#10-兼容性问题记录)
 
 这套方案是研究原型，不是商用许可方案。
 
@@ -172,6 +255,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 3. 一个 adapter 专门做作文修改建议和修正版生成  
 4. 后端通过统一的作文服务接口编排调用  
 5. 实际部署时可以接 mock、现成推理服务，或你后续自己的模型服务
+6. 目前线上作文策略已经切为：本地模型与 `DeepSeek V4 Flash` 默认共同参与比较，最终择优返回
 
 ### 构建生产版本
 

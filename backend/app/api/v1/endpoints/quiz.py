@@ -507,26 +507,40 @@ async def submit_quiz_session(
     }
 
 
-@router.get("/history", response_model=List[dict])
+@router.get("/history", response_model=dict)
 async def get_quiz_history(
     user_db: UserDB,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    limit: int = Query(10, ge=1, le=100),
-) -> List[dict]:
-    """获取测试历史记录"""
+    skip: int = Query(0, ge=0, description="跳过条数"),
+    limit: int = Query(10, ge=1, le=100, description="返回数量限制"),
+) -> dict:
+    """获取测试历史记录（分页）。"""
     if current_user.id is None:
-        return []
+        return {"items": [], "total": 0}
+
+    # 总数
+    count_result = await user_db.exec(
+        select(QuizSession.id).where(QuizSession.user_id == current_user.id)
+    )
+    total = len(count_result.all())
+
+    if total == 0:
+        return {"items": [], "total": 0}
 
     statement = (
         select(QuizSession)
         .where(QuizSession.user_id == current_user.id)
         .order_by(QuizSession.created_at.desc())
+        .offset(skip)
         .limit(limit)
     )
     result = await user_db.exec(statement)
     sessions = result.all()
 
-    return [_session_payload(item) for item in sessions]
+    return {
+        "items": [_session_payload(item) for item in sessions],
+        "total": total,
+    }
 
 
 @router.get("/report", response_model=dict)
@@ -548,3 +562,28 @@ async def get_quiz_report(
     result = await user_db.exec(statement)
     sessions = list(reversed(result.all()))
     return _build_report(sessions)
+
+
+@router.delete("/sessions/{session_id}", response_model=dict)
+async def delete_quiz_session(
+    session_id: int,
+    user_db: UserDB,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> dict:
+    """删除单条测试记录及关联的答题结果。"""
+    session = await user_db.get(QuizSession, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="测试记录不存在")
+    if session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权删除此记录")
+
+    # 删除关联的答题结果（先flush确保SQL执行顺序）
+    result_stmt = select(QuizResult).where(QuizResult.session_id == session_id)
+    results = await user_db.exec(result_stmt)
+    for r in results.all():
+        await user_db.delete(r)
+    await user_db.flush()
+
+    await user_db.delete(session)
+    await user_db.commit()
+    return {"success": True, "message": "测试记录已删除"}

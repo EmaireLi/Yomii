@@ -332,6 +332,36 @@ def _migrate_words_table_meaning_columns(sync_conn) -> None:
         )
 
 
+def _migrate_essay_revisions_table_columns(sync_conn) -> None:
+    """为 essay_revisions 表补齐修改后重评分字段。"""
+    inspector = inspect(sync_conn)
+    if "essay_revisions" not in inspector.get_table_names():
+        return
+
+    column_names = {column["name"] for column in inspector.get_columns("essay_revisions")}
+    if "expanded_revision" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essay_revisions ADD COLUMN expanded_revision TEXT NULL"
+        )
+    if "polished_revision" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essay_revisions ADD COLUMN polished_revision TEXT NULL"
+        )
+    if "revised_score_json" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essay_revisions ADD COLUMN revised_score_json TEXT NULL"
+        )
+    sync_conn.exec_driver_sql(
+        "UPDATE essay_revisions SET expanded_revision = COALESCE(expanded_revision, '')"
+    )
+    sync_conn.exec_driver_sql(
+        "UPDATE essay_revisions SET polished_revision = COALESCE(polished_revision, '')"
+    )
+    sync_conn.exec_driver_sql(
+        "UPDATE essay_revisions SET revised_score_json = COALESCE(revised_score_json, '')"
+    )
+
+
 async def create_sqlite_tables():
     """创建 SQLite 表 (词典数据)"""
     from app.models.word import Word, WordTag
@@ -382,6 +412,7 @@ async def create_mysql_tables():
         await conn.run_sync(_migrate_word_progress_table_columns)
         await conn.run_sync(_migrate_essays_table_columns)
         await conn.run_sync(_migrate_essay_scores_table_columns)
+        await conn.run_sync(_migrate_essay_revisions_table_columns)
 
 
 async def create_db_and_tables():

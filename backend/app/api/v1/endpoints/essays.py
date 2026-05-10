@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -34,6 +35,32 @@ def _json_loads(value: str | None, fallback: Any) -> Any:
 
 def _json_dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False)
+
+
+_SCORE_SNAKE_TO_CAMEL: dict[str, str] = {
+    "overall_score": "overallScore",
+    "task_completion_score": "taskCompletionScore",
+    "grammar_score": "grammarScore",
+    "vocabulary_score": "vocabularyScore",
+    "coherence_score": "coherenceScore",
+    "naturalness_score": "naturalnessScore",
+    "jlpt_fit_score": "jlptFitScore",
+    "level_estimate": "levelEstimate",
+    "model_version": "modelVersion",
+    "evaluation_time": "evaluationTime",
+    "ai_evaluated": "aiEvaluated",
+}
+
+
+def _normalize_score_payload(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    """将评分 payload 的 snake_case 转为 camelCase，与前端类型匹配。"""
+    if not payload:
+        return payload
+    normalized: dict[str, Any] = {}
+    for snake_key, value in payload.items():
+        camel_key = _SCORE_SNAKE_TO_CAMEL.get(snake_key, snake_key)
+        normalized[camel_key] = value
+    return normalized
 
 
 def _ts(value: datetime | None) -> int:
@@ -71,7 +98,10 @@ def _revision_payload(revision: EssayRevision | None) -> dict[str, Any] | None:
         "issues": _json_loads(revision.issues_json, []),
         "sentenceSuggestions": _json_loads(revision.sentence_suggestions_json, []),
         "fullRevision": revision.full_revision,
+        "expandedRevision": revision.expanded_revision,
+        "polishedRevision": revision.polished_revision,
         "revisionNotes": revision.revision_notes,
+        "revisedScore": _json_loads(revision.revised_score_json, None),
         "modelVersion": revision.model_version,
         "generatedAt": _ts(revision.generated_at),
     }
@@ -197,6 +227,7 @@ async def run_essay_evaluation_task(essay_id: int | None, job_id: int | None) ->
                 topic=essay.topic,
                 target_level=essay.target_level,
             )
+
             score = await _get_latest_score(db, essay_id)
             if score is None:
                 score = EssayScore(essay_id=essay_id)
@@ -228,15 +259,28 @@ async def run_essay_evaluation_task(essay_id: int | None, job_id: int | None) ->
                 target_level=essay.target_level,
                 score_report=score_result.payload,
             )
+
+            selected_revision_payload, revised_score_payload = await essay_orchestrator_service.select_best_revision(
+                content=essay.content,
+                topic=essay.topic,
+                target_level=essay.target_level,
+                original_score_report=score_result.payload,
+                model_revision_report=revision_result.payload,
+            )
+
             revision = await _get_latest_revision(db, essay_id)
             if revision is None:
                 revision = EssayRevision(essay_id=essay_id)
-            revision.issues_json = _json_dumps(revision_result.payload.get("issues", []))
-            revision.sentence_suggestions_json = _json_dumps(revision_result.payload.get("sentence_suggestions", []))
-            revision.full_revision = revision_result.payload.get("full_revision", essay.content)
-            revision.revision_notes = revision_result.payload.get("revision_notes", "")
-            revision.model_version = revision_result.model_version
+            revision.issues_json = _json_dumps(selected_revision_payload.get("issues", []))
+            revision.sentence_suggestions_json = _json_dumps(selected_revision_payload.get("sentence_suggestions", []))
+            revision.full_revision = selected_revision_payload.get("full_revision", essay.content)
+            revision.expanded_revision = selected_revision_payload.get("expanded_revision", "")
+            revision.polished_revision = selected_revision_payload.get("polished_revision", "")
+            revision.revision_notes = selected_revision_payload.get("revision_notes", "")
+            revision.model_version = selected_revision_payload.get("model_version", revision_result.model_version)
             revision.generated_at = datetime.utcnow()
+            revision.revised_score_json = _json_dumps(_normalize_score_payload(revised_score_payload)) if revised_score_payload else ""
+
             db.add(revision)
 
             finished_at = datetime.utcnow()
@@ -318,26 +362,37 @@ async def evaluate_essay(
     }
 
 
-@router.get("/history", response_model=list[dict])
+@router.get("/history", response_model=dict)
 async def get_essay_history(
     db: UserDB,
     current_user: Annotated[User, Depends(get_current_active_user)],
+    skip: int = Query(0, ge=0, description="跳过条数"),
     limit: int = Query(20, ge=1, le=100, description="返回数量限制"),
-) -> list[dict]:
-    """获取作文历史记录摘要。"""
+) -> dict:
+    """获取作文历史记录摘要（分页）。"""
     if current_user.id is None:
-        return []
+        return {"items": [], "total": 0}
+
+    # 获取总数
+    count_result = await db.exec(
+        select(Essay.id).where(Essay.user_id == current_user.id)
+    )
+    total = len(count_result.all())
+
+    if total == 0:
+        return {"items": [], "total": 0}
 
     result = await db.exec(
         select(Essay)
         .where(Essay.user_id == current_user.id)
         .order_by(Essay.submit_time.desc(), Essay.id.desc())
+        .offset(skip)
         .limit(limit)
     )
     essays = result.all()
     essay_ids = [essay.id for essay in essays if essay.id is not None]
     if not essay_ids:
-        return []
+        return {"items": [], "total": total}
 
     score_result = await db.exec(select(EssayScore).where(EssayScore.essay_id.in_(essay_ids)))
     revision_result = await db.exec(select(EssayRevision).where(EssayRevision.essay_id.in_(essay_ids)))
@@ -361,7 +416,7 @@ async def get_essay_history(
         if current is None or (job.started_at, job.id or 0) > (current.started_at, current.id or 0):
             job_map[job.essay_id] = job
 
-    return [
+    items = [
         _essay_payload(
             essay=essay,
             score=score_map.get(essay.id or 0),
@@ -370,6 +425,7 @@ async def get_essay_history(
         )
         for essay in essays
     ]
+    return {"items": items, "total": total}
 
 
 @router.get("/{essay_id}/report", response_model=dict)
@@ -418,3 +474,26 @@ async def get_essay_score(
         )
 
     return _score_payload(score) or {}
+
+
+@router.delete("/{essay_id}", response_model=dict)
+async def delete_essay(
+    essay_id: int,
+    db: UserDB,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> dict:
+    """删除作文及关联的评分、修改、任务记录。"""
+    essay = await _get_owned_essay(db, essay_id, current_user)
+
+    # 按外键约束顺序删除：先删子表（立即flush），再删父表
+    for model_cls, fk_name in [(EssayJob, "essay_id"), (EssayRevision, "essay_id"), (EssayScore, "essay_id")]:
+        children = await db.exec(
+            select(model_cls).where(getattr(model_cls, fk_name) == essay_id)
+        )
+        for child in children.all():
+            await db.delete(child)
+        await db.flush()
+
+    await db.delete(essay)
+    await db.commit()
+    return {"success": True, "message": "作文已删除"}
