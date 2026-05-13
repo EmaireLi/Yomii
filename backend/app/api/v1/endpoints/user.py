@@ -43,7 +43,8 @@ async def get_study_stats(
         }
 
     stats, is_created = await study_stats_service.get_or_create(db, current_user.id)
-    if is_created:
+    history_changed = await study_stats_service.refresh_from_history(db, current_user.id, stats)
+    if is_created or history_changed:
         await db.commit()
         await db.refresh(stats)
     return study_stats_service.to_response(stats)
