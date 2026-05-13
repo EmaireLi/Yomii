@@ -42,19 +42,32 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 - 默认完整模式：启动前端、后端、评分模型、修改模型四个进程
 - 如果模型服务依赖还没装，先执行：`pip install -r backend/requirements-model.txt`
-- 如果临时不想启动模型，再把 `backend/.env` 里的模型 URL 留空，后端会走内置 mock 结果
+- 如果临时不想启动模型，再把根目录 `.env` 里的模型 URL 留空，后端会走内置 mock 结果
 
 访问地址：
 - 前端：`http://localhost:5173`
 - 后端 Swagger：`http://127.0.0.1:8000/api/docs`
 
-### 后端环境变量
+### 统一环境变量
 
-后端默认从 `backend/.env` 读取配置，至少需要配置 MySQL。
+前后端共用项目根目录的 `.env`。新用户只需要复制根目录模板并修改这一份配置：
 
-作文双模型原型的关键配置：
+```bash
+cp .env.example .env
+```
+
+至少需要确认 MySQL 连接信息、作文模型服务地址，以及可选的 DeepSeek Key。
+
+关键配置示例：
 
 ```env
+VITE_API_URL=http://localhost:8000/api
+VITE_USE_MOCK=false
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=password
+MYSQL_DATABASE=yomii
 ESSAY_SCORE_MODEL_URL=http://127.0.0.1:8011/infer
 ESSAY_SCORE_MODEL_NAME=qwen3-1.7b-score-merged
 ESSAY_REVISION_MODEL_URL=http://127.0.0.1:8012/infer
@@ -69,10 +82,11 @@ DEEPSEEK_TIMEOUT_SECONDS=60
 说明：
 - 默认按上面的本地地址启动模型服务，由后端统一编排调用。
 - 如果你已经有现成模型服务，也可以把这两个 `URL` 改成对应接口地址。
+- 如果你暂时只想联调前后端，把 `ESSAY_SCORE_MODEL_URL` 和 `ESSAY_REVISION_MODEL_URL` 留空。
 - 原文评分现在会同时参考本地评分模型和 `DeepSeek V4 Flash`，后端择优返回更可信的一份。
 - 修正版现在会同时比较本地修订、规则增强修订和 `DeepSeek` 修订，再按复评分择优返回。
 - 只有本地模型、DeepSeek 和最终规则链路都无法提供更好的候选时，才会落回最后的保守结果。
-- `DEEPSEEK_API_KEY` 只应填写在本地 `backend/.env`，不要上传到 GitHub。
+- `.env` 只保留在本地，不要上传到 GitHub；仓库只提交 `.env.example`。
 
 ### 常用启动命令速查
 
@@ -108,6 +122,18 @@ python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-
 # 等待约 25 秒，看到 "Uvicorn running on http://127.0.0.1:8012" 后再启动后端
 ```
 
+macOS CPU 模式可使用下面两条命令分别启动模型服务：
+
+```bash
+cd backend
+python training/serve_qwen_adapter.py --task score --model models/qwen3-1.7b-score-merged --model-version qwen3-1.7b-score-merged --port 8011 --device-map cpu
+```
+
+```bash
+cd backend
+python training/serve_qwen_adapter.py --task revision --model models/qwen3-1.7b-revision-merged --model-version qwen3-1.7b-revision-merged --port 8012 --device-map cpu
+```
+
 ### 作文模块的两种接法
 
 1. `默认本地模型` 模式  
@@ -117,18 +143,17 @@ python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-
 把 `ESSAY_SCORE_MODEL_URL` / `ESSAY_REVISION_MODEL_URL` 改成你已有的推理接口地址，后端会按统一协议调用。
 
 3. `mock` 模式  
-把 `backend/.env` 里的两个模型 URL 留空，适合暂时只演示前后端链路。
+把根目录 `.env` 里的两个模型 URL 留空，适合暂时只演示前后端链路。
 
 ### DeepSeek 配置
 
 如果你希望后端在作文评分与修订阶段同时纳入 `DeepSeek V4 Flash` 作为比较候选：
 
 ```powershell
-cd backend
 Copy-Item .env.example .env
 ```
 
-然后在 `backend/.env` 中填写：
+然后在根目录 `.env` 中填写：
 
 ```env
 DEEPSEEK_API_KEY=your_real_api_key
@@ -147,8 +172,8 @@ python scripts/test_deepseek_fallback.py --task revision
 ```
 
 注意：
-- `backend/.env` 中会包含真实密钥，不要上传到 GitHub
-- 仓库里只保留 `backend/.env.example`
+- `.env` 中会包含真实密钥，不要上传到 GitHub
+- 仓库里只保留 `.env.example`
 - `.env` 已加入忽略规则
 - 后端重启后生效
 
@@ -162,7 +187,7 @@ npm run dev
 ```
 
 ```powershell
-# 终端 2：后端（确认 backend/.env 中 ESSAY_SCORE_MODEL_URL 和 ESSAY_REVISION_MODEL_URL 为空）
+# 终端 2：后端（确认根目录 .env 中 ESSAY_SCORE_MODEL_URL 和 ESSAY_REVISION_MODEL_URL 为空）
 cd yomii\backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
@@ -359,7 +384,9 @@ yomii/
 
 ### 一键切换 Mock ↔ 真实 API
 
-**开发模式（推荐）：** 使用 Mock 数据
+这些配置统一写在根目录 `.env`。
+
+**开发模式：** 使用 Mock 数据
 ```js
 VITE_USE_MOCK=true
 ```
@@ -498,7 +525,7 @@ npm run dev
 ### ❓ API 请求失败
 
 检查清单：
-- [ ] `.env.local` 配置是否正确
+- [ ] 根目录 `.env` 配置是否正确
 - [ ] `VITE_USE_MOCK=true`（开发时）
 - [ ] 后端服务是否运行（生产时）
 - [ ] MySQL 是否可连接

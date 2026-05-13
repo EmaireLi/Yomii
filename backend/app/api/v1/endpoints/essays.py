@@ -38,6 +38,11 @@ STATUS_PROGRESS_MESSAGES: dict[str, str] = {
 }
 
 
+def _terminal_progress_bar(percent: int, width: int = 24) -> str:
+    filled = round(width * _clamp_progress(percent) / 100)
+    return f"[{'#' * filled}{'.' * (width - filled)}]"
+
+
 def _json_loads(value: str | None, fallback: Any) -> Any:
     if not value:
         return fallback
@@ -117,6 +122,12 @@ def _set_evaluation_progress(
     job.status = status
     job.progress_percent = _clamp_progress(percent)
     job.progress_message = message
+    essay_id = essay.id or job.essay_id or "unknown"
+    print(
+        f"essay_eval {essay_id} {_terminal_progress_bar(job.progress_percent)} "
+        f"{job.progress_percent:3d}% {message}",
+        flush=True,
+    )
 
 
 def _score_payload(score: EssayScore | None) -> dict[str, Any] | None:
@@ -344,7 +355,10 @@ async def run_essay_evaluation_task(essay_id: int | None, job_id: int | None) ->
                 topic=essay.topic,
                 target_level=essay.target_level,
                 original_score_report=score_result.payload,
-                model_revision_report=revision_result.payload,
+                model_revision_report={
+                    **revision_result.payload,
+                    "model_version": revision_result.model_version,
+                },
             )
 
             revision = await _get_latest_revision(db, essay_id)

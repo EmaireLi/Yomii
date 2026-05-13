@@ -13,10 +13,13 @@
 
 ## 环境配置
 
-### 创建 `.env.local`
+### 创建根目录 `.env`
 
 ```bash
-# Mock 模式（当前推荐）
+# 复制项目根目录的统一配置模板
+cp .env.example .env
+
+# Mock 模式
 VITE_USE_MOCK=true
 VITE_API_URL=http://localhost:8000/api
 
@@ -385,7 +388,7 @@ API 请求
 完成！
 ```
 
-**只需修改 `.env.local`：**
+**只需修改根目录 `.env`：**
 ```bash
 VITE_USE_MOCK=false
 VITE_API_URL=http://localhost:8000/api
