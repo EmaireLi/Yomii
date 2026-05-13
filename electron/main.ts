@@ -17,6 +17,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    minWidth: 800,
+    minHeight: 600,
     webPreferences: {
       // 运行时选择 preload 文件，优先使用 CommonJS 编译产物 preload.cjs
       preload: ((): string => {

@@ -2,6 +2,7 @@
   <el-container class="yomii-app">
     <!-- 左侧导航栏 -->
     <el-aside class="yomii-sidebar"
+      :style="{ width: sidebarWidth }"
       @mousemove.stop
       @pointermove.stop
       @touchmove.stop>
@@ -170,7 +171,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
@@ -197,6 +198,11 @@ const navItems = [
  */
 const router = useRouter()
 const route = useRoute()
+
+/**
+ * Sidebar 宽度 - 动态计算以适应 Electron 和浏览器
+ */
+const sidebarWidth = ref<string>('20vw')
 
 /**
  * 学习统计 Hook
@@ -256,10 +262,20 @@ const resetForm = ref<SetNewPasswordRequest & { phone: string }>({
  */
 onMounted(() => {
   checkAuthentication()
+  calculateSidebarWidth()
+  // 监听窗口大小变化，动态调整 sidebar 宽度
+  window.addEventListener('resize', calculateSidebarWidth)
   // 监听路由守卫的登录事件
   window.addEventListener('open-login-dialog', () => {
     openLoginDialog()
   })
+})
+
+/**
+ * 清理事件监听器
+ */
+onUnmounted(() => {
+  window.removeEventListener('resize', calculateSidebarWidth)
 })
 
 /**
@@ -277,6 +293,17 @@ function checkAuthentication() {
     isLoggedIn.value = false
     currentUser.value = null
   }
+}
+
+/**
+ * 计算 Sidebar 宽度 - 适应 Electron 和浏览器窗口大小变化
+ * 在 Electron 中，viewport 计算与浏览器不同，需要动态调整
+ */
+function calculateSidebarWidth() {
+  const windowWidth = window.innerWidth
+  // Sidebar 目标宽度：窗口的 20%，但最小值 250px，最大值 400px
+  const targetWidth = Math.max(250, Math.min(400, windowWidth * 0.2))
+  sidebarWidth.value = `${targetWidth}px`
 }
 
 /**
@@ -516,10 +543,12 @@ function navigateTo(viewName: string) {
   margin: 0;
   box-shadow: 0.4rem 0 2rem rgba(102, 126, 234, 0.25);
   overflow-y: auto;
-  width: 20vw;
-  min-width: 25rem;
+  /* width 动态设置通过 :style 绑定 */
+  width: auto;
   height: 100vh;
   flex-shrink: 0;
+  min-width: 250px;
+  max-width: 400px;
 }
 
 .app-header {
