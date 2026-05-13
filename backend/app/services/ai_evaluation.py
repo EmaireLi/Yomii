@@ -127,6 +127,19 @@ def _split_sentences(content: str) -> list[str]:
     return [stripped] if stripped else []
 
 
+def _contains_japanese_kana(text: str) -> bool:
+    return bool(re.search(r"[ぁ-んァ-ヶ]", text or ""))
+
+
+def _normalize_feedback_text(text: str, default_text: str) -> str:
+    cleaned = str(text or "").strip()
+    if not cleaned:
+        return default_text
+    if _contains_japanese_kana(cleaned):
+        return default_text
+    return cleaned
+
+
 def _rewrite_sentence(sentence: str) -> tuple[str, str]:
     suggested = _normalize_sentence(sentence)
     if not suggested:
@@ -495,6 +508,7 @@ class DeepSeekEssayFallbackService:
             "字段必须包含：task_completion_score, grammar_score, vocabulary_score, "
             "coherence_score, naturalness_score, level_estimate, summary, comments。"
             "所有分数范围 0-100，level_estimate 只能是 N5/N4/N3/N2/N1。"
+            "summary 和 comments 必须使用简体中文。"
         )
         user_prompt = (
             f"目标等级：{target_level}\n"
@@ -536,6 +550,7 @@ class DeepSeekEssayFallbackService:
             "字段必须包含：issues, sentence_suggestions, full_revision, expanded_revision, polished_revision, revision_notes。"
             "issues 是数组，元素字段：source, suggestion, explanation, severity。"
             "sentence_suggestions 是数组，元素字段：original, suggested, reason。"
+            "explanation、reason、revision_notes 必须使用简体中文。"
             "full_revision 必须是完整日语修正版，不能换题，不能编造与原文无关内容。"
             "expanded_revision 必须是在不跑题的前提下，围绕原题进行自然扩写。"
             "polished_revision 必须是在不改变原意的前提下，做更自然、更高级的润色。"
@@ -734,8 +749,14 @@ class EssayScoringService:
             "naturalness_score": naturalness_score,
             "jlpt_fit_score": jlpt_fit_score,
             "level_estimate": estimated_level,
-            "summary": str(payload.get("summary", "")),
-            "comments": str(payload.get("comments", payload.get("summary", ""))),
+            "summary": _normalize_feedback_text(
+                str(payload.get("summary", "")),
+                f"这篇作文围绕目标等级 {target_level} 完成了基本表达，综合评定为 {estimated_level} 水平。",
+            ),
+            "comments": _normalize_feedback_text(
+                str(payload.get("comments", payload.get("summary", ""))),
+                "已按 JLPT 评分维度生成中文总结，可重点继续提升语法、词汇和自然度。",
+            ),
             "ai_evaluated": True,
         }
         logger.info(
@@ -950,7 +971,10 @@ class EssayRevisionService:
                     **item,
                     "original": _normalize_sentence(str(item.get("original", ""))),
                     "suggested": _normalize_sentence(str(item.get("suggested", item.get("suggestion", "")))),
-                    "reason": str(item.get("reason", item.get("explanation", ""))).strip(),
+                    "reason": _normalize_feedback_text(
+                        str(item.get("reason", item.get("explanation", ""))),
+                        "这句已调整为更自然、更符合日语书面表达的说法。",
+                    ),
                 }
                 if normalized["original"] and normalized["suggested"] and normalized["suggested"] != normalized["original"]:
                     suggestions.append(normalized)
@@ -978,7 +1002,10 @@ class EssayRevisionService:
                         {
                             "original": source,
                             "suggested": suggestion,
-                            "reason": str(item.get("explanation", "")).strip(),
+                            "reason": _normalize_feedback_text(
+                                str(item.get("explanation", "")),
+                                "这句已调整为更自然、更符合日语书面表达的说法。",
+                            ),
                             "severity": item.get("severity", "medium"),
                         }
                     )
@@ -1003,7 +1030,10 @@ class EssayRevisionService:
                 {
                     "source": item.get("original", ""),
                     "suggestion": item.get("suggested", ""),
-                    "explanation": item.get("reason", "根据整篇修正版自动提取出的改动。"),
+                    "explanation": _normalize_feedback_text(
+                        item.get("reason", "根据整篇修正版自动提取出的改动。"),
+                        "根据整篇修正版自动提取出的改动。",
+                    ),
                     "severity": "medium",
                 }
                 for item in suggestions
@@ -1015,7 +1045,10 @@ class EssayRevisionService:
             "full_revision": full_revision,
             "expanded_revision": str(payload.get("expanded_revision", payload.get("expandedRevision", ""))).strip(),
             "polished_revision": str(payload.get("polished_revision", payload.get("polishedRevision", ""))).strip(),
-            "revision_notes": str(payload.get("revision_notes", payload.get("revisionNotes", ""))),
+            "revision_notes": _normalize_feedback_text(
+                str(payload.get("revision_notes", payload.get("revisionNotes", ""))),
+                "已根据当前评分结果完成修订，并尽量提升语法、连贯性和自然度。",
+            ),
             "ai_evaluated": True,
         }
 
@@ -1058,14 +1091,20 @@ class EssayRevisionService:
                     {
                         "original": cleaned,
                         "suggested": suggested,
-                        "reason": reason or "这句做了更自然的表达调整。",
+                        "reason": _normalize_feedback_text(
+                            reason,
+                            "这句已做更自然的表达调整。",
+                        ),
                     }
                 )
                 issues.append(
                     {
                         "source": cleaned,
                         "suggestion": suggested,
-                        "explanation": reason or "建议改成更自然的日语表达。",
+                        "explanation": _normalize_feedback_text(
+                            reason,
+                            "建议改成更自然的日语表达。",
+                        ),
                         "severity": "medium",
                     }
                 )

@@ -6,11 +6,79 @@ from datetime import date, datetime, time, timedelta
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.models.progress import WordProgress
 from app.models.stats import StudyStats
+from app.models.study_plan import LearningSession, StudyPlan
 
 
 class StudyStatsService:
     """学习统计服务"""
+
+    async def refresh_from_history(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        stats: StudyStats,
+    ) -> bool:
+        """根据真实学习记录回填连续天数，避免单一路径漏写时始终为 0。"""
+        session_statement = (
+            select(LearningSession.date)
+            .join(StudyPlan, LearningSession.plan_id == StudyPlan.id)
+            .where(StudyPlan.user_id == user_id)
+        )
+        session_result = await db.exec(session_statement)
+        session_dates = session_result.all()
+
+        progress_statement = select(WordProgress.last_review).where(WordProgress.user_id == user_id)
+        progress_result = await db.exec(progress_statement)
+        progress_dates = progress_result.all()
+
+        study_dates: set[date] = set()
+        for raw_date in session_dates:
+            if isinstance(raw_date, str):
+                try:
+                    study_dates.add(date.fromisoformat(raw_date))
+                except ValueError:
+                    continue
+        for reviewed_at in progress_dates:
+            if isinstance(reviewed_at, datetime):
+                study_dates.add(reviewed_at.date())
+
+        if not study_dates:
+            return False
+
+        ordered_dates = sorted(study_dates)
+        latest_date = ordered_dates[-1]
+
+        longest_streak = 1
+        current_chain = 1
+        for previous, current in zip(ordered_dates, ordered_dates[1:]):
+            if current == previous + timedelta(days=1):
+                current_chain += 1
+            else:
+                current_chain = 1
+            longest_streak = max(longest_streak, current_chain)
+
+        ending_streak = 1
+        for idx in range(len(ordered_dates) - 1, 0, -1):
+            if ordered_dates[idx] == ordered_dates[idx - 1] + timedelta(days=1):
+                ending_streak += 1
+            else:
+                break
+
+        changed = False
+        if stats.last_study_date != latest_date:
+            stats.last_study_date = latest_date
+            changed = True
+        if stats.current_streak != ending_streak:
+            stats.current_streak = ending_streak
+            changed = True
+        if stats.longest_streak < longest_streak:
+            stats.longest_streak = longest_streak
+            changed = True
+        if changed:
+            stats.updated_at = datetime.utcnow()
+        return changed
 
     async def get_or_create(
         self,

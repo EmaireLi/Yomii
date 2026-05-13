@@ -183,16 +183,6 @@
 
             <div class="result-actions">
               <el-button
-                v-if="word.audioUrl"
-                type="primary"
-                size="small"
-                @click="playAudio(word.audioUrl)"
-                text
-              >
-                <el-icon><VideoPlay /></el-icon>
-                <span>听发音</span>
-              </el-button>
-              <el-button
                 size="small"
                 @click="copyToClipboard(word.word)"
                 text
@@ -274,7 +264,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { ElNotification, ElMessage } from 'element-plus'
-import { Search, VideoPlay, DocumentCopy, Star, StarFilled } from '@element-plus/icons-vue'
+import { Search, DocumentCopy, Star, StarFilled } from '@element-plus/icons-vue'
 import type { Word } from '@/types'
 import { searchWords as searchWordsAPI, isAuthenticated } from '@/api'
 import { useSearchHistory, useFavorites } from '@/composables/useLocalStorage'
@@ -386,15 +376,6 @@ const formatHistoryMeta = (resultCount: number, createdAt: number) => {
     minute: '2-digit'
   })
   return `${resultCount} 条结果 · ${formattedTime}`
-}
-
-const playAudio = (url: string) => {
-  console.log('Playing audio:', url)
-  ElNotification({
-    title: '提示',
-    message: '音频播放功能开发中',
-    type: 'info'
-  })
 }
 
 const copyToClipboard = (text: string) => {
