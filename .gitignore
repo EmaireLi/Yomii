@@ -39,6 +39,9 @@ __screenshots__/
 *.timestamp-*-*.mjs
 .vite/
 
+# Electron
+/dist-electron/
+
 # Documents
 项目计划书.docx
 *.docx
