@@ -11,6 +11,8 @@ import * as fs from 'fs'
 
 let mainWindow: BrowserWindow | null = null
 
+app.commandLine.appendSwitch('force-device-scale-factor', '1')
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -25,8 +27,9 @@ function createWindow() {
         return js
       })(),
       nodeIntegration: false,
-      contextIsolation: true
-    }
+      contextIsolation: true,
+      zoomFactor: 1.0
+    },
   })
 
   // 开发时由 launcher 注入 VITE_DEV_SERVER_URL，生产时读取 dist/index.html

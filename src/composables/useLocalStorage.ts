@@ -331,10 +331,6 @@ export function useStudyStats() {
     { deep: true }
   )
 
-  if (isAuthenticated()) {
-    void syncStudyStats()
-  }
-
   return {
     stats,
     incrementRecited,

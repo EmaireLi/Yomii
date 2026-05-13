@@ -1,7 +1,7 @@
 <template>
   <el-container class="yomii-app">
     <!-- 左侧导航栏 -->
-    <el-aside width="300px" class="yomii-sidebar"
+    <el-aside class="yomii-sidebar"
       @mousemove.stop
       @pointermove.stop
       @touchmove.stop>
@@ -54,7 +54,7 @@
       <div class="sidebar-footer">
         <el-statistic :value="studyStreak" suffix="天">
           <template #title>
-            <span style="color: white; font-size: 16px; font-weight: 700; letter-spacing: 1px;">学习进度</span>
+            <span style="color: white; font-size: 1.6rem; font-weight: 700; letter-spacing: 0.1rem;">学习进度</span>
           </template>
         </el-statistic>
       </div>
@@ -67,7 +67,7 @@
     </el-main>
 
     <!-- 登录对话框 -->
-    <el-dialog v-model="loginDialogVisible" title="登录账户" width="500px" @closed="resetLoginDialogState">
+    <el-dialog v-model="loginDialogVisible" title="登录账户" width="50rem" @closed="resetLoginDialogState">
       <el-form :model="loginForm" ref="loginFormRef" @submit.prevent="handleLogin">
         <el-form-item label="电话" :rules="[{ required: true, message: '电话不能为空' }]" prop="phone">
           <el-input v-model="loginForm.phone" placeholder="请输入电话号码" />
@@ -88,7 +88,7 @@
     </el-dialog>
 
     <!-- 注册对话框 -->
-    <el-dialog v-model="registerDialogVisible" title="创建新账户" width="500px" @closed="resetRegisterDialogState">
+    <el-dialog v-model="registerDialogVisible" title="创建新账户" width="50rem" @closed="resetRegisterDialogState">
       <el-form :model="registerForm" ref="registerFormRef">
         <el-form-item label="用户名" :rules="[{ required: true, message: '用户名不能为空' }]" prop="username">
           <el-input v-model="registerForm.username" placeholder="请输入用户名" />
@@ -112,7 +112,7 @@
     </el-dialog>
 
     <!-- 找回密码对话框 -->
-    <el-dialog v-model="resetDialogVisible" title="重置密码" width="500px" @closed="resetResetDialogState">
+    <el-dialog v-model="resetDialogVisible" title="重置密码" width="50rem" @closed="resetResetDialogState">
       <el-steps :active="resetStep" align-center>
         <el-step title="验证电话" />
         <el-step title="设置新密码" />
@@ -122,14 +122,14 @@
       <div class="reset-content">
         <!-- 步骤1：输入电话 -->
         <template v-if="resetStep === 0">
-          <el-form-item label="电话" style="margin-top: 20px">
+          <el-form-item label="电话" style="margin-top: 2rem">
             <el-input v-model="resetForm.phone" placeholder="请输入注册电话号码" />
           </el-form-item>
         </template>
 
         <!-- 步骤2：设置新密码 -->
         <template v-if="resetStep === 1">
-          <el-form-item label="重置码" style="margin-top: 20px">
+          <el-form-item label="重置码" style="margin-top: 2rem">
             <el-input v-model="resetForm.code" placeholder="请输入邮箱中收到的重置码" />
           </el-form-item>
           <el-form-item label="新密码">
@@ -145,7 +145,7 @@
           <div class="reset-success">
             <el-icon class="success-icon"><CircleCheckFilled /></el-icon>
             <p>密码重置成功！</p>
-            <p style="color: #606266; font-size: 14px;">请使用新密码重新登录</p>
+            <p style="color: #606266; font-size: 1.4rem;">请使用新密码重新登录</p>
           </div>
         </template>
       </div>
@@ -174,7 +174,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-import { House, Search, DocumentCopy, Notebook, Edit, Star, CircleCheckFilled, CircleClose } from '@element-plus/icons-vue'
+import { House, Search, DocumentCopy, Notebook, Edit, Star, CircleCheckFilled } from '@element-plus/icons-vue'
 import { VIEWS } from '@/utils/constants'
 import { useStudyStats } from '@/composables/useLocalStorage'
 import { login, register, logout, getCurrentUser, isAuthenticated, requestPasswordReset, resetPassword } from '@/api'
@@ -504,6 +504,7 @@ function navigateTo(viewName: string) {
   height: 100vh;
   width: 100%;
   z-index: 1;
+  display: flex;
 }
 
 .yomii-sidebar {
@@ -511,30 +512,85 @@ function navigateTo(viewName: string) {
   color: white;
   display: flex;
   flex-direction: column;
-  padding: 30px 0 0 0;
-  box-shadow: 4px 0 20px rgba(102, 126, 234, 0.25);
+  padding: 0;
+  margin: 0;
+  box-shadow: 0.4rem 0 2rem rgba(102, 126, 234, 0.25);
   overflow-y: auto;
+  width: 20vw;
+  min-width: 25rem;
+  height: 100vh;
+  flex-shrink: 0;
 }
 
 .app-header {
-  padding: 30px 20px;
+  padding: 1rem 2rem 2rem 2rem;
+  margin-top: 2rem;
   text-align: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  margin-bottom: 20px;
+  border-bottom: 0.1rem solid rgba(255, 255, 255, 0.2);
 }
 
 .app-title {
-  font-size: 32px;
+  font-size: 3.2rem;
   font-weight: 700;
   margin: 0;
-  letter-spacing: 2px;
+  letter-spacing: 0.2rem;
   color: white;
 }
 
 .app-subtitle {
-  font-size: 13px;
+  font-size: 1.3rem;
   opacity: 0.85;
-  margin: 8px 0 0 0;
+  margin: 0.8rem 0 0 0;
+}
+
+.user-section {
+  padding: 3rem 2.5rem;
+  border-bottom: 0.1rem solid rgba(255, 255, 255, 0.2);
+  pointer-events: auto;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-bottom: 1.2rem;
+}
+
+.user-details {
+  flex: 1;
+}
+
+.username {
+  margin: 0;
+  color: white;
+  font-weight: 600;
+  font-size: 1.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.email {
+  margin: 0.4rem 0 0 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.logout-btn {
+  width: 100%;
+}
+
+.login-buttons {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.auth-btn {
+  flex: 1;
+  pointer-events: auto;
 }
 
 .nav-menu {
@@ -549,8 +605,8 @@ function navigateTo(viewName: string) {
 }
 
 .nav-menu-item {
-  margin: 8px 12px !important;
-  border-radius: 6px !important;
+  margin: 0.8rem 1.2rem !important;
+  border-radius: 0.6rem !important;
   background: rgba(255, 255, 255, 0.08) !important;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
   pointer-events: auto;
@@ -558,7 +614,7 @@ function navigateTo(viewName: string) {
 
 .nav-menu-item:hover {
   background: rgba(255, 255, 255, 0.18) !important;
-  transform: translateX(8px);
+  transform: translateX(0.8rem);
 }
 
 .nav-menu-item.is-disabled {
@@ -573,17 +629,17 @@ function navigateTo(viewName: string) {
 }
 
 .nav-icon {
-  font-size: 20px;
-  min-width: 24px;
+  font-size: 2rem;
+  min-width: 2.4rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-right: 12px;
+  margin-right: 1.2rem;
 }
 
 .sidebar-footer {
-  padding: 30px 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 3rem 2rem;
+  border-top: 0.1rem solid rgba(255, 255, 255, 0.2);
   background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.15));
   text-align: center;
   color: white;
@@ -595,15 +651,16 @@ function navigateTo(viewName: string) {
 
 .streak-statistic :where(.el-statistic__item-title) {
   color: white !important;
-  font-size: 16px !important;
+  font-size: 1.6rem !important;
   font-weight: 700 !important;
 }
 
 .yomii-content {
-  padding: 40px;
+  padding: 4rem;
   background: rgba(255, 255, 255, 0.65);
   overflow-y: auto;
   position: relative;
+  flex: 1;
 }
 
 /* 登录覆盖层 */
@@ -618,41 +675,41 @@ function navigateTo(viewName: string) {
   align-items: center;
   justify-content: center;
   z-index: 100;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(0.2rem);
 }
 
 .overlay-content {
   text-align: center;
-  padding: 40px;
+  padding: 4rem;
   animation: slideUp 0.3s ease-out;
 }
 
 .lock-icon {
-  font-size: 60px;
+  font-size: 6rem;
   color: #e74c3c;
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
   display: block;
 }
 
 .overlay-content h2 {
-  font-size: 24px;
-  margin: 20px 0 10px;
+  font-size: 2.4rem;
+  margin: 2rem 0 1rem;
   color: #333;
 }
 
 .overlay-content p {
-  font-size: 14px;
+  font-size: 1.4rem;
   color: #666;
-  margin-bottom: 30px;
+  margin-bottom: 3rem;
 }
 
 .overlay-content .el-button {
-  margin: 0 10px;
+  margin: 0 1rem;
 }
 
 /* 滚动条美化 */
 .content::-webkit-scrollbar {
-  width: 8px;
+  width: 0.8rem;
 }
 
 .content::-webkit-scrollbar-track {
@@ -661,7 +718,7 @@ function navigateTo(viewName: string) {
 
 .content::-webkit-scrollbar-thumb {
   background: #dcdfe6;
-  border-radius: 4px;
+  border-radius: 0.4rem;
 }
 
 .content::-webkit-scrollbar-thumb:hover {
@@ -669,7 +726,7 @@ function navigateTo(viewName: string) {
 }
 
 .sidebar::-webkit-scrollbar {
-  width: 4px;
+  width: 0.4rem;
 }
 
 .sidebar::-webkit-scrollbar-track {
@@ -678,7 +735,7 @@ function navigateTo(viewName: string) {
 
 .sidebar::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.3);
-  border-radius: 2px;
+  border-radius: 0.2rem;
 }
 
 .sidebar::-webkit-scrollbar-thumb:hover {
@@ -689,7 +746,7 @@ function navigateTo(viewName: string) {
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(2rem);
   }
   to {
     opacity: 1;
@@ -704,7 +761,7 @@ function navigateTo(viewName: string) {
   }
   to {
     opacity: 1;
-    max-height: 1000px;
+    max-height: 100rem;
   }
 }
 
@@ -721,91 +778,40 @@ function navigateTo(viewName: string) {
 
 @keyframes glow {
   0% {
-    box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 0 0.5rem rgba(102, 126, 234, 0.3);
   }
   50% {
-    box-shadow: 0 0 20px rgba(102, 126, 234, 0.6);
+    box-shadow: 0 0 2rem rgba(102, 126, 234, 0.6);
   }
   100% {
-    box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 0 0.5rem rgba(102, 126, 234, 0.3);
   }
 }
 
 @keyframes float {
   0%, 100% {
-    transform: translateY(0px);
+    transform: translateY(0rem);
   }
   50% {
-    transform: translateY(-5px);
+    transform: translateY(-0.5rem);
   }
-}
-
-/* 用户区域样式 */
-.user-section {
-  padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  pointer-events: auto;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.user-details {
-  flex: 1;
-}
-
-.username {
-  margin: 0;
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.email {
-  margin: 4px 0 0 0;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.logout-btn {
-  width: 100%;
-}
-
-.login-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.auth-btn {
-  flex: 1;
-  pointer-events: auto;
 }
 
 /* 对话框样式 */
 .form-actions {
   text-align: right;
-  margin-top: 10px;
+  margin-top: 1rem;
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 1rem;
 }
 
 .reset-content {
-  padding: 20px 0;
-  min-height: 200px;
+  padding: 2rem 0;
+  min-height: 20rem;
 }
 
 .reset-success {
@@ -813,36 +819,36 @@ function navigateTo(viewName: string) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 200px;
-  gap: 10px;
+  height: 20rem;
+  gap: 1rem;
 }
 
 .success-icon {
-  font-size: 60px;
+  font-size: 6rem;
   color: #67c23a;
 }
 
 .reset-success p {
   margin: 0;
-  font-size: 16px;
+  font-size: 1.6rem;
   color: #333;
 }
 
 :deep(.el-dialog) .el-form:first-child {
-  margin-top: 20px;
+  margin-top: 2rem;
 }
 
 /* 对话框表单输入框样式 */
 :deep(.el-dialog) .el-form-item {
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
 }
 
 :deep(.el-dialog) .el-form-item__label {
-  width: 90px !important;
+  width: 9rem !important;
   text-align: left !important;
   color: #333;
   font-weight: 500;
-  padding-left: 10px !important;
+  padding-left: 1rem !important;
   justify-content: flex-start !important;
 }
 
@@ -858,8 +864,8 @@ function navigateTo(viewName: string) {
   border: none !important;
   background-color: transparent !important;
   border-radius: 0 !important;
-  padding: 8px 0 !important;
-  font-size: 14px;
+  padding: 0.8rem 0 !important;
+  font-size: 1.4rem;
   transition: all 0.3s ease !important;
 }
 
@@ -876,22 +882,17 @@ function navigateTo(viewName: string) {
   background-color: transparent !important;
 }
 
-@media (max-height: 800px) {
-  .yomii-sidebar {
-    padding: 35px 0;
-    width: 360px;
-  }
-
+@media (max-height: 80rem) {
   .app-header {
-    margin-bottom: 40px;
+    margin-bottom: 0rem;
   }
 
   .app-title {
-    font-size: 38px;
+    font-size: 3.8rem;
   }
 
   .yomii-content {
-    padding: 40px 60px;
+    padding: 4rem 6rem;
   }
 }
 </style>
@@ -905,24 +906,24 @@ function navigateTo(viewName: string) {
 /* 标题：学习进度 (调大) */
 .streak-statistic .el-statistic__title {
   color: white !important;
-  font-size: 22px !important;
+  font-size: 2.2rem !important;
   font-weight: 700 !important;
-  letter-spacing: 1px !important;
-  margin-bottom: 8px !important;
+  letter-spacing: 0.1rem !important;
+  margin-bottom: 0.8rem !important;
 }
 
 /* 数字部分 (调小) */
 .streak-statistic .el-statistic__content {
   color: #ffd700 !important;
-  font-size: 26px !important;
+  font-size: 2.6rem !important;
   font-weight: bold !important;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+  text-shadow: 0 0.2rem 0.4rem rgba(0, 0, 0, 0.3) !important;
 }
 
 /* 单位：天 */
 .streak-statistic .el-statistic__suffix {
   color: #ffd700 !important;
-  font-size: 18px !important;
-  margin-left: 4px !important;
+  font-size: 1.8rem !important;
+  margin-left: 0.4rem !important;
 }
 </style>

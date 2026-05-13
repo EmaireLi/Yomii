@@ -166,7 +166,7 @@
               </el-button>
             </div>
             
-            <el-divider margin="16px 0" />
+            <el-divider margin="1.6rem 0" />
             
             <div class="result-body">
               <p class="meaning"><strong>中文释义：</strong> {{ word.chineseMeaning || '暂无' }}</p>
@@ -179,7 +179,7 @@
               </div>
             </div>
 
-            <el-divider margin="16px 0" />
+            <el-divider margin="1.6rem 0" />
 
             <div class="result-actions">
               <el-button
@@ -226,7 +226,7 @@
     <el-drawer
       v-model="historyDrawerVisible"
       title="查询历史"
-      size="420px"
+      size="42rem"
       class="history-drawer"
     >
       <div class="history-drawer-body">
@@ -412,20 +412,20 @@ const handleClearHistory = async () => {
 .search-view {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 2.4rem;
   animation: slideUp 0.3s ease;
 }
 
 .header-card h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: 2.8rem;
   color: #000000;
   font-weight: 700;
 }
 
 .search-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 0.8rem;
+  box-shadow: 0 0.2rem 1.2rem rgba(0, 0, 0, 0.08);
   border: none;
   background: white;
 }
@@ -433,14 +433,14 @@ const handleClearHistory = async () => {
 .search-box {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 1.6rem;
 }
 
 .search-btn {
   width: 100%;
-  height: 40px;
+  height: 4rem;
   font-weight: 500;
-  border-radius: 4px;
+  border-radius: 0.4rem;
 }
 
 .limit-select {
@@ -451,7 +451,7 @@ const handleClearHistory = async () => {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 12px;
+  gap: 1.2rem;
   flex-wrap: wrap;
 }
 
@@ -459,14 +459,14 @@ const handleClearHistory = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 1.2rem;
   flex-wrap: wrap;
 }
 
 .history-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 1rem;
   padding: 0;
   border: none;
   background: transparent;
@@ -476,36 +476,37 @@ const handleClearHistory = async () => {
 .history-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.8rem;
 }
 
 .history-label {
-  font-size: 13px;
+  font-size: 1.6rem;
   color: #333333;
   font-weight: 600;
+  line-height: 1.8rem;
 }
 
 .history-toggle-text {
   color: #409eff;
-  font-size: 13px;
+  font-size: 1.4rem;
   font-weight: 500;
 }
 
 .history-preview-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 1rem;
 }
 
 .history-preview-item,
 .history-list-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  padding: 12px 14px;
-  border: 1px solid #ebeef5;
-  border-radius: 10px;
+  gap: 1.2rem;
+  min-height: 5.6rem;
+  padding: 1.2rem 1.4rem;
+  border: 0.1rem solid #ebeef5;
+  border-radius: 1rem;
   background: #ffffff;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -513,12 +514,12 @@ const handleClearHistory = async () => {
 .history-preview-item:hover,
 .history-list-item:hover {
   border-color: #c6e2ff;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.08);
+  box-shadow: 0 0.4rem 1.2rem rgba(64, 158, 255, 0.08);
 }
 
 .history-link-btn {
   padding: 0 !important;
-  font-size: 13px;
+  font-size: 1.4rem;
 }
 
 .history-link-btn.danger,
@@ -529,32 +530,32 @@ const handleClearHistory = async () => {
 .history-drawer-body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 1.6rem;
 }
 
 .drawer-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 1.2rem;
 }
 
 .drawer-summary {
   color: #606266;
-  font-size: 13px;
+  font-size: 1.3rem;
 }
 
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 1.2rem;
 }
 
 .history-item-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.6rem;
   border: none;
   background: transparent;
   text-align: left;
@@ -568,32 +569,32 @@ const handleClearHistory = async () => {
 
 .history-item-keyword {
   color: #303133;
-  font-size: 15px;
+  font-size: 1.5rem;
   font-weight: 600;
   word-break: break-all;
 }
 
 .history-item-meta {
   color: #909399;
-  font-size: 12px;
+  font-size: 1.2rem;
 }
 
 .history-delete-btn {
   flex-shrink: 0;
   padding: 0 !important;
-  font-size: 13px;
+  font-size: 1.3rem;
 }
 
 .state-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 0.8rem;
+  box-shadow: 0 0.2rem 1.2rem rgba(0, 0, 0, 0.08);
   border: none;
   color: #000000;
 }
 
 .result-info {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 0.8rem;
+  box-shadow: 0 0.2rem 1.2rem rgba(0, 0, 0, 0.08);
   border: none;
   padding: 0 !important;
 }
@@ -613,7 +614,7 @@ const handleClearHistory = async () => {
 .stats-container {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 2.4rem;
   width: 100%;
   flex-wrap: wrap;
 }
@@ -621,8 +622,8 @@ const handleClearHistory = async () => {
 .stat-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 15px;
+  gap: 0.6rem;
+  font-size: 1.5rem;
 }
 
 .stat-label {
@@ -633,34 +634,34 @@ const handleClearHistory = async () => {
 .stat-value {
   color: #409eff;
   font-weight: 600;
-  font-size: 18px;
-  padding: 2px 8px;
+  font-size: 1.8rem;
+  padding: 0.2rem 0.8rem;
   background: rgba(64, 158, 255, 0.1);
-  border-radius: 4px;
-  min-width: 45px;
+  border-radius: 0.4rem;
+  min-width: 4.5rem;
   text-align: center;
 }
 
 .stat-divider {
-  width: 1px;
-  height: 24px;
+  width: 0.1rem;
+  height: 2.4rem;
   background: #dcdfe6;
 }
 
 @media (max-width: 768px) {
   .stats-container {
-    gap: 16px;
+    gap: 1.6rem;
   }
 
   .stat-value {
-    font-size: 16px;
+    font-size: 1.6rem;
   }
 }
 
 .results {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 2rem;
 }
 
 .result-list {
@@ -670,12 +671,12 @@ const handleClearHistory = async () => {
 .pagination-wrapper {
   display: flex;
   justify-content: center;
-  margin-top: 12px;
+  margin-top: 1.2rem;
 }
 
 .result-card {
-  border-radius: 8px;
-  border: 1px solid #ebeef5;
+  border-radius: 0.8rem;
+  border: 0.1rem solid #ebeef5;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   background: white;
@@ -684,15 +685,15 @@ const handleClearHistory = async () => {
 
 .result-card:hover {
   border-color: #667eea;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
-  transform: translateY(-2px);
+  box-shadow: 0 0.4rem 1.6rem rgba(102, 126, 234, 0.2);
+  transform: translateY(-0.2rem);
 }
 
 .result-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 15px;
+  gap: 1.5rem;
 }
 
 .word-info {
@@ -700,79 +701,79 @@ const handleClearHistory = async () => {
 }
 
 .word-title {
-  margin: 0 0 8px 0;
-  font-size: 24px;
+  margin: 0 0 0.8rem 0;
+  font-size: 2.4rem;
   color: #000000;
   font-weight: 600;
 }
 
 .kana {
-  margin: 0 0 8px 0;
+  margin: 0 0 0.8rem 0;
   color: #333333;
-  font-size: 15px;
+  font-size: 1.5rem;
 }
 
 .favorite-btn {
-  font-size: 20px !important;
+  font-size: 2rem !important;
   padding: 0 !important;
 }
 
 .result-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.8rem;
 }
 
 .meaning, .example {
   margin: 0;
   color: #333333;
-  font-size: 14px;
+  font-size: 1.4rem;
   line-height: 1.6;
 }
 
 .tags {
   display: flex;
-  gap: 8px;
+  gap: 0.8rem;
   flex-wrap: wrap;
 }
 
 .result-actions {
   display: flex;
-  gap: 8px;
+  gap: 0.8rem;
 }
 
 .search-box {
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
 }
 
 .search-input-wrapper {
   display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
 }
 
 .search-input {
   flex: 1;
-  padding: 10px 12px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: 1rem 1.2rem;
+  border: 0.1rem solid #dcdfe6;
+  border-radius: 0.4rem;
+  font-size: 1.4rem;
   outline: none;
   transition: border-color 0.3s;
 }
 
 .search-input:focus {
   border-color: #409eff;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+  box-shadow: 0 0 0 0.2rem rgba(64, 158, 255, 0.2);
 }
 
 .search-btn {
-  padding: 0 20px;
+  padding: 0 2rem;
   background-color: #409eff;
   color: #fff;
   border: none;
-  border-radius: 4px;
-  font-size: 14px;
+  border-radius: 0.4rem;
+  font-size: 1.4rem;
   cursor: pointer;
   transition: background-color 0.3s;
   white-space: nowrap;
@@ -788,25 +789,25 @@ const handleClearHistory = async () => {
 
 .result-count {
   color: #333333;
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
 }
 
 .result-list {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 1.5rem;
 }
 
 .result-card {
   background: #fdfdfd;
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  padding: 12px;
+  border: 0.1rem solid #ebeef5;
+  border-radius: 0.8rem;
+  padding: 1.2rem;
   transition: all 0.3s;
 }
 
 .result-card:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0.2rem 1.2rem rgba(0, 0, 0, 0.1);
   border-color: #409eff;
 }
 
@@ -814,8 +815,8 @@ const handleClearHistory = async () => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 15px;
-  gap: 15px;
+  margin-bottom: 1.5rem;
+  gap: 1.5rem;
 }
 
 .word-info {
@@ -823,27 +824,27 @@ const handleClearHistory = async () => {
 }
 
 .word-info h2 {
-  margin: 0 015px;
-  font-size: 28px;
+  margin: 0 1.5rem;
+  font-size: 2.8rem;
   color: #000000;
 }
 
 .kana {
-  margin: 0 0 5px;
+  margin: 0 0 0.5rem;
   color: #333333;
-  font-size: 16px;
+  font-size: 1.6rem;
 }
 
 .pos {
   margin: 0;
   color: #333333;
-  font-size: 14px;
+  font-size: 1.4rem;
 }
 
 .favorite-btn {
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: 2.4rem;
   cursor: pointer;
   transition: transform 0.3s;
   opacity: 0.5;
@@ -858,46 +859,46 @@ const handleClearHistory = async () => {
 }
 
 .result-body {
-  margin-bottom: 15px;
+  margin-bottom: 1.5rem;
 }
 
 .meaning,
 .example {
-  margin: 0 0 10px;
+  margin: 0 0 1rem;
   color: #333333;
   line-height: 1.6;
 }
 
 .tags {
   display: flex;
-  gap: 8px;
+  gap: 0.8rem;
   flex-wrap: wrap;
 }
 
 .tag {
   display: inline-block;
-  padding: 4px 12px;
+  padding: 0.4rem 1.2rem;
   background: #f0f9ff;
   color: #409eff;
-  border-radius: 12px;
-  font-size: 12px;
+  border-radius: 1.2rem;
+  font-size: 1.2rem;
 }
 
 .result-actions {
   display: flex;
-  gap: 10px;
-  padding-top: 15px;
-  border-top: 1px solid #ebeef5;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 0.1rem solid #ebeef5;
 }
 
 .action-btn {
-  padding: 6px 15px;
+  padding: 0.6rem 1.5rem;
   background: #f5f7fa;
   color: #333333;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  border: 0.1rem solid #dcdfe6;
+  border-radius: 0.4rem;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 1.4rem;
   transition: all 0.3s;
 }
 
@@ -910,26 +911,26 @@ const handleClearHistory = async () => {
 .empty-state,
 .initial-state {
   text-align: center;
-  padding: 60px 20px;
+  padding: 6rem 2rem;
   color: #333333;
 }
 
 .empty-icon,
 .init-icon {
-  font-size: 48px;
+  font-size: 4.8rem;
   display: block;
-  margin-bottom: 15px;
+  margin-bottom: 1.5rem;
 }
 
 .empty-text,
 .init-text {
-  font-size: 18px;
+  font-size: 1.8rem;
   font-weight: 500;
-  margin: 0 0 10px;
+  margin: 0 0 1rem;
 }
 
 .empty-hint {
-  font-size: 14px;
+  font-size: 1.4rem;
   margin: 0;
 }
 
@@ -938,25 +939,25 @@ const handleClearHistory = async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 20px;
-  gap: 20px;
+  padding: 8rem 2rem;
+  gap: 2rem;
 }
 
 .spinner {
-  width: 60px;
-  height: 60px;
-  border: 4px solid #f0f0f0;
-  border-top: 4px solid #409eff;
+  width: 6rem;
+  height: 6rem;
+  border: 0.4rem solid #f0f0f0;
+  border-top: 0.4rem solid #409eff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
 .loading-text {
   margin: 0;
-  font-size: 18px;
+  font-size: 1.8rem;
   color: #333333;
   font-weight: 500;
-  letter-spacing: 2px;
+  letter-spacing: 0.2rem;
 }
 
 @media (max-width: 768px) {
@@ -982,7 +983,7 @@ const handleClearHistory = async () => {
 @keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(1rem);
   }
   to {
     opacity: 1;

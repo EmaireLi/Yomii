@@ -44,7 +44,7 @@
         <div class="card-header">
           <div class="title-text">
             <el-icon :size="20"
-              style="vertical-align: middle; margin-right: 8px;">
+              style="vertical-align: middle; margin-right: 0.8rem;">
               <UserFilled/>
             </el-icon> 
             <span>{{ teamInfo.name }}</span>
@@ -74,7 +74,7 @@
         <div class="card-header">
           <div class="title-text">
             <el-icon :size="20"
-              style="vertical-align: middle; margin-right: 8px;">
+              style="vertical-align: middle; margin-right: 0.8rem;">
               <Operation/>
             </el-icon> 
             <span>核心功能</span>
@@ -147,27 +147,27 @@ const featureList = [
 .home-view {
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 3rem;
 }
 
 .header-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 0.8rem;
+  box-shadow: 0 0.2rem 1.2rem rgba(0, 0, 0, 0.08);
   border: none;
 }
 
 .header-card h1 {
-  margin: 0 0 15px 0;
+  margin: 0 0 1.5rem 0;
   color: #000000;
-  font-size: 28px;
+  font-size: 2.8rem;
   font-weight: 700;
 }
 
 .desc {
   margin: 0;
   color: #333333;
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 1.6rem;
+  line-height: 1.8;
 }
 
 .stats-section {
@@ -179,34 +179,35 @@ const featureList = [
 }
 
 .stat-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 0.8rem;
+  box-shadow: 0 0.2rem 1.2rem rgba(0, 0, 0, 0.08);
   border: none;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  margin: 1rem 0;
 }
 
 .stat-card :deep(.el-card__body) {
-  padding: 20px;
+  padding: 2rem;
 }
 
-.stat-card :deep(.el-statistic__title) {
+.stat-card :deep(.el-statistic__head) {
   color: rgba(255, 255, 255, 0.8);
-  font-size: 13px;
-  margin-bottom: 8px;
-  font-weight: 500;
+  font-size: 2rem;
+  margin-bottom: 0.8rem;
+  font-weight: 700;
 }
 
 .stat-card :deep(.el-statistic__content) {
   color: white;
-  font-size: 36px;
+  font-size: 3.6rem;
   font-weight: bold;
-  letter-spacing: 1px;
+  letter-spacing: 0.1rem;
 }
 
 .team-card, .features-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 0.8rem;
+  box-shadow: 0 0.2rem 1.2rem rgba(0, 0, 0, 0.08);
   border: none;
 }
 
@@ -218,82 +219,83 @@ const featureList = [
 }
 
 .title-text {
-  font-size: 16px;
+  font-size: 1.8rem;
   font-weight: 600;
   color: #000000;
 }
 
 .member-card {
-  border-radius: 6px;
-  border: 1px solid #ebeef5;
+  margin: 0.4rem 0;
+  border-radius: 0.6rem;
+  border: 0.1rem solid #ebeef5;
   transition: all 0.3s;
 }
 
 .member-card:hover {
   border-color: #409eff;
-  transform: translateY(-2px);
+  transform: translateY(-0.2rem);
 }
 
 .member-content {
   text-align: center;
-  padding: 10px 0;
+  padding: 0;
 }
 
 .member-name {
   font-weight: 600;
   color: #000000;
-  margin-bottom: 8px;
-  font-size: 14px;
+  margin-bottom: 0.8rem;
+  font-size: 1.6rem;
 }
 
 .member-role {
-  margin: 8px 0;
+  margin: 0.8rem 0;
 }
 
 .member-id {
-  font-size: 12px;
+  font-size: 1.4rem;
   color: #333333;
   font-family: monospace;
-  margin-top: 8px;
+  margin-top: 0.8rem;
 }
 
 .feature-item {
   display: flex;
-  gap: 12px;
+  gap: 1.2rem;
   width: 100%;
-  height: 132px;
+  height: 13.2rem;
   box-sizing: border-box;
   align-items: center;
-  padding: 18px;
+  padding: 1.8rem;
   background: linear-gradient(135deg, #f5f7fa 0%, #eef2f8 100%);
-  border-radius: 6px;
+  border-radius: 0.6rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-left: 4px solid #667eea;
+  border-left: 0.4rem solid #667eea;
 }
 
 .feature-col {
   display: flex;
-  margin-bottom: 16px;
+  margin-bottom: 1.6rem;
 }
 
 .feature-item:hover {
   background: linear-gradient(135deg, #ecf5ff 0%, #e0eeff 100%);
   border-left-color: #764ba2;
-  transform: translateX(6px);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+  transform: translateX(0.6rem);
+  box-shadow: 0 0.2rem 0.8rem rgba(102, 126, 234, 0.15);
 }
 
 .feature-icon {
-  min-width: 52px;
-  width: 52px;
-  height: 52px;
+  min-width: 5.2rem;
+  width: 5.2rem;
+  height: 5.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: 2.8rem;
   color: #667eea;
   background: rgba(102, 126, 234, 0.08);
-  border-radius: 10px;
+  border-radius: 1rem;
 }
 
 .feature-info {
@@ -301,16 +303,16 @@ const featureList = [
 }
 
 .feature-info h4 {
-  margin: 0 0 4px 0;
+  margin: 0 0 0.4rem 0;
   color: #000000;
-  font-size: 14px;
+  font-size: 1.4rem;
   font-weight: 600;
 }
 
 .feature-info p {
   margin: 0;
   color: #333333;
-  font-size: 13px;
+  font-size: 1.3rem;
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;

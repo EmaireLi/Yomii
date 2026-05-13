@@ -1,12 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteLocationNormalized, NavigationGuardNext } from 'vue-router'
-import { isAuthenticated, getCurrentUser } from '@/api'
-import HomeView from '@/components/views/HomeView.vue'
-import SearchView from '@/components/views/SearchView.vue'
-import ReciteView from '@/components/views/ReciteView.vue'
-import FavoritesView from '@/components/views/FavoritesView.vue'
-import TestView from '@/components/views/TestView.vue'
-import EssayView from '@/components/views/EssayView.vue'
+import { isAuthenticated } from '@/api'
+
+// 使用动态导入（lazy loading）分离路由组件到独立的 chunk
+// 这样首次加载时只需加载必需的代码，其他路由按需加载
+const HomeView = () => import('@/views/HomeView.vue')
+const SearchView = () => import('@/views/SearchView.vue')
+const ReciteView = () => import('@/views/ReciteView.vue')
+const FavoritesView = () => import('@/views/FavoritesView.vue')
+const TestView = () => import('@/views/TestView.vue')
+const EssayView = () => import('@/views/EssayView.vue')
 
 // 路由配置
 const routes = [

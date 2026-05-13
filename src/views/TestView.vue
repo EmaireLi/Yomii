@@ -71,7 +71,7 @@
         <template #header>
           <div class="card-header">测试历史记录</div>
         </template>
-        <div v-if="quizHistory.length === 0" style="padding: 40px 20px; text-align: center;">
+        <div v-if="quizHistory.length === 0" style="padding: 4rem 2rem; text-align: center;">
           <el-empty description="暂无测试记录，快去参加测试吧" />
         </div>
         <el-table v-else :data="quizHistory" style="width: 100%" stripe>
@@ -92,7 +92,7 @@
           </el-table-column>
           <el-table-column label="准确率" width="100">
             <template #default="scope">
-              <el-progress :percentage="scope.row.accuracy" :status="scope.row.accuracy >= 80 ? 'success' : scope.row.accuracy < 60 ? 'exception' : ''" style="width: 80px" />
+              <el-progress :percentage="scope.row.accuracy" :status="scope.row.accuracy >= 80 ? 'success' : scope.row.accuracy < 60 ? 'exception' : ''" style="width: 8rem" />
             </template>
           </el-table-column>
           <el-table-column label="评级" width="80">
@@ -286,10 +286,10 @@
         <template #header>
           <div class="card-header">测试历史记录</div>
         </template>
-        <div v-if="isSubmittingSession && quizHistory.length === 0" style="padding: 40px 20px; text-align: center; color: #909399;">
+        <div v-if="isSubmittingSession && quizHistory.length === 0" style="padding: 4rem 2rem; text-align: center; color: #909399;">
           正在保存测试历史...
         </div>
-        <div v-else-if="quizHistory.length === 0" style="padding: 40px 20px; text-align: center;">
+        <div v-else-if="quizHistory.length === 0" style="padding: 4rem 2rem; text-align: center;">
           <el-empty description="暂无测试记录，完成测试后会自动保存" />
         </div>
         <el-table v-else :data="quizHistory" style="width: 100%" stripe>
@@ -310,7 +310,7 @@
           </el-table-column>
           <el-table-column label="准确率" width="100">
             <template #default="scope">
-              <el-progress :percentage="scope.row.accuracy" :status="scope.row.accuracy >= 80 ? 'success' : scope.row.accuracy < 60 ? 'exception' : ''" style="width: 80px" />
+              <el-progress :percentage="scope.row.accuracy" :status="scope.row.accuracy >= 80 ? 'success' : scope.row.accuracy < 60 ? 'exception' : ''" style="width: 8rem" />
             </template>
           </el-table-column>
           <el-table-column label="评级" width="80">
@@ -341,19 +341,19 @@
     <el-dialog
       v-model="historyDetailVisible"
       title="测试详细报告"
-      width="600px"
+      width="60rem"
     >
       <div v-if="selectedHistoryItem" class="history-detail-body">
-        <p style="color: #909399; font-size: 13px; margin-bottom: 20px;">
+        <p style="color: #909399; font-size: 1.3rem; margin-bottom: 2rem;">
           测试时间: {{ formatDateTime(selectedHistoryItem.completedAt) }} | 难度: {{ difficultyText(selectedHistoryItem.difficulty) }}
         </p>
 
-        <el-row :gutter="20" style="margin-bottom: 20px; border: 1px solid #EBEEF5; padding: 15px; border-radius: 8px; background: #FAFAFA;">
+        <el-row :gutter="20" style="margin-bottom: 2rem; border: 0.1rem solid #EBEEF5; padding: 1.5rem; border-radius: 0.8rem; background: #FAFAFA;">
           <el-col :span="8" style="text-align: center; display: flex; flex-direction: column; justify-content: center;">
-            <div style="font-size: 24px; font-weight: bold; color: #409EFF;">{{ selectedHistoryItem.correctAnswers }} / {{ selectedHistoryItem.totalQuestions }}</div>
-            <div style="font-size: 12px; color: #909399; margin-top: 5px;">答对题数</div>
+            <div style="font-size: 2.4rem; font-weight: bold; color: #409EFF;">{{ selectedHistoryItem.correctAnswers }} / {{ selectedHistoryItem.totalQuestions }}</div>
+            <div style="font-size: 1.2rem; color: #909399; margin-top: 0.5rem;">答对题数</div>
           </el-col>
-          <el-col :span="8" style="text-align: center; display: flex; flex-direction: column; justify-content: center; border-left: 1px solid #EBEEF5; border-right: 1px solid #EBEEF5;">
+          <el-col :span="8" style="text-align: center; display: flex; flex-direction: column; justify-content: center; border-left: 0.1rem solid #EBEEF5; border-right: 0.1rem solid #EBEEF5;">
             <el-progress
               type="dashboard"
               :percentage="selectedHistoryItem.accuracy"
@@ -361,64 +361,64 @@
               :width="80"
             >
               <template #default="{ percentage }">
-                <span style="font-size: 16px; font-weight: bold;">{{ percentage }}%</span>
+                <span style="font-size: 1.6rem; font-weight: bold;">{{ percentage }}%</span>
               </template>
             </el-progress>
-            <div style="font-size: 12px; color: #909399; margin-top: 5px;">准确率</div>
+            <div style="font-size: 1.2rem; color: #909399; margin-top: 0.5rem;">准确率</div>
           </el-col>
           <el-col :span="8" style="text-align: center; display: flex; flex-direction: column; justify-content: center;">
-            <div style="font-size: 24px; font-weight: bold; color: #67C23A;">{{ selectedHistoryItem.level }}</div>
-            <div style="font-size: 12px; color: #909399; margin-top: 5px;">评级</div>
+            <div style="font-size: 2.4rem; font-weight: bold; color: #67C23A;">{{ selectedHistoryItem.level }}</div>
+            <div style="font-size: 1.2rem; color: #909399; margin-top: 0.5rem;">评级</div>
           </el-col>
         </el-row>
 
-        <el-row :gutter="20" style="margin-bottom: 20px; border: 1px solid #EBEEF5; padding: 15px; border-radius: 8px; background: #F8F9FA;">
+        <el-row :gutter="20" style="margin-bottom: 2rem; border: 0.1rem solid #EBEEF5; padding: 1.5rem; border-radius: 0.8rem; background: #F8F9FA;">
           <el-col :span="12">
-            <div style="font-size: 12px; color: #909399;">整体能力分</div>
-            <div style="font-size: 20px; font-weight: bold; color: #409EFF; margin-top: 5px;">{{ selectedHistoryItem.abilityScore }}</div>
+            <div style="font-size: 1.2rem; color: #909399;">整体能力分</div>
+            <div style="font-size: 2rem; font-weight: bold; color: #409EFF; margin-top: 0.5rem;">{{ selectedHistoryItem.abilityScore }}</div>
           </el-col>
           <el-col :span="12">
-            <div style="font-size: 12px; color: #909399;">趋势</div>
-            <div style="font-size: 14px; font-weight: bold; color: #E6A23C; margin-top: 5px;">
+            <div style="font-size: 1.2rem; color: #909399;">趋势</div>
+            <div style="font-size: 1.4rem; font-weight: bold; color: #E6A23C; margin-top: 0.5rem;">
               {{ selectedHistoryItem.trendDelta > 0 ? '↑' : selectedHistoryItem.trendDelta < 0 ? '↓' : '→' }}
               {{ Math.abs(selectedHistoryItem.trendDelta) }}
             </div>
           </el-col>
         </el-row>
 
-        <el-row :gutter="20" style="margin-bottom: 20px; border: 1px solid #EBEEF5; padding: 15px; border-radius: 8px; background: #F8F9FA;">
+        <el-row :gutter="20" style="margin-bottom: 2rem; border: 0.1rem solid #EBEEF5; padding: 1.5rem; border-radius: 0.8rem; background: #F8F9FA;">
           <el-col :span="12">
-            <div style="font-size: 12px; color: #909399;">稳定性</div>
-            <div style="font-size: 20px; font-weight: bold; color: #409EFF; margin-top: 5px;">{{ selectedHistoryItem.consistencyScore }}</div>
+            <div style="font-size: 1.2rem; color: #909399;">稳定性</div>
+            <div style="font-size: 2rem; font-weight: bold; color: #409EFF; margin-top: 0.5rem;">{{ selectedHistoryItem.consistencyScore }}</div>
           </el-col>
           <el-col :span="12">
-            <div style="font-size: 12px; color: #909399;">速度分</div>
-            <div style="font-size: 20px; font-weight: bold; color: #409EFF; margin-top: 5px;">{{ selectedHistoryItem.speedScore }}</div>
+            <div style="font-size: 1.2rem; color: #909399;">速度分</div>
+            <div style="font-size: 2rem; font-weight: bold; color: #409EFF; margin-top: 0.5rem;">{{ selectedHistoryItem.speedScore }}</div>
           </el-col>
         </el-row>
 
-        <div style="margin-bottom: 20px; background-color: #F0F9FF; padding: 15px; border-radius: 6px; border: 1px solid #B3D8FF;">
-          <h4 style="margin: 0 0 10px 0; color: #0A73EB; font-size: 14px;">📊 测试总结</h4>
-          <p style="margin: 0; line-height: 1.6; color: #606266; font-size: 14px;">{{ selectedHistoryItem.summary }}</p>
+        <div style="margin-bottom: 2rem; background-color: #F0F9FF; padding: 1.5rem; border-radius: 0.6rem; border: 0.1rem solid #B3D8FF;">
+          <h4 style="margin: 0 0 1rem 0; color: #0A73EB; font-size: 1.4rem;">📊 测试总结</h4>
+          <p style="margin: 0; line-height: 1.6; color: #606266; font-size: 1.4rem;">{{ selectedHistoryItem.summary }}</p>
         </div>
 
-        <div v-if="selectedHistoryItem.recommendations.length > 0" style="margin-bottom: 20px; background-color: #FDF6EC; padding: 15px; border-radius: 6px; border: 1px solid #FAECD8;">
-          <h4 style="margin: 0 0 10px 0; color: #E6A23C; font-size: 14px;">学习建议</h4>
+        <div v-if="selectedHistoryItem.recommendations.length > 0" style="margin-bottom: 2rem; background-color: #FDF6EC; padding: 1.5rem; border-radius: 0.6rem; border: 0.1rem solid #FAECD8;">
+          <h4 style="margin: 0 0 1rem 0; color: #E6A23C; font-size: 1.4rem;">学习建议</h4>
           <p
             v-for="recommendationItem in selectedHistoryItem.recommendations"
             :key="recommendationItem"
-            style="margin: 6px 0; line-height: 1.6; color: #606266; font-size: 14px;"
+            style="margin: 0.6rem 0; line-height: 1.6; color: #606266; font-size: 1.4rem;"
           >
             {{ recommendationItem }}
           </p>
         </div>
 
-        <div v-if="selectedHistoryItem.difficultyBreakdown.length > 0" style="margin-bottom: 20px; background-color: #FAFAFA; padding: 15px; border-radius: 6px; border: 1px solid #EBEEF5;">
-          <h4 style="margin: 0 0 10px 0; color: #303133; font-size: 14px;">难度表现</h4>
+        <div v-if="selectedHistoryItem.difficultyBreakdown.length > 0" style="margin-bottom: 2rem; background-color: #FAFAFA; padding: 1.5rem; border-radius: 0.6rem; border: 0.1rem solid #EBEEF5;">
+          <h4 style="margin: 0 0 1rem 0; color: #303133; font-size: 1.4rem;">难度表现</h4>
           <div
             v-for="item in selectedHistoryItem.difficultyBreakdown"
             :key="item.difficulty"
-            style="display: flex; justify-content: space-between; gap: 12px; color: #606266; font-size: 14px; line-height: 1.8;"
+            style="display: flex; justify-content: space-between; gap: 1.2rem; color: #606266; font-size: 1.4rem; line-height: 1.8;"
           >
             <span>{{ difficultyText(item.difficulty) }}</span>
             <span>{{ item.accuracy }}% / {{ item.count }} 次</span>
@@ -879,22 +879,22 @@ onUnmounted(() => {
 <style scoped>
 .test-title {
   color: #8B4513;
-  font-size: 24px;
-  margin-bottom: 10px;
+  font-size: 2.4rem;
+  margin-bottom: 1rem;
 }
 
 .badge {
-  font-size: 12px;
+  font-size: 1.2rem;
   background: #f0f9eb;
   color: #000000;
-  padding: 4px 8px;
-  border-radius: 4px;
-  margin-left: 8px;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.4rem;
+  margin-left: 0.8rem;
 }
 
 .inline-icon {
   vertical-align: middle;
-  margin-right: 4px;
+  margin-right: 0.4rem;
 }
 
 .test-intro {
@@ -904,46 +904,60 @@ onUnmounted(() => {
 }
 
 .test-intro h2 {
-  font-size: 20px;
-  margin-bottom: 10px;
+  font-size: 2rem;
+  margin-bottom: 1rem;
   color: #000000;
 }
 
 .test-intro p {
   color: #333333;
   line-height: 1.6;
-  margin-bottom: 20px;
-  font-size: 14px;
+  margin-bottom: 2rem;
+  font-size: 1.4rem;
+}
+
+.section-card {
+  margin-bottom: 2rem;
+}
+
+.section-card p {
+  font-size: 1.5rem;
+}
+
+.card-header {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: #000000;
 }
 
 .difficulty-selector {
-  margin: 25px 0;
-  padding: 15px;
+  margin: 2.5rem 0;
+  padding: 1.5rem;
   background: #f5f7fa;
-  border-radius: 8px;
+  border-radius: 0.8rem;
 }
 
 .difficulty-selector h3 {
   margin-top: 0;
   color: #000000;
-  font-size: 14px;
+  font-size: 1.4rem;
 }
 
 .difficulty-buttons {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(14.8rem, 1fr));
   justify-content: center;
-  gap: 10px;
+  gap: 1rem;
 }
 
 .difficulty-btn {
-  min-height: 46px;
-  padding: 10px 12px;
+  min-height: 4.6rem;
+  padding: 1rem 1.2rem;
   background: white;
-  border: 2px solid #dcdfe6;
-  border-radius: 6px;
+  border: 0.2rem solid #dcdfe6;
+  border-radius: 0.6rem;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 1.3rem;
   line-height: 1.35;
   transition: all 0.3s;
 }
@@ -959,31 +973,33 @@ onUnmounted(() => {
 }
 
 .selector-title {
-  font-size: 14px;
+  font-size: 1.4rem;
   font-weight: 600;
   color: #000000;
-  margin-bottom: 10px;
+  margin-bottom: 1rem;
 }
 
 .test-info {
   background: #ecf5ff;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  border-left: 4px solid #409eff;
+  padding: 1.2rem;
+  border-radius: 0.8rem;
+  margin-bottom: 2rem;
+  border-left: 0.4rem solid #409eff;
 }
 
 .test-info p {
-  margin: 6px 0;
+  margin: 0.6rem 0;
   text-align: left;
-  font-size: 13px;
+  font-size: 1.3rem;
 }
 
 .btn-start {
   background: #67c23a;
   color: white;
-  padding: 12px 35px;
-  font-size: 16px;
+  padding: 1.2rem 3.5rem;
+  font-size: 1.6rem;
+  border: none;
+  border-radius: 0.4rem;
 }
 
 .btn-start:hover {
@@ -993,11 +1009,11 @@ onUnmounted(() => {
 .quiz-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 15px;
-  padding: 10px;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
   background: #f5f7fa;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: 0.8rem;
+  font-size: 1.3rem;
 }
 
 .timer,
@@ -1007,11 +1023,11 @@ onUnmounted(() => {
 }
 
 .progress-bar {
-  height: 6px;
+  height: 0.6rem;
   background: #ebeef5;
-  border-radius: 3px;
+  border-radius: 0.3rem;
   overflow: hidden;
-  margin-bottom: 30px;
+  margin-bottom: 3rem;
 }
 
 .progress {
@@ -1026,36 +1042,36 @@ onUnmounted(() => {
 
 .question-number {
   color: #333333;
-  margin: 0 0 12px;
-  font-size: 16px;
+  margin: 0 0 1.2rem;
+  font-size: 1.6rem;
   font-weight: 600;
 }
 
 .question-text {
-  font-size: 24px;
+  font-size: 2.4rem;
   color: #000000;
-  margin: 0 0 20px;
+  margin: 0 0 2rem;
   line-height: 1.8;
   font-weight: 600;
 }
 
 .word-context {
   background: #ecf5ff;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 15px;
-  border-left: 4px solid #409eff;
+  padding: 1.2rem;
+  border-radius: 0.8rem;
+  margin-bottom: 1.5rem;
+  border-left: 0.4rem solid #409eff;
 }
 
 .word-display {
-  font-size: 26px;
+  font-size: 2.6rem;
   font-weight: 700;
-  margin: 0 0 8px;
+  margin: 0 0 0.8rem;
   color: #409eff;
 }
 
 .word-kana {
-  font-size: 16px;
+  font-size: 1.6rem;
   margin: 0;
   color: #333333;
 }
@@ -1063,17 +1079,17 @@ onUnmounted(() => {
 .options {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 1rem;
+  margin-bottom: 2rem;
 }
 
 .option {
   display: flex;
   align-items: center;
-  padding: 16px;
+  padding: 1.6rem;
   background: #f5f7fa;
-  border: 2px solid #e4e7ed;
-  border-radius: 6px;
+  border: 0.2rem solid #e4e7ed;
+  border-radius: 0.6rem;
   cursor: pointer;
   transition: all 0.3s;
 }
@@ -1089,29 +1105,29 @@ onUnmounted(() => {
 }
 
 .option input[type='radio'] {
-  margin-right: 12px;
+  margin-right: 1.2rem;
   cursor: pointer;
 }
 
 .option-text {
   flex: 1;
-  font-size: 15px;
+  font-size: 1.5rem;
   font-weight: 500;
 }
 
 .button-group {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 1rem;
+  margin-bottom: 2rem;
 }
 
 .btn-submit,
 .btn-next {
   flex: 1;
-  padding: 14px 28px;
+  padding: 1.4rem 2.8rem;
   border: none;
-  border-radius: 6px;
-  font-size: 16px;
+  border-radius: 0.6rem;
+  font-size: 1.6rem;
   cursor: pointer;
   font-weight: 600;
   transition: all 0.3s;
@@ -1141,13 +1157,13 @@ onUnmounted(() => {
 }
 
 .explanation {
-  margin-top: 15px;
+  margin-top: 1.5rem;
 }
 
 .explanation-box {
-  padding: 12px;
-  border-radius: 8px;
-  border-left: 4px solid;
+  padding: 1.2rem;
+  border-radius: 0.8rem;
+  border-left: 0.4rem solid;
 }
 
 .explanation-box.correct {
@@ -1162,8 +1178,8 @@ onUnmounted(() => {
 
 .explanation-status {
   font-weight: 600;
-  margin: 0 0 8px;
-  font-size: 13px;
+  margin: 0 0 0.8rem;
+  font-size: 1.3rem;
 }
 
 .explanation-status.correct {
@@ -1176,10 +1192,10 @@ onUnmounted(() => {
 
 .explanation-text,
 .correct-answer {
-  margin: 8px 0;
+  margin: 0.8rem 0;
   color: #333333;
   line-height: 1.6;
-  font-size: 12px;
+  font-size: 1.2rem;
 }
 
 .test-result {
@@ -1188,150 +1204,150 @@ onUnmounted(() => {
 
 .result-header {
   text-align: center;
-  padding: 20px;
+  padding: 2rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
+  border-radius: 1.2rem;
   color: white;
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
 }
 
 .result-icon {
-  font-size: 40px;
+  font-size: 4rem;
   margin: 0;
 }
 
 .result-header h2 {
-  font-size: 20px;
-  margin: 12px 0 8px;
+  font-size: 2rem;
+  margin: 1.2rem 0 0.8rem;
 }
 
 .result-score {
-  margin: 0 0 12px;
+  margin: 0 0 1.2rem;
   opacity: 0.9;
-  font-size: 12px;
+  font-size: 1.2rem;
 }
 
 .score-display {
   display: flex;
   justify-content: center;
   align-items: baseline;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
 }
 
 .final-score {
-  font-size: 48px;
+  font-size: 4.8rem;
   font-weight: 700;
 }
 
 .total-score {
-  font-size: 20px;
+  font-size: 2rem;
   opacity: 0.8;
 }
 
 .accuracy {
-  font-size: 14px;
+  font-size: 1.4rem;
   margin: 0;
 }
 
 .analysis-title,
 .recommendation-title {
-  font-size: 16px;
+  font-size: 1.6rem;
   font-weight: 600;
   color: #000000;
-  margin-bottom: 15px;
+  margin-bottom: 1.5rem;
 }
 
 .result-analysis,
 .result-recommendation {
   background: #f5f7fa;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 15px;
+  padding: 1.2rem;
+  border-radius: 0.8rem;
+  margin-bottom: 1.5rem;
 }
 
 .result-analysis h3,
 .result-recommendation h3 {
   margin-top: 0;
   color: #000000;
-  font-size: 15px;
+  font-size: 1.5rem;
 }
 
 .analysis-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-top: 15px;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 
 .analysis-item {
   background: white;
-  padding: 10px;
-  border-radius: 8px;
+  padding: 1rem;
+  border-radius: 0.8rem;
   text-align: center;
-  border: 1px solid #ebeef5;
+  border: 0.1rem solid #ebeef5;
 }
 
 .analysis-label {
   display: block;
-  font-size: 11px;
+  font-size: 1.1rem;
   color: #333333;
-  margin-bottom: 8px;
+  margin-bottom: 0.8rem;
 }
 
 .analysis-value {
   display: blo8k;
-  font-size: 20px;
+  font-size: 2rem;
   font-weight: 700;
 }
 
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 1rem;
 }
 
 .history-item {
   background: #f5f7fa;
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  padding: 10px;
+  border: 0.1rem solid #ebeef5;
+  border-radius: 0.8rem;
+  padding: 1rem;
 }
 
 .history-main {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  font-size: 13px;
+  gap: 0.8rem;
+  font-size: 1.3rem;
   color: #303133;
 }
 
 .history-sub {
-  margin-top: 6px;
-  font-size: 12px;
+  margin-top: 0.6rem;
+  font-size: 1.2rem;
   color: #909399;
 }
 
 .recommendation-text {
   color: #333333;
   line-height: 1.6;
-  margin: 10px 0;
-  font-size: 13px;
+  margin: 1rem 0;
+  font-size: 1.3rem;
 }
 
 .action-buttons {
   display: flex;
-  gap: 10px;
-  margin-top: 15px;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 
 .btn-primary,
 .btn-secondary {
   flex: 1;
-  padding: 10px 20px;
+  padding: 1rem 2rem;
   border: none;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: 0.6rem;
+  font-size: 1.3rem;
   cursor: pointer;
   font-weight: 500;
   transition: all 0.3s;
@@ -1349,7 +1365,7 @@ onUnmounted(() => {
 .btn-secondary {
   background: white;
   color: #409eff;
-  border: 1px solid #409eff;
+  border: 0.1rem solid #409eff;
 }
 
 .btn-secondary:hover {
@@ -1359,7 +1375,7 @@ onUnmounted(() => {
 @keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(1rem);
   }
   to {
     opacity: 1;
@@ -1374,7 +1390,7 @@ onUnmounted(() => {
   }
   to {
     opacity: 1;
-    max-height: 500px;
+    max-height: 50rem;
   }
 }
 
@@ -1386,6 +1402,6 @@ onUnmounted(() => {
 .pagination-wrap {
   display: flex;
   justify-content: center;
-  padding: 16px 0 8px;
+  padding: 1.6rem 0 0.8rem;
 }
 </style>

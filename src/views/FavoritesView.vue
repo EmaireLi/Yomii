@@ -217,27 +217,27 @@ onMounted(() => {
 .favorites-view {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 2.4rem;
   animation: slideUp 0.3s ease;
 }
 
 .header-card h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: 2.8rem;
   color: #000000;
   font-weight: 700;
 }
 
 .state-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 0.8rem;
+  box-shadow: 0 0.2rem 1.2rem rgba(0, 0, 0, 0.08);
   border: none;
   color: #000000;
 }
 
 .result-info {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 0.8rem;
+  box-shadow: 0 0.2rem 1.2rem rgba(0, 0, 0, 0.08);
   border: none;
   padding: 0 !important;
 }
@@ -257,7 +257,7 @@ onMounted(() => {
 .stats-container {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 2.4rem;
   width: 100%;
   flex-wrap: wrap;
 }
@@ -265,8 +265,8 @@ onMounted(() => {
 .stat-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 15px;
+  gap: 0.6rem;
+  font-size: 1.5rem;
 }
 
 .stat-label {
@@ -277,24 +277,24 @@ onMounted(() => {
 .stat-value {
   color: #409eff;
   font-weight: 600;
-  font-size: 18px;
-  padding: 2px 8px;
+  font-size: 1.8rem;
+  padding: 0.2rem 0.8rem;
   background: rgba(64, 158, 255, 0.1);
-  border-radius: 4px;
-  min-width: 45px;
+  border-radius: 0.4rem;
+  min-width: 4.5rem;
   text-align: center;
 }
 
 .stat-divider {
-  width: 1px;
-  height: 24px;
+  width: 0.1rem;
+  height: 2.4rem;
   background: #dcdfe6;
 }
 
 .results {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 2rem;
 }
 
 .result-list {
@@ -304,35 +304,35 @@ onMounted(() => {
 .pagination-wrapper {
   display: flex;
   justify-content: center;
-  margin-top: 12px;
+  margin-top: 1.2rem;
 }
 
 .result-card {
-  border-radius: 8px;
-  border: 1px solid #ebeef5;
+  border-radius: 0.8rem;
+  border: 0.1rem solid #ebeef5;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   background: white;
   color: #000000;
   display: flex;
   flex-direction: column;
-  min-height: 420px;
-  max-height: 420px;
+  min-height: 42rem;
+  max-height: 42rem;
 }
 
 .result-card:hover {
   border-color: #667eea;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
-  transform: translateY(-2px);
+  box-shadow: 0 0.4rem 1.6rem rgba(102, 126, 234, 0.2);
+  transform: translateY(-0.2rem);
 }
 
 .result-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 15px;
-  padding: 16px;
-  border-bottom: 1px solid #ebeef5;
+  gap: 1.5rem;
+  padding: 1.6rem;
+  border-bottom: 0.1rem solid #ebeef5;
   flex-shrink: 0;
 }
 
@@ -342,22 +342,22 @@ onMounted(() => {
 }
 
 .word-title {
-  margin: 0 0 8px 0;
-  font-size: 24px;
+  margin: 0 0 0.8rem 0;
+  font-size: 2.4rem;
   color: #000000;
   font-weight: 600;
   word-break: break-all;
 }
 
 .kana {
-  margin: 0 0 8px 0;
+  margin: 0 0 0.8rem 0;
   color: #333333;
-  font-size: 15px;
+  font-size: 1.5rem;
   word-break: break-all;
 }
 
 .favorite-btn {
-  font-size: 20px !important;
+  font-size: 2rem !important;
   padding: 0 !important;
   flex-shrink: 0;
 }
@@ -365,8 +365,8 @@ onMounted(() => {
 .result-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 0.8rem;
+  padding: 1.2rem 1.6rem;
   flex: 1;
   overflow-y: auto;
   min-height: 0;
@@ -375,22 +375,22 @@ onMounted(() => {
 .meaning, .example {
   margin: 0;
   color: #333333;
-  font-size: 14px;
+  font-size: 1.4rem;
   line-height: 1.6;
 }
 
 .tags {
   display: flex;
-  gap: 8px;
+  gap: 0.8rem;
   flex-wrap: wrap;
-  margin-top: 4px;
+  margin-top: 0.4rem;
 }
 
 .result-actions {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid #ebeef5;
+  gap: 0.8rem;
+  padding: 1.2rem 1.6rem;
+  border-top: 0.1rem solid #ebeef5;
   flex-shrink: 0;
   background: #f9f9f9;
 }
@@ -400,25 +400,25 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 20px;
-  gap: 20px;
+  padding: 8rem 2rem;
+  gap: 2rem;
 }
 
 .spinner {
-  width: 60px;
-  height: 60px;
-  border: 4px solid #f0f0f0;
-  border-top: 4px solid #409eff;
+  width: 6rem;
+  height: 6rem;
+  border: 0.4rem solid #f0f0f0;
+  border-top: 0.4rem solid #409eff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
 .loading-text {
   margin: 0;
-  font-size: 18px;
+  font-size: 1.8rem;
   color: #333333;
   font-weight: 500;
-  letter-spacing: 2px;
+  letter-spacing: 0.2rem;
 }
 
 @keyframes spin {
@@ -433,7 +433,7 @@ onMounted(() => {
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(1rem);
   }
   to {
     opacity: 1;

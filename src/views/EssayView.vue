@@ -157,7 +157,7 @@
       </ul>
     </el-card>
 
-    <el-dialog v-model="historyDetailVisible" title="作文详细报告" width="880px">
+    <el-dialog v-model="historyDetailVisible" title="作文详细报告" width="88rem">
       <div v-if="selectedHistoryItem" class="history-detail-body">
         <div class="detail-header">
           <div>
@@ -773,25 +773,25 @@ onBeforeUnmount(() => {
 
 .essay-view-title {
   color: #8b4513;
-  font-size: 24px;
-  margin-bottom: 10px;
+  font-size: 2.4rem;
+  margin-bottom: 1rem;
 }
 
 .badge {
-  font-size: 12px;
+  font-size: 1.2rem;
   background: #f0f9eb;
   color: #000;
-  padding: 4px 8px;
-  border-radius: 4px;
-  margin-left: 8px;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.4rem;
+  margin-left: 0.8rem;
 }
 
 .section-card {
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
 }
 
 .card-header {
-  font-size: 18px;
+  font-size: 1.8rem;
   font-weight: 600;
   color: #000;
 }
@@ -804,38 +804,38 @@ onBeforeUnmount(() => {
 
 .inline-icon {
   vertical-align: middle;
-  margin-right: 4px;
+  margin-right: 0.4rem;
 }
 
 .hint {
   color: #333;
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 1.6rem;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
 }
 
 .form-group label {
   display: block;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 0.8rem;
   color: #000;
 }
 
 .topic-select,
 .topic-input {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #dcdfe6;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 1rem 1.2rem;
+  border: 0.1rem solid #dcdfe6;
+  border-radius: 0.6rem;
+  font-size: 1.4rem;
   font-family: inherit;
   transition: border-color 0.3s;
 }
@@ -845,25 +845,25 @@ onBeforeUnmount(() => {
 .essay-textarea:focus {
   outline: none;
   border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.2);
 }
 
 .essay-textarea {
   width: 100%;
-  padding: 12px;
-  border: 1px solid #dcdfe6;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 1.2rem;
+  border: 0.1rem solid #dcdfe6;
+  border-radius: 0.6rem;
+  font-size: 1.4rem;
   font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
   resize: vertical;
   transition: border-color 0.3s;
 }
 
 .word-count {
-  margin-top: 8px;
+  margin-top: 0.8rem;
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 1.2rem;
   color: #333;
 }
 
@@ -872,7 +872,7 @@ onBeforeUnmount(() => {
 }
 
 .empty-wrap {
-  padding: 40px 20px;
+  padding: 4rem 2rem;
   text-align: center;
 }
 
@@ -886,57 +886,57 @@ onBeforeUnmount(() => {
 }
 
 .table-progress {
-  width: 72px;
-  margin-top: 6px;
+  width: 7.2rem;
+  margin-top: 0.6rem;
 }
 
 .tips-list {
   margin: 0;
-  padding-left: 20px;
+  padding-left: 2rem;
   color: #333;
-  font-size: 14px;
+  font-size: 1.4rem;
   line-height: 1.8;
 }
 
 .detail-header {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 20px;
+  gap: 2rem;
+  margin-bottom: 2rem;
 }
 
 .detail-header h3 {
-  margin: 0 0 8px;
+  margin: 0 0 0.8rem;
   color: #303133;
 }
 
 .detail-header p {
   margin: 0;
   color: #909399;
-  font-size: 13px;
+  font-size: 1.3rem;
 }
 
 .meta-divider {
-  margin: 0 8px;
+  margin: 0 0.8rem;
 }
 
 .detail-actions {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 1rem;
 }
 
 .report-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1.2rem;
+  margin-bottom: 2rem;
 }
 
 .score-card {
-  padding: 16px;
-  border: 1px solid #ebeef5;
-  border-radius: 12px;
+  padding: 1.6rem;
+  border: 0.1rem solid #ebeef5;
+  border-radius: 1.2rem;
   background: #fafafa;
 }
 
@@ -946,41 +946,41 @@ onBeforeUnmount(() => {
 }
 
 .score-card-label {
-  font-size: 12px;
+  font-size: 1.2rem;
   color: #909399;
 }
 
 .score-card-value {
-  margin-top: 6px;
-  font-size: 34px;
+  margin-top: 0.6rem;
+  font-size: 3.4rem;
   line-height: 1;
   font-weight: 700;
   color: #303133;
 }
 
 .score-card-value.small {
-  font-size: 26px;
+  font-size: 2.6rem;
 }
 
 .score-card-sub {
-  margin-top: 8px;
-  font-size: 13px;
+  margin-top: 0.8rem;
+  font-size: 1.3rem;
   color: #e6a23c;
 }
 
 .panel {
-  margin-bottom: 18px;
-  padding: 18px;
-  border: 1px solid #ebeef5;
-  border-radius: 12px;
+  margin-bottom: 1.8rem;
+  padding: 1.8rem;
+  border: 0.1rem solid #ebeef5;
+  border-radius: 1.2rem;
   background: #fff;
 }
 
 .panel h4 {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 0 0 12px;
+  gap: 0.6rem;
+  margin: 0 0 1.2rem;
   color: #303133;
 }
 
@@ -991,9 +991,9 @@ onBeforeUnmount(() => {
 }
 
 .panel-muted {
-  margin-top: 10px !important;
+  margin-top: 1rem !important;
   color: #909399 !important;
-  font-size: 13px;
+  font-size: 1.3rem;
 }
 
 .score-compare-panel {
@@ -1005,23 +1005,23 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  padding: 10px 0;
+  gap: 2rem;
+  padding: 1rem 0;
 }
 
 .compare-col {
   text-align: center;
-  min-width: 100px;
+  min-width: 10rem;
 }
 
 .compare-label {
-  font-size: 13px;
+  font-size: 1.3rem;
   color: #909399;
-  margin-bottom: 6px;
+  margin-bottom: 0.6rem;
 }
 
 .compare-value {
-  font-size: 36px;
+  font-size: 3.6rem;
   font-weight: 700;
   color: #303133;
   line-height: 1;
@@ -1036,9 +1036,9 @@ onBeforeUnmount(() => {
 }
 
 .compare-sub {
-  font-size: 13px;
+  font-size: 1.3rem;
   color: #e6a23c;
-  margin-top: 6px;
+  margin-top: 0.6rem;
 }
 
 .compare-arrow {
@@ -1047,40 +1047,40 @@ onBeforeUnmount(() => {
 }
 
 .compare-delta {
-  min-width: 70px;
+  min-width: 7rem;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: center;
-  padding: 16px 0 8px;
+  padding: 1.6rem 0 0.8rem;
 }
 
 .issue-list,
 .sentence-list {
   display: grid;
-  gap: 12px;
+  gap: 1.2rem;
 }
 
 .issue-card,
 .sentence-card {
-  padding: 14px;
-  border-radius: 10px;
+  padding: 1.4rem;
+  border-radius: 1rem;
   background: #f7f9fc;
-  border: 1px solid #e4e7ed;
+  border: 0.1rem solid #e4e7ed;
 }
 
 .issue-source,
 .sentence-original {
   font-weight: 600;
   color: #303133;
-  margin-bottom: 6px;
+  margin-bottom: 0.6rem;
 }
 
 .issue-suggestion,
 .sentence-suggested {
   color: #409eff;
-  margin-bottom: 6px;
+  margin-bottom: 0.6rem;
 }
 
 .issue-explanation,
@@ -1090,11 +1090,11 @@ onBeforeUnmount(() => {
 }
 
 .content-box {
-  padding: 15px;
+  padding: 1.5rem;
   background: #f8f9fa;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
-  font-size: 14px;
+  border: 0.1rem solid #e4e7ed;
+  border-radius: 0.8rem;
+  font-size: 1.4rem;
   line-height: 1.8;
   color: #303133;
   white-space: pre-wrap;
@@ -1102,26 +1102,26 @@ onBeforeUnmount(() => {
 }
 
 .pending-panel {
-  padding: 40px 20px;
+  padding: 4rem 2rem;
   text-align: center;
 }
 
 .loading-icon {
-  font-size: 28px;
+  font-size: 2.8rem;
   color: #e6a23c;
   animation: spin 1.2s linear infinite;
 }
 
 .pending-title {
-  margin-top: 12px;
-  font-size: 18px;
+  margin-top: 1.2rem;
+  font-size: 1.8rem;
   font-weight: 600;
   color: #303133;
 }
 
 .evaluation-progress {
-  max-width: 420px;
-  margin: 18px auto 0;
+  max-width: 42rem;
+  margin: 1.8rem auto 0;
 }
 
 @keyframes spin {

@@ -1365,42 +1365,46 @@ onUnmounted(() => {
 
 /* 学习计划管理区 */
 .plan-card {
-  margin-bottom: 30px;
+  margin-bottom: 3rem;
+}
+
+.card-header {
+  font-size: 1.8rem;
 }
 
 .plan-item-new {
-  padding: 15px;
+  padding: 1.5rem;
   background: linear-gradient(135deg, #f0f2f5 0%, #f5f7fa 100%);
-  border-radius: 8px;
-  border-left: 4px solid #667eea;
+  border-radius: 0.8rem;
+  border-left: 0.4rem solid #667eea;
 }
 
 .plan-label {
-  font-size: 12px;
+  font-size: 1.4rem;
   color: #999;
-  margin-bottom: 8px;
+  margin-bottom: 0.8rem;
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05rem;
 }
 
 .plan-value {
-  font-size: 18px;
+  font-size: 1.8rem;
   font-weight: 700;
   color: #000000;
 }
 
 .plan-switch-row {
-  margin-top: 20px;
+  margin-top: 2rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 1.2rem;
   align-items: center;
   justify-content: space-between;
 }
 
 .plan-switch-label {
-  font-size: 14px;
+  font-size: 1.6rem;
   font-weight: 600;
   color: #000000;
 }
@@ -1408,45 +1412,39 @@ onUnmounted(() => {
 .plan-switch-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 1rem;
 }
 
 .plan-switch-select {
-  width: 320px;
+  width: 32rem;
   max-width: 100%;
 }
 
 .plan-collapse {
-  margin-top: 16px;
+  margin-top: 1.6rem;
 }
 
 .config-title-row {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.8rem;
   color: #000000;
   font-weight: 600;
+  font-size: 1.4rem;
 }
 
 /* 配置区 */
 .config-section {
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 2px solid #ebeef5;
-}
-
-.config-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #000000;
-  margin: 0 0 20px;
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 0.2rem solid #ebeef5;
 }
 
 .config-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(30rem, 1fr));
+  gap: 2.4rem;
+  margin-bottom: 2rem;
 }
 
 .config-item {
@@ -1455,17 +1453,17 @@ onUnmounted(() => {
 }
 
 .config-label {
-  font-size: 14px;
+  font-size: 1.4rem;
   font-weight: 600;
   color: #000000;
-  margin-bottom: 12px;
+  margin-bottom: 1.2rem;
 }
 
 .config-select {
-  padding: 12px;
-  border: 2px solid #dcdfe6;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 1.2rem;
+  border: 0.2rem solid #dcdfe6;
+  border-radius: 0.6rem;
+  font-size: 1.4rem;
   background: white;
   cursor: pointer;
   transition: all 0.3s;
@@ -1478,36 +1476,36 @@ onUnmounted(() => {
 .config-select:focus {
   outline: none;
   border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.1);
 }
 
 .dict-description {
-  font-size: 12px;
+  font-size: 1.2rem;
   color: #999;
-  margin-top: 8px;
+  margin-top: 0.8rem;
   line-height: 1.5;
 }
 
 .dict-tags {
-  font-size: 12px;
+  font-size: 1.2rem;
   color: #667085;
-  margin-top: 6px;
+  margin-top: 0.6rem;
   line-height: 1.5;
 }
 
 .word-count-options {
   display: flex;
-  gap: 10px;
+  gap: 1rem;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: 1.2rem;
 }
 
 .word-count-btn {
-  padding: 10px 16px;
-  border: 2px solid #dcdfe6;
+  padding: 1rem 1.6rem;
+  border: 0.2rem solid #dcdfe6;
   background: white;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: 0.6rem;
+  font-size: 1.4rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s;
@@ -1523,32 +1521,32 @@ onUnmounted(() => {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border-color: #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 0.4rem 1.2rem rgba(102, 126, 234, 0.3);
 }
 
 .custom-input {
-  padding: 10px;
-  border: 2px solid #dcdfe6;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 1rem;
+  border: 0.2rem solid #dcdfe6;
+  border-radius: 0.6rem;
+  font-size: 1.4rem;
   transition: all 0.3s;
 }
 
 .custom-input:focus {
   outline: none;
   border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.1);
 }
 
 .config-actions {
   display: flex;
-  gap: 12px;
+  gap: 1.2rem;
   justify-content: flex-start;
 }
 
 .config-actions .btn {
-  padding: 12px 32px;
-  font-size: 15px;
+  padding: 1.2rem 3.2rem;
+  font-size: 1.5rem;
 }
 
 /* 旧的选项卡和其他样式 */
@@ -1557,19 +1555,19 @@ onUnmounted(() => {
 /* 选项卡 */
 .tabs-container {
   display: flex;
-  gap: 10px;
-  margin-bottom: 30px;
-  border-bottom: 2px solid #ebeef5;
+  gap: 1rem;
+  margin-bottom: 3rem;
+  border-bottom: 0.2rem solid #ebeef5;
 }
 
 .tab {
-  padding: 12px 20px;
+  padding: 1.2rem 2rem;
   border: none;
   background: none;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 1.6rem;
   color: #333333;
-  border-bottom: 3px solid transparent;
+  border-bottom: 0.3rem solid transparent;
   transition: all 0.3s;
 }
 
@@ -1600,34 +1598,34 @@ h1 {
 }
 
 .counter {
-  font-size: 18px;
+  font-size: 1.8rem;
   color: #333333;
   font-weight: normal;
 }
 
 .progress-bar {
-  height: 8px;
+  height: 0.8rem;
   background: #ebeef5;
-  border-radius: 4px;
+  border-radius: 0.4rem;
   overflow: hidden;
-  margin-bottom: 40px;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 4rem;
+  box-shadow: inset 0 0.2rem 0.4rem rgba(0, 0, 0, 0.05);
 }
 
 .progress {
   height: 100%;
   background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 0.2rem 0.8rem rgba(102, 126, 234, 0.3);
 }
 
 .mark-progress {
   display: flex;
   align-items: flex-start;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px 0 20px;
-  font-size: 14px;
+  gap: 0.6rem;
+  padding: 1.2rem 0 2rem;
+  font-size: 1.4rem;
   color: #333;
   font-weight: 500;
 }
@@ -1648,40 +1646,40 @@ h1 {
 .remaining-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  max-height: 88px;
+  gap: 0.8rem;
+  max-height: 8.8rem;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 0.4rem;
 }
 
 .remaining-chip {
-  border: 1px solid rgba(102, 126, 234, 0.35);
+  border: 0.1rem solid rgba(102, 126, 234, 0.35);
   background: rgba(102, 126, 234, 0.08);
   color: #4255c6;
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: 99.9rem;
+  font-size: 1.2rem;
   font-weight: 600;
-  padding: 6px 12px;
+  padding: 0.6rem 1.2rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .remaining-chip:hover {
   background: rgba(102, 126, 234, 0.16);
-  transform: translateY(-1px);
+  transform: translateY(-0.1rem);
 }
 
 .remaining-chip.active {
   background: rgba(102, 126, 234, 0.26);
   border-color: rgba(102, 126, 234, 0.75);
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.15) inset;
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15) inset;
 }
 
 .flashcard {
   position: relative;
-  margin: 40px 0;
-  perspective: 1000px;
-  height: 500px;
+  margin: 4rem 0;
+  perspective: 100rem;
+  height: 50rem;
 }
 
 /* 3D 翻转容器 */
@@ -1714,16 +1712,16 @@ h1 {
 .card-face {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border-radius: 12px;
-  padding: 80px 60px;
-  min-height: 400px;
+  border-radius: 1.2rem;
+  padding: 8rem 6rem;
+  min-height: 40rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   cursor: pointer;
   transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+  box-shadow: 0 1rem 3rem rgba(102, 126, 234, 0.2);
   position: absolute;
   width: 100%;
   height: 100%;
@@ -1732,15 +1730,15 @@ h1 {
 }
 
 .card-face:hover {
-  box-shadow: 0 16px 48px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 1.6rem 4.8rem rgba(102, 126, 234, 0.3);
 }
 
 /* 卡片背面 */
 .card-back {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border-radius: 12px;
-  padding: 60px 60px;
+  border-radius: 1.2rem;
+  padding: 6rem 6rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1751,7 +1749,7 @@ h1 {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transform: rotateY(180deg);
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+  box-shadow: 0 1rem 3rem rgba(102, 126, 234, 0.2);
 }
 
 .back-content {
@@ -1761,8 +1759,8 @@ h1 {
 
 .favorite-btn-container {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 2rem;
+  right: 2rem;
   z-index: 10;
 }
 
@@ -1770,16 +1768,16 @@ h1 {
   background: rgba(255, 255, 255, 0.2);
   border: none;
   color: white;
-  width: 44px;
-  height: 44px;
+  width: 4.4rem;
+  height: 4.4rem;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 2.4rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(1rem);
 }
 
 .favorite-btn:hover {
@@ -1789,7 +1787,7 @@ h1 {
 
 .favorite-btn.active {
   background: rgba(245, 108, 108, 0.8);
-  filter: drop-shadow(0 2px 8px rgba(245, 108, 108, 0.4));
+  filter: drop-shadow(0 0.2rem 0.8rem rgba(245, 108, 108, 0.4));
 }
 
 .card-content {
@@ -1797,44 +1795,44 @@ h1 {
 }
 
 .word-text {
-  font-size: 48px;
-  margin: 0 0 12px;
+  font-size: 4.8rem;
+  margin: 0 0 1.2rem;
   font-weight: 700;
 }
 
 .kana-text {
-  font-size: 24px;
+  font-size: 2.4rem;
   margin: 0;
   opacity: 0.9;
 }
 
 .flip-hint {
-  margin-top: 30px;
+  margin-top: 3rem;
   text-align: center;
   opacity: 0.8;
   animation: bounce 2s infinite;
 }
 
 .flip-hint p {
-  margin: 5px 0;
-  font-size: 14px;
+  margin: 0.5rem 0;
+  font-size: 1.4rem;
 }
 
 .hint-text {
-  font-size: 12px;
+  font-size: 1.2rem;
   opacity: 0.7;
 }
 
 .status-badge {
   position: absolute;
-  top: 15px;
-  left: 15px;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
+  top: 1.5rem;
+  left: 1.5rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 2rem;
+  font-size: 1.2rem;
   font-weight: 600;
   color: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.15);
 }
 
 .status-unknown {
@@ -1851,47 +1849,47 @@ h1 {
 
 .divider {
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.3);
-  margin: 20px 0;
+  border-top: 0.1rem solid rgba(255, 255, 255, 0.3);
+  margin: 2rem 0;
 }
 
 .meaning-text {
-  font-size: 32px;
-  margin: 0 0 12px;
+  font-size: 3.2rem;
+  margin: 0 0 1.2rem;
   font-weight: 600;
 }
 
 .pos {
-  font-size: 16px;
+  font-size: 1.6rem;
   opacity: 0.8;
-  margin: 0 0 24px;
+  margin: 0 0 2.4rem;
   font-style: italic;
 }
 
 .example-box {
   background: rgba(255, 255, 255, 0.1);
-  padding: 15px;
-  border-radius: 8px;
-  margin-top: 20px;
+  padding: 1.5rem;
+  border-radius: 0.8rem;
+  margin-top: 2rem;
 }
 
 .example-label {
-  font-size: 12px;
-  margin: 0 0 8px;
+  font-size: 1.2rem;
+  margin: 0 0 0.8rem;
   opacity: 0.8;
 }
 
 .example-text {
   margin: 0;
-  font-size: 14px;
+  font-size: 1.4rem;
   line-height: 1.6;
 }
 
 .study-info {
   text-align: center;
-  margin: 24px 0;
+  margin: 2.4rem 0;
   color: #222222;
-  font-size: 16px;
+  font-size: 1.6rem;
   font-weight: 500;
 }
 
@@ -1899,17 +1897,17 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 1rem;
+  margin-bottom: 1.6rem;
 }
 
 .mode-btn {
-  border: 1px solid #dcdfe6;
+  border: 0.1rem solid #dcdfe6;
   background: #ffffff;
   color: #333333;
-  border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 13px;
+  border-radius: 99.9rem;
+  padding: 0.8rem 1.4rem;
+  font-size: 1.3rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1928,12 +1926,12 @@ h1 {
 
 .mode-refresh-btn {
   margin-left: auto;
-  border: 1px solid #dcdfe6;
+  border: 0.1rem solid #dcdfe6;
   background: #f5f7fa;
   color: #333333;
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 13px;
+  border-radius: 0.8rem;
+  padding: 0.8rem 1.2rem;
+  font-size: 1.3rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1947,20 +1945,20 @@ h1 {
 .actions {
   display: flex;
   justify-content: center;
-  gap: 15px;
-  margin-top: 30px;
+  gap: 1.5rem;
+  margin-top: 3rem;
   flex-wrap: wrap;
 }
 
 .btn {
-  padding: 14px 32px;
+  padding: 1.4rem 3.2rem;
   border: none;
-  border-radius: 6px;
-  font-size: 18px;
+  border-radius: 0.6rem;
+  font-size: 1.8rem;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 600;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0.2rem 0.4rem rgba(0, 0, 0, 0.1);
 }
 
 .btn .el-icon {
@@ -1968,26 +1966,26 @@ h1 {
 }
 
 .btn:active {
-  transform: translateY(1px);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transform: translateY(0.1rem);
+  box-shadow: 0 0.1rem 0.2rem rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 0.4rem 1.2rem rgba(102, 126, 234, 0.3);
 }
 
 .btn-primary:hover {
   background: linear-gradient(135deg, #7b92f4 0%, #8b5ac8 100%);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-  transform: translateY(-2px);
+  box-shadow: 0 0.6rem 1.6rem rgba(102, 126, 234, 0.4);
+  transform: translateY(-0.2rem);
 }
 
 .btn-secondary {
   background: #f0f2f5;
   color: #333;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0.2rem 0.4rem rgba(0, 0, 0, 0.05);
 }
 
 .btn-secondary:hover {
@@ -1995,47 +1993,47 @@ h1 {
 }
 
 .btn-small {
-  padding: 8px 16px;
-  font-size: 14px;
+  padding: 0.8rem 1.6rem;
+  font-size: 1.4rem;
 }
 
 .btn-unknown {
   background: linear-gradient(135deg, #f56c6c 0%, #f78989 100%);
   color: white;
   flex: 1;
-  box-shadow: 0 4px 12px rgba(245, 108, 108, 0.3);
+  box-shadow: 0 0.4rem 1.2rem rgba(245, 108, 108, 0.3);
 }
 
 .btn-unknown:hover {
   background: linear-gradient(135deg, #f78989 0%, #fb9d9d 100%);
-  box-shadow: 0 6px 16px rgba(245, 108, 108, 0.4);
-  transform: translateY(-2px);
+  box-shadow: 0 0.6rem 1.6rem rgba(245, 108, 108, 0.4);
+  transform: translateY(-0.2rem);
 }
 
 .btn-fuzzy {
   background: linear-gradient(135deg, #e6a23c 0%, #ebb563 100%);
   color: white;
   flex: 1;
-  box-shadow: 0 4px 12px rgba(230, 162, 60, 0.3);
+  box-shadow: 0 0.4rem 1.2rem rgba(230, 162, 60, 0.3);
 }
 
 .btn-fuzzy:hover {
   background: linear-gradient(135deg, #ebb563 0%, #f0c282 100%);
-  box-shadow: 0 6px 16px rgba(230, 162, 60, 0.4);
-  transform: translateY(-2px);
+  box-shadow: 0 0.6rem 1.6rem rgba(230, 162, 60, 0.4);
+  transform: translateY(-0.2rem);
 }
 
 .btn-known {
   background: linear-gradient(135deg, #67c23a 0%, #85ce61 100%);
   color: white;
   flex: 1;
-  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.3);
+  box-shadow: 0 0.4rem 1.2rem rgba(103, 194, 58, 0.3);
 }
 
 .btn-known:hover {
   background: linear-gradient(135deg, #85ce61 0%, #a4d885 100%);
-  box-shadow: 0 6px 16px rgba(103, 194, 58, 0.4);
-  transform: translateY(-2px);
+  box-shadow: 0 0.6rem 1.6rem rgba(103, 194, 58, 0.4);
+  transform: translateY(-0.2rem);
 }
 
 .btn-disabled {
@@ -2046,35 +2044,35 @@ h1 {
 
 .btn-disabled:hover {
   transform: none !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 0.2rem 0.4rem rgba(0, 0, 0, 0.05) !important;
 }
 
 .keyboard-hints {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 2rem;
   color: #333333;
-  font-size: 12px;
+  font-size: 1.2rem;
 }
 
 .hint {
   display: inline-block;
-  padding: 8px 12px;
+  padding: 0.8rem 1.2rem;
   background: #f5f7fa;
-  border-radius: 4px;
-  margin: 0 5px;
+  border-radius: 0.4rem;
+  margin: 0 0.5rem;
 }
 
 .completion-state {
   position: relative;
   overflow: hidden;
   text-align: center;
-  padding: 60px 20px;
+  padding: 6rem 2rem;
 }
 
 .completion-content {
   position: relative;
   z-index: 2;
-  margin-bottom: 40px;
+  margin-bottom: 4rem;
 }
 
 .celebration-layer {
@@ -2085,13 +2083,13 @@ h1 {
 }
 
 .confetti-piece {
-  --size: 10px;
+  --size: 1rem;
   position: absolute;
   top: -10%;
   left: calc((var(--i) * 5.4%) - 4%);
   width: var(--size);
   height: calc(var(--size) * 1.8);
-  border-radius: 2px;
+  border-radius: 0.2rem;
   opacity: 0;
   background: hsl(calc(var(--i) * 20), 85%, 60%);
   transform: rotate(calc(var(--i) * 16deg));
@@ -2103,39 +2101,39 @@ h1 {
   position: absolute;
   left: 50%;
   top: 35%;
-  width: 220px;
-  height: 220px;
+  width: 22rem;
+  height: 22rem;
   transform: translate(-50%, -50%);
   background: radial-gradient(circle, rgba(103, 194, 58, 0.28) 0%, rgba(64, 158, 255, 0.08) 50%, transparent 70%);
   animation: celebration-pulse 1.8s ease-out forwards;
 }
 
 .completion-icon {
-  font-size: 60px;
+  font-size: 6rem;
   margin: 0;
 }
 
 .completion-text {
-  font-size: 24px;
+  font-size: 2.4rem;
   color: #000000;
-  margin: 20px 0 0;
+  margin: 2rem 0 0;
   font-weight: 500;
 }
 
 .button-group {
   display: flex;
-  gap: 15px;
+  gap: 1.5rem;
   justify-content: center;
-  margin-top: 20px;
+  margin-top: 2rem;
   flex-wrap: wrap;
 }
 
 .stats-summary {
   background: linear-gradient(135deg, #f5f7fa 0%, #eef2f8 100%);
-  border-radius: 8px;
-  padding: 24px;
-  margin-top: 20px;
-  border: 1px solid #ebeef5;
+  border-radius: 0.8rem;
+  padding: 2.4rem;
+  margin-top: 2rem;
+  border: 0.1rem solid #ebeef5;
 }
 
 .stats-summary h3 {
@@ -2146,36 +2144,36 @@ h1 {
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-top: 20px;
+  gap: 2rem;
+  margin-top: 2rem;
 }
 
 .stat {
   background: white;
-  padding: 20px;
-  border-radius: 8px;
+  padding: 2rem;
+  border-radius: 0.8rem;
   text-align: center;
-  border: 1px solid #ebeef5;
+  border: 0.1rem solid #ebeef5;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 0.1rem 0.4rem rgba(0, 0, 0, 0.04);
 }
 
 .stat:hover {
   border-color: #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-  transform: translateY(-4px);
+  box-shadow: 0 0.4rem 1.2rem rgba(102, 126, 234, 0.15);
+  transform: translateY(-0.4rem);
 }
 
 .stat-label {
   display: block;
   color: #333333;
-  font-size: 14px;
-  margin-bottom: 10px;
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
 }
 
 .stat-number {
   display: block;
-  font-size: 32px;
+  font-size: 3.2rem;
   font-weight: 700;
 }
 
@@ -2193,18 +2191,18 @@ h1 {
 
 .empty-state {
   text-align: center;
-  padding: 60px 20px;
+  padding: 6rem 2rem;
 }
 
 .empty-icon {
-  font-size: 60px;
+  font-size: 6rem;
   margin: 0;
 }
 
 .empty-text {
-  font-size: 18px;
+  font-size: 1.8rem;
   color: #333333;
-  margin: 15px 0;
+  margin: 1.5rem 0;
 }
 
 /* 动画 */
@@ -2222,7 +2220,7 @@ h1 {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-1rem);
   }
 }
 
@@ -2236,7 +2234,7 @@ h1 {
   }
   100% {
     opacity: 0;
-    transform: translateY(320px) rotate(540deg);
+    transform: translateY(32rem) rotate(540deg);
   }
 }
 
@@ -2262,21 +2260,21 @@ h1 {
   }
   
   .flashcard {
-    height: 380px;
+    height: 38rem;
   }
   
   .card-face,
   .card-back {
-    padding: 40px 20px;
-    min-height: 280px;
+    padding: 4rem 2rem;
+    min-height: 28rem;
   }
   
   .word-text {
-    font-size: 28px;
+    font-size: 2.8rem;
   }
   
   .meaning-text {
-    font-size: 18px;
+    font-size: 1.8rem;
   }
   
   .actions {
