@@ -87,6 +87,8 @@ class EssayJobBase(SQLModel):
 
     essay_id: int = Field(foreign_key="essays.id", index=True)
     status: str = Field(default="pending", index=True)
+    progress_percent: int = 0
+    progress_message: str = Field(default="", sa_column=Column(Text, nullable=False))
     error_message: str = Field(default="", sa_column=Column(Text, nullable=False))
     score_model_version: str = ""
     revision_model_version: str = ""

@@ -642,7 +642,7 @@ const confirmDeleteQuiz = async (item: QuizSessionRecord) => {
       '删除确认',
       { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
     )
-    await deleteQuizSessionAPI(item.id)
+    await deleteQuizSessionAPI(String(item.id))
     quizHistory.value = quizHistory.value.filter(s => s.id !== item.id)
     if (selectedHistoryItem.value?.id === item.id) {
       historyDetailVisible.value = false

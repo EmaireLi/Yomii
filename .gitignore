@@ -65,3 +65,7 @@ backend/.pip-cache/
 /data/dictionary.txt
 /backend/data/dictionary.txt
 /backend/data/dictionary.db
+.claude/
+CLAUDE.md
+backend/models.zip
+backend/models/

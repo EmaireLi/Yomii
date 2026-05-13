@@ -22,6 +22,20 @@ router = APIRouter()
 
 ESSAY_TASK_SESSION_MAKER = mysql_session_maker
 ACTIVE_STATUSES = {"pending", "scoring", "revising"}
+STATUS_PROGRESS: dict[str, int] = {
+    "pending": 0,
+    "scoring": 25,
+    "revising": 65,
+    "completed": 100,
+    "failed": 100,
+}
+STATUS_PROGRESS_MESSAGES: dict[str, str] = {
+    "pending": "已提交，等待评测开始",
+    "scoring": "正在生成评分报告",
+    "revising": "正在生成修改建议",
+    "completed": "评测完成",
+    "failed": "评测失败",
+}
 
 
 def _json_loads(value: str | None, fallback: Any) -> Any:
@@ -65,6 +79,44 @@ def _normalize_score_payload(payload: dict[str, Any] | None) -> dict[str, Any] |
 
 def _ts(value: datetime | None) -> int:
     return int(value.timestamp() * 1000) if value else 0
+
+
+def _clamp_progress(value: Any) -> int:
+    try:
+        percent = int(value)
+    except (TypeError, ValueError):
+        percent = 0
+    return max(0, min(100, percent))
+
+
+def _progress_percent(status: str, job: EssayJob | None = None) -> int:
+    fallback = STATUS_PROGRESS.get(status, 0)
+    if job is None:
+        return fallback
+    percent = _clamp_progress(job.progress_percent)
+    if status in {"completed", "failed"}:
+        return 100
+    return max(percent, fallback)
+
+
+def _progress_message(status: str, job: EssayJob | None = None) -> str:
+    if job and job.progress_message:
+        return job.progress_message
+    return STATUS_PROGRESS_MESSAGES.get(status, "")
+
+
+def _set_evaluation_progress(
+    essay: Essay,
+    job: EssayJob,
+    *,
+    status: str,
+    percent: int,
+    message: str,
+) -> None:
+    essay.status = status
+    job.status = status
+    job.progress_percent = _clamp_progress(percent)
+    job.progress_message = message
 
 
 def _score_payload(score: EssayScore | None) -> dict[str, Any] | None:
@@ -114,6 +166,8 @@ def _job_payload(job: EssayJob | None) -> dict[str, Any] | None:
         "id": job.id,
         "essayId": job.essay_id,
         "status": job.status,
+        "progressPercent": _progress_percent(job.status, job),
+        "progressMessage": _progress_message(job.status, job),
         "errorMessage": job.error_message,
         "scoreModelVersion": job.score_model_version,
         "revisionModelVersion": job.revision_model_version,
@@ -136,6 +190,8 @@ def _essay_payload(
         "wordCount": essay.word_count,
         "targetLevel": essay.target_level,
         "status": essay.status,
+        "progressPercent": _progress_percent(essay.status, job),
+        "progressMessage": _progress_message(essay.status, job),
         "submitTime": _ts(essay.submit_time),
         "evaluationRequestedAt": _ts(essay.evaluation_requested_at),
         "evaluationCompletedAt": _ts(essay.evaluation_completed_at),
@@ -189,6 +245,8 @@ async def _enqueue_evaluation(background_tasks: BackgroundTasks, db: UserDB, ess
     job = EssayJob(
         essay_id=essay.id or 0,
         status="pending",
+        progress_percent=0,
+        progress_message="已提交，等待评测开始",
         error_message="",
     )
     db.add(essay)
@@ -212,12 +270,17 @@ async def run_essay_evaluation_task(essay_id: int | None, job_id: int | None) ->
 
         try:
             now = datetime.utcnow()
-            essay.status = "scoring"
             essay.evaluation_requested_at = essay.evaluation_requested_at or now
             essay.last_error = ""
-            job.status = "scoring"
             job.error_message = ""
             job.started_at = now
+            _set_evaluation_progress(
+                essay,
+                job,
+                status="scoring",
+                percent=20,
+                message="正在调用评分模型生成评分报告",
+            )
             db.add(essay)
             db.add(job)
             await db.commit()
@@ -246,8 +309,13 @@ async def run_essay_evaluation_task(essay_id: int | None, job_id: int | None) ->
             score.evaluation_time = datetime.utcnow()
             db.add(score)
 
-            essay.status = "revising"
-            job.status = "revising"
+            _set_evaluation_progress(
+                essay,
+                job,
+                status="revising",
+                percent=55,
+                message="评分完成，正在生成修改建议",
+            )
             job.score_model_version = score_result.model_version
             db.add(essay)
             db.add(job)
@@ -259,6 +327,17 @@ async def run_essay_evaluation_task(essay_id: int | None, job_id: int | None) ->
                 target_level=essay.target_level,
                 score_report=score_result.payload,
             )
+
+            _set_evaluation_progress(
+                essay,
+                job,
+                status="revising",
+                percent=80,
+                message="修改建议已生成，正在复评分并选择最佳结果",
+            )
+            db.add(essay)
+            db.add(job)
+            await db.commit()
 
             selected_revision_payload, revised_score_payload = await essay_orchestrator_service.select_best_revision(
                 content=essay.content,
@@ -284,10 +363,15 @@ async def run_essay_evaluation_task(essay_id: int | None, job_id: int | None) ->
             db.add(revision)
 
             finished_at = datetime.utcnow()
-            essay.status = "completed"
             essay.evaluation_completed_at = finished_at
             essay.last_error = ""
-            job.status = "completed"
+            _set_evaluation_progress(
+                essay,
+                job,
+                status="completed",
+                percent=100,
+                message="评测完成",
+            )
             job.completed_at = finished_at
             job.revision_model_version = revision_result.model_version
             db.add(essay)
@@ -295,10 +379,15 @@ async def run_essay_evaluation_task(essay_id: int | None, job_id: int | None) ->
             await db.commit()
         except Exception as exc:
             failed_at = datetime.utcnow()
-            essay.status = "failed"
             essay.evaluation_completed_at = failed_at
             essay.last_error = str(exc)
-            job.status = "failed"
+            _set_evaluation_progress(
+                essay,
+                job,
+                status="failed",
+                percent=100,
+                message="评测失败",
+            )
             job.error_message = str(exc)
             job.completed_at = failed_at
             db.add(essay)

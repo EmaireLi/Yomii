@@ -362,6 +362,35 @@ def _migrate_essay_revisions_table_columns(sync_conn) -> None:
     )
 
 
+def _migrate_essay_jobs_table_columns(sync_conn) -> None:
+    """为 essay_jobs 表补齐评测进度字段。"""
+    inspector = inspect(sync_conn)
+    if "essay_jobs" not in inspector.get_table_names():
+        return
+
+    column_names = {column["name"] for column in inspector.get_columns("essay_jobs")}
+    if "progress_percent" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essay_jobs ADD COLUMN progress_percent INT NOT NULL DEFAULT 0"
+        )
+    if "progress_message" not in column_names:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE essay_jobs ADD COLUMN progress_message TEXT NULL"
+        )
+
+    sync_conn.exec_driver_sql(
+        "UPDATE essay_jobs SET progress_percent = CASE "
+        "WHEN status = 'completed' THEN 100 "
+        "WHEN status = 'failed' THEN 100 "
+        "WHEN status = 'revising' THEN GREATEST(progress_percent, 60) "
+        "WHEN status = 'scoring' THEN GREATEST(progress_percent, 25) "
+        "ELSE COALESCE(progress_percent, 0) END"
+    )
+    sync_conn.exec_driver_sql(
+        "UPDATE essay_jobs SET progress_message = COALESCE(progress_message, '')"
+    )
+
+
 async def create_sqlite_tables():
     """创建 SQLite 表 (词典数据)"""
     from app.models.word import Word, WordTag
@@ -413,6 +442,7 @@ async def create_mysql_tables():
         await conn.run_sync(_migrate_essays_table_columns)
         await conn.run_sync(_migrate_essay_scores_table_columns)
         await conn.run_sync(_migrate_essay_revisions_table_columns)
+        await conn.run_sync(_migrate_essay_jobs_table_columns)
 
 
 async def create_db_and_tables():

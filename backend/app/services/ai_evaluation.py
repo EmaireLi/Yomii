@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import difflib
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -578,7 +579,10 @@ class EssayScoringService:
 
     async def evaluate_essay(self, *, content: str, topic: str, target_level: str) -> EssayServiceResult:
         candidates: list[tuple[str, EssayServiceResult]] = []
-        if self.url:
+
+        async def collect_local_candidate() -> tuple[str, EssayServiceResult] | None:
+            if not self.url:
+                return None
             try:
                 payload = await self._call_remote_model(content=content, topic=topic, target_level=target_level)
                 logger.info(
@@ -588,14 +592,12 @@ class EssayScoringService:
                     topic,
                     _truncate_text(payload),
                 )
-                candidates.append(
-                    (
-                        "local",
-                        EssayServiceResult(
-                            payload=self._normalize_remote_payload(payload, target_level),
-                            model_version=str(payload.get("model_version") or self.model_name),
-                        ),
-                    )
+                return (
+                    "local",
+                    EssayServiceResult(
+                        payload=self._normalize_remote_payload(payload, target_level),
+                        model_version=str(payload.get("model_version") or self.model_name),
+                    ),
                 )
             except Exception as exc:
                 logger.exception(
@@ -605,7 +607,11 @@ class EssayScoringService:
                     topic,
                     exc,
                 )
-        if self.deepseek_fallback.enabled:
+                return None
+
+        async def collect_deepseek_candidate() -> tuple[str, EssayServiceResult] | None:
+            if not self.deepseek_fallback.enabled:
+                return None
             try:
                 result = await self.deepseek_fallback.score_essay(
                     content=content,
@@ -618,14 +624,12 @@ class EssayScoringService:
                     topic,
                     _truncate_text(result.payload),
                 )
-                candidates.append(
-                    (
-                        "deepseek",
-                        EssayServiceResult(
-                            payload=self._normalize_remote_payload(result.payload, target_level),
-                            model_version=result.model_version,
-                        ),
-                    )
+                return (
+                    "deepseek",
+                    EssayServiceResult(
+                        payload=self._normalize_remote_payload(result.payload, target_level),
+                        model_version=result.model_version,
+                    ),
                 )
             except Exception as exc:
                 logger.exception(
@@ -634,6 +638,10 @@ class EssayScoringService:
                     topic,
                     exc,
                 )
+                return None
+
+        results = await asyncio.gather(collect_local_candidate(), collect_deepseek_candidate())
+        candidates.extend(candidate for candidate in results if candidate is not None)
 
         if candidates:
             best_label = ""
@@ -1202,10 +1210,10 @@ class EssayOrchestratorService:
         best_score_report: dict[str, Any] | None = None
         best_score = -1
 
-        for label, candidate in candidates:
+        async def rescore_candidate(label: str, candidate: dict[str, Any]) -> tuple[str, dict[str, Any], int, dict[str, Any]] | None:
             revised_content = str(candidate.get("full_revision", "")).strip()
             if not revised_content:
-                continue
+                return None
             try:
                 rescored = await self.scoring_service.evaluate_essay(
                     content=revised_content,
@@ -1223,14 +1231,7 @@ class EssayOrchestratorService:
                     overall,
                     _truncate_text(score_payload),
                 )
-                if overall > best_score:
-                    best_score = overall
-                    best_label = label
-                    best_revision = {
-                        **candidate,
-                        "model_version": candidate.get("model_version", self.revision_service.model_name),
-                    }
-                    best_score_report = score_payload
+                return label, candidate, overall, score_payload
             except Exception as exc:
                 logger.exception(
                     "revision_candidate_rescore_failed label=%s target=%s topic=%s error=%s",
@@ -1239,6 +1240,23 @@ class EssayOrchestratorService:
                     topic,
                     exc,
                 )
+                return None
+
+        rescore_results = await asyncio.gather(
+            *(rescore_candidate(label, candidate) for label, candidate in candidates)
+        )
+        for result in rescore_results:
+            if result is None:
+                continue
+            label, candidate, overall, score_payload = result
+            if overall > best_score:
+                best_score = overall
+                best_label = label
+                best_revision = {
+                    **candidate,
+                    "model_version": candidate.get("model_version", self.revision_service.model_name),
+                }
+                best_score_report = score_payload
 
         if best_score_report is None:
             return model_revision_report, None

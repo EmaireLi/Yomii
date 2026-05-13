@@ -141,6 +141,8 @@ export interface Essay {
   wordCount: number
   targetLevel: string
   status: 'pending' | 'scoring' | 'revising' | 'completed' | 'failed' | string
+  progressPercent?: number
+  progressMessage?: string
   submitTime: number
   evaluationRequestedAt?: number
   evaluationCompletedAt?: number
@@ -208,6 +210,8 @@ export interface EssayEvaluationReport {
     id: string
     essayId: string
     status: string
+    progressPercent: number
+    progressMessage: string
     errorMessage: string
     scoreModelVersion: string
     revisionModelVersion: string

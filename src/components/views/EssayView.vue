@@ -109,6 +109,13 @@
               <el-tag :type="statusTagType(scope.row.status)" effect="light">
                 {{ statusLabel(scope.row.status) }}
               </el-tag>
+              <el-progress
+                v-if="activeStatuses.has(scope.row.status)"
+                class="table-progress"
+                :percentage="essayProgressPercent(scope.row)"
+                :show-text="false"
+                :stroke-width="4"
+              />
             </template>
           </el-table-column>
           <el-table-column label="总分" width="80">
@@ -332,8 +339,14 @@
           <div class="pending-panel">
             <el-icon class="loading-icon"><Loading /></el-icon>
             <div class="pending-title">{{ statusLabel(selectedHistoryItem.status) }}</div>
+            <el-progress
+              class="evaluation-progress"
+              :percentage="essayProgressPercent(selectedHistoryItem)"
+              :status="essayProgressStatus(selectedHistoryItem)"
+              :stroke-width="10"
+            />
             <p class="panel-muted">
-              {{ selectedHistoryItem.errorMessage || '评分模型和修改模型正在异步处理中，完成后可直接查看完整报告。' }}
+              {{ selectedHistoryItem.errorMessage || essayProgressMessage(selectedHistoryItem) || '评分模型和修改模型正在异步处理中，完成后可直接查看完整报告。' }}
             </p>
             <el-button
               v-if="isModelWaiting(selectedHistoryItem)"
@@ -497,6 +510,46 @@ const statusTagType = (status: string): '' | 'info' | 'warning' | 'success' | 'd
   }
 }
 
+const essayProgressPercent = (essay: Essay | null): number => {
+  if (!essay) return 0
+  if (essay.status === 'completed' || essay.status === 'failed') return 100
+  const reported = Number(essay.progressPercent ?? 0)
+  if (reported > 0) return Math.min(100, Math.max(0, Math.round(reported)))
+  switch (essay.status) {
+    case 'scoring':
+      return 25
+    case 'revising':
+      return 65
+    default:
+      return 0
+  }
+}
+
+const essayProgressMessage = (essay: Essay | null): string => {
+  if (!essay) return ''
+  if (essay.progressMessage) return essay.progressMessage
+  switch (essay.status) {
+    case 'pending':
+      return '已提交，等待评测开始'
+    case 'scoring':
+      return '正在生成评分报告'
+    case 'revising':
+      return '正在生成修改建议'
+    case 'completed':
+      return '评测完成'
+    case 'failed':
+      return '评测失败'
+    default:
+      return ''
+  }
+}
+
+const essayProgressStatus = (essay: Essay | null): 'success' | 'exception' | 'warning' | undefined => {
+  if (essay?.status === 'completed') return 'success'
+  if (essay?.status === 'failed') return 'exception'
+  return 'warning'
+}
+
 const formatDate = (timestamp: number): string => {
   if (!timestamp) return '--'
   return new Date(timestamp).toLocaleString('zh-CN', {
@@ -579,8 +632,15 @@ const loadEssayHistory = async (showMessage: boolean = false) => {
   try {
     const skip = (essayPage.value - 1) * essayLimit
     const result = await getEssayHistoryAPI(skip, essayLimit)
+    const selectedId = selectedHistoryItem.value?.id
     essays.value = result.items
     essayTotal.value = result.total
+    if (selectedId) {
+      const latestSelected = result.items.find(item => item.id === selectedId)
+      if (latestSelected) {
+        selectedHistoryItem.value = latestSelected
+      }
+    }
     syncPollingState()
     if (showMessage) ElMessage.success('已刷新作文历史')
   } catch (error: any) {
@@ -825,6 +885,11 @@ onBeforeUnmount(() => {
   color: #909399;
 }
 
+.table-progress {
+  width: 72px;
+  margin-top: 6px;
+}
+
 .tips-list {
   margin: 0;
   padding-left: 20px;
@@ -1052,6 +1117,11 @@ onBeforeUnmount(() => {
   font-size: 18px;
   font-weight: 600;
   color: #303133;
+}
+
+.evaluation-progress {
+  max-width: 420px;
+  margin: 18px auto 0;
 }
 
 @keyframes spin {
