@@ -61,7 +61,7 @@ backend/
 ├── data/                     # SQLite 数据目录
 ├── tests/
 ├── requirements.txt
-└── .env.example
+└── ../.env.example          # 根目录统一配置模板
 ```
 
 ## 快速开始
@@ -82,8 +82,9 @@ pip install -r requirements-model.txt
 ### 2. 配置环境变量
 
 ```bash
+cd ..
 cp .env.example .env
-# 编辑 .env 文件，填写 MySQL 连接信息
+# 编辑根目录 .env 文件，填写前端、数据库和模型配置
 ```
 
 最少需要确认：
@@ -120,7 +121,7 @@ DEEPSEEK_TIMEOUT_SECONDS=60
 - 作文修订会同时纳入本地修订、规则增强修订与 `DeepSeek` 修订，再按复评分择优返回
 - 只有本地模型、DeepSeek 与最终规则链路都无法提供更优结果时，才会回落到最后的保守结果
 - 模型服务额外依赖放在 `requirements-model.txt`
-- `DEEPSEEK_API_KEY` 只能放在本地 `backend/.env`，不要提交到 GitHub
+- `DEEPSEEK_API_KEY` 只能放在本地根目录 `.env`，不要提交到 GitHub
 
 ### 3. 启动 MySQL
 
@@ -156,7 +157,7 @@ MySQL 表结构会在启动时自动补齐，包括作文双模型新增的：
 
 先区分两件事：
 
-1. `.env`：告诉后端“去哪个地址找模型”
+1. 根目录 `.env`：告诉后端“去哪个地址找模型”
 2. 启动命令：真正把后端进程跑起来
 
 当前仓库的推荐方式是：
@@ -187,6 +188,18 @@ python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-sco
 cd backend
 pip install -r requirements-model.txt
 python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-revision-merged --model-version qwen3-1.7b-revision-merged --port 8012 --device-map auto --quantize bnb-nf4
+```
+
+### macOS CPU 模式
+
+```bash
+cd backend
+python training/serve_qwen_adapter.py --task score --model models/qwen3-1.7b-score-merged --model-version qwen3-1.7b-score-merged --port 8011 --device-map cpu
+```
+
+```bash
+cd backend
+python training/serve_qwen_adapter.py --task revision --model models/qwen3-1.7b-revision-merged --model-version qwen3-1.7b-revision-merged --port 8012 --device-map cpu
 ```
 
 ### 对应 `.env`
@@ -238,11 +251,10 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 1. 复制配置模板：
 
 ```powershell
-cd backend
 Copy-Item .env.example .env
 ```
 
-2. 编辑 `backend/.env`，至少填写：
+2. 编辑根目录 `.env`，至少填写：
 
 ```env
 DEEPSEEK_API_KEY=your_real_api_key
@@ -263,7 +275,7 @@ python scripts/test_deepseek_fallback.py --task revision
 4. 正式运行时无需单独启动 DeepSeek 进程；后端会在作文评分与修订链路中自动把它作为比较候选。
 
 注意：
-- `backend/.env` 存放真实 API 密钥，只能保留在本地
+- 根目录 `.env` 存放真实 API 密钥，只能保留在本地
 - `.env` 已加入 `.gitignore`，不要上传到 GitHub
 - 如果要分享项目给他人，只提供 `.env.example`，不要提供真实 `.env`
 

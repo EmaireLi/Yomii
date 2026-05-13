@@ -17,12 +17,12 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
 # 创建 SQLite 数据目录
-Path(settings.SQLITE_DATABASE_PATH).parent.mkdir(parents=True, exist_ok=True)
+settings.SQLITE_DATABASE_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 # ==================== SQLite 引擎 (词典数据) ====================
 sqlite_engine: AsyncEngine = create_async_engine(
     settings.SQLITE_DATABASE_URL,
-    echo=settings.DEBUG,
+    echo=settings.SQL_ECHO,
     future=True,
     connect_args={"check_same_thread": False}  # SQLite 需要此参数
 )
@@ -36,7 +36,7 @@ sqlite_session_maker = sessionmaker(
 # ==================== MySQL 引擎 (用户行为数据) ====================
 mysql_engine: AsyncEngine = create_async_engine(
     settings.MYSQL_DATABASE_URL,
-    echo=settings.DEBUG,
+    echo=settings.SQL_ECHO,
     future=True,
     pool_pre_ping=True,  # 连接健康检查
     pool_size=10,

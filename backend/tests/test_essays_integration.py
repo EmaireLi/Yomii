@@ -162,16 +162,19 @@ async def test_essay_submit_report_and_history(client: AsyncClient):
     assert report["scoreReport"]["overallScore"] == 82
     assert report["scoreReport"]["grammarScore"] == 80
     assert report["revisionReport"]["fullRevision"].startswith("また、")
+    assert report["revisionReport"]["sentenceSuggestions"]
     assert report["modelVersions"]["score"] == "score-test-v1"
     assert report["modelVersions"]["revision"] == "revision-test-v1"
 
     history_response = await client.get("/api/v1/essays/history?limit=10", headers=headers)
     assert history_response.status_code == 200
     history = history_response.json()
-    assert len(history) == 1
-    assert history[0]["status"] == "completed"
-    assert history[0]["scoreReport"]["overallScore"] == 82
-    assert history[0]["revisionReport"]["fullRevision"].startswith("また、")
+    assert history["total"] == 1
+    assert len(history["items"]) == 1
+    assert history["items"][0]["status"] == "completed"
+    assert history["items"][0]["scoreReport"]["overallScore"] == 82
+    assert history["items"][0]["revisionReport"]["fullRevision"].startswith("また、")
+    assert history["items"][0]["revisionReport"]["sentenceSuggestions"]
 
     score_response = await client.get(f"/api/v1/essays/{essay_id}/score", headers=headers)
     assert score_response.status_code == 200

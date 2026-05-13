@@ -1,9 +1,18 @@
-"""
-应用配置
-"""
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _resolve_project_path(value: str) -> Path:
+    """Resolve relative project paths from the repository root."""
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path
+    return PROJECT_ROOT / path
 
 
 class Settings(BaseSettings):
@@ -11,21 +20,27 @@ class Settings(BaseSettings):
     APP_NAME: str = "Yomii API"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
+    SQL_ECHO: bool = False
     
     # 数据库配置 - SQLite (词典数据)
-    SQLITE_DATABASE_PATH: str = "data/dictionary.db"
+    SQLITE_DATABASE_PATH: str = "backend/data/dictionary.db"
     
     # 数据库配置 - MySQL (用户行为数据)
     MYSQL_HOST: str = "localhost"
     MYSQL_PORT: int = 3306
     MYSQL_USER: str = "root"
-    MYSQL_PASSWORD: str = "lhy41712040823"
+    MYSQL_PASSWORD: str = ""
     MYSQL_DATABASE: str = "yomii"
+
+    @property
+    def SQLITE_DATABASE_FILE(self) -> Path:
+        """SQLite database file resolved from the repository root."""
+        return _resolve_project_path(self.SQLITE_DATABASE_PATH)
     
     @property
     def SQLITE_DATABASE_URL(self) -> str:
         """SQLite 连接 URL (词典数据)"""
-        return f"sqlite+aiosqlite:///{self.SQLITE_DATABASE_PATH}"
+        return f"sqlite+aiosqlite:///{self.SQLITE_DATABASE_FILE.as_posix()}"
     
     @property
     def MYSQL_DATABASE_URL(self) -> str:
@@ -64,8 +79,9 @@ class Settings(BaseSettings):
     ESSAY_MODEL_TIMEOUT_SECONDS: float = 180.0
     
     model_config = SettingsConfigDict(
-        env_file=".env",
-        case_sensitive=True
+        env_file=PROJECT_ROOT / ".env",
+        case_sensitive=True,
+        extra="ignore",
     )
 
 

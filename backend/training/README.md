@@ -30,6 +30,10 @@ python training/serve_qwen_adapter.py --task score --model models/qwen3-1.7b-sco
 # 启动修改模型（端口 8012）
 python training/serve_qwen_adapter.py --task revision --model models/qwen3-1.7b-revision-merged --model-version qwen3-1.7b-revision-merged --port 8012 --device-map auto --quantize bnb-nf4
 
+# macOS CPU 模式
+python training/serve_qwen_adapter.py --task score --model models/qwen3-1.7b-score-merged --model-version qwen3-1.7b-score-merged --port 8011 --device-map cpu
+python training/serve_qwen_adapter.py --task revision --model models/qwen3-1.7b-revision-merged --model-version qwen3-1.7b-revision-merged --port 8012 --device-map cpu
+
 # 启动后端 API（端口 8000）
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
@@ -126,7 +130,7 @@ python training/merge_and_quantize.py --base-model Qwen/Qwen3-1.7B --adapter mod
 
 ## 3. 配置后端
 
-在 `backend/.env` 中设置：
+在项目根目录 `.env` 中设置：
 
 ```env
 ESSAY_SCORE_MODEL_URL=http://127.0.0.1:8011/infer

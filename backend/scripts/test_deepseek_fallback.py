@@ -2,7 +2,7 @@
 直接测试 DeepSeek V4 Flash 兜底接口。
 
 运行前：
-1. 在 backend/.env 中填写 DEEPSEEK_API_KEY
+1. 在项目根目录 .env 中填写 DEEPSEEK_API_KEY
 2. 在 backend 目录执行：
    python scripts/test_deepseek_fallback.py --task score
    python scripts/test_deepseek_fallback.py --task revision

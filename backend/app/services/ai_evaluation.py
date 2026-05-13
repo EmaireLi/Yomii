@@ -292,6 +292,79 @@ def _sort_suggestions_by_position(
     return sorted(suggestions, key=_sort_key)
 
 
+def _append_unique_sentence_suggestion(
+    suggestions: list[dict[str, str]],
+    *,
+    original: str,
+    suggested: str,
+    reason: str,
+) -> None:
+    original = _normalize_sentence(original)
+    suggested = _normalize_sentence(suggested)
+    if not original or not suggested or original == suggested:
+        return
+    if any(_normalize_sentence(item.get("original", "")) == original for item in suggestions):
+        return
+    suggestions.append(
+        {
+            "original": original,
+            "suggested": suggested,
+            "reason": _normalize_feedback_text(reason, "这句已调整为更自然的表达。"),
+        }
+    )
+
+
+def _generate_conservative_sentence_suggestions(content: str, limit: int = 3) -> list[dict[str, str]]:
+    """Generate conservative sentence-level suggestions when a model omits them."""
+    suggestions: list[dict[str, str]] = []
+    sentences = _split_sentences(content)
+
+    for sentence in sentences:
+        if len(suggestions) >= limit:
+            break
+        rewritten, reason = _rewrite_sentence(sentence)
+        if rewritten != sentence and reason:
+            _append_unique_sentence_suggestion(
+                suggestions,
+                original=sentence,
+                suggested=rewritten,
+                reason=reason,
+            )
+
+    for sentence in sentences:
+        if len(suggestions) >= limit:
+            break
+        suggested = sentence
+        reason = ""
+
+        if sentence.startswith("最近、"):
+            suggested = sentence.replace("最近、", "近年、", 1)
+            reason = "「近年」を使うと、作文の書き出しがより書き言葉らしくなります。"
+        elif "私は今、" in sentence:
+            suggested = sentence.replace("私は今、", "現在、私は", 1)
+            reason = "「現在、私は」とすると、説明文として少し改まった自然な表現になります。"
+        elif "まだ難しいです" in sentence:
+            suggested = sentence.replace("まだ難しいです", "依然として難しいです")
+            reason = "「依然として」を使うと、課題が続いていることをより明確に表せます。"
+        elif "とても" in sentence:
+            suggested = sentence.replace("とても", "非常に", 1)
+            reason = "「非常に」は作文や説明文で使いやすい、やや改まった表現です。"
+        elif len(sentences) > 1 and not re.match(r"^(また|さらに|そして|一方|そのため|まず|次に|最後に|近年|現在)[、,]", sentence):
+            connector = "まず、" if sentence == sentences[0] else "また、"
+            suggested = f"{connector}{sentence}"
+            reason = "接続表現を補うことで、文と文のつながりが読み取りやすくなります。"
+
+        if suggested != sentence:
+            _append_unique_sentence_suggestion(
+                suggestions,
+                original=sentence,
+                suggested=suggested,
+                reason=reason,
+            )
+
+    return _sort_suggestions_by_position(suggestions, content, source_key="original")[:limit]
+
+
 def _build_full_revision(content: str, suggestions: list[dict[str, str]]) -> str:
     if not suggestions:
         return content
@@ -1025,6 +1098,11 @@ class EssayRevisionService:
             suggestions = _derive_suggestions_from_revision(content, full_revision)
             suggestions = _sort_suggestions_by_position(suggestions, content, source_key="original")
 
+        if not suggestions:
+            suggestions = _generate_conservative_sentence_suggestions(content)
+            if suggestions:
+                full_revision = _build_full_revision(content, suggestions)
+
         if not issues and suggestions:
             issues = [
                 {
@@ -1072,14 +1150,16 @@ class EssayRevisionService:
 
         if sentences:
             first_sentence = sentences[0]
-            issues.append(
-                {
-                    "source": first_sentence,
-                    "suggestion": first_sentence.replace("です", "だと思います") if "です" in first_sentence else first_sentence,
-                    "explanation": "开头句可以增加主观判断或背景信息，使论述更完整。",
-                    "severity": "medium",
-                }
-            )
+            first_suggestion = first_sentence.replace("です", "だと思います") if "です" in first_sentence else first_sentence
+            if first_suggestion != first_sentence:
+                issues.append(
+                    {
+                        "source": first_sentence,
+                        "suggestion": first_suggestion,
+                        "explanation": "开头句可以增加主观判断或背景信息，使论述更完整。",
+                        "severity": "medium",
+                    }
+                )
 
         for sentence in sentences:
             cleaned = sentence.strip()
@@ -1106,6 +1186,18 @@ class EssayRevisionService:
                             "建议改成更自然的日语表达。",
                         ),
                         "severity": "medium",
+                    }
+                )
+
+        if not suggestions:
+            suggestions = _generate_conservative_sentence_suggestions(content)
+            for item in suggestions:
+                issues.append(
+                    {
+                        "source": item["original"],
+                        "suggestion": item["suggested"],
+                        "explanation": item["reason"],
+                        "severity": "low",
                     }
                 )
 
