@@ -100,6 +100,8 @@ router.beforeEach((to: RouteLocationNormalized, from: RouteLocationNormalized, n
  * 路由后置钩子 - 更新页面标题
  */
 router.afterEach((to: RouteLocationNormalized) => {
+  if (isElectron) return
+
   const title = to.meta.title as string
   document.title = title ? `${title} - Yomii` : 'Yomii - 日语学习助手'
 })
