@@ -301,8 +301,8 @@ function checkAuthentication() {
  */
 function calculateSidebarWidth() {
   const windowWidth = window.innerWidth
-  // Sidebar 目标宽度：窗口的 20%，但最小值 250px，最大值 400px
-  const targetWidth = Math.max(250, Math.min(400, windowWidth * 0.2))
+  // Sidebar 目标宽度：窗口的 20%，但最小值 240px，最大值 400px
+  const targetWidth = Math.max(240, Math.min(400, windowWidth * 0.2))
   sidebarWidth.value = `${targetWidth}px`
 }
 
@@ -547,8 +547,8 @@ function navigateTo(viewName: string) {
   width: auto;
   height: 100vh;
   flex-shrink: 0;
-  min-width: 250px;
-  max-width: 400px;
+  min-width: 16rem;
+  max-width: 35rem;
 }
 
 .app-header {

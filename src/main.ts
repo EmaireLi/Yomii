@@ -14,14 +14,13 @@ app.use(ElementPlus, {
 app.use(router)
 app.mount('#app')
 
-// 初始化 Canvas 动画（推迟到应用完全加载后）
-// 使用 requestIdleCallback 在浏览器空闲时初始化，避免阻塞主线程
-const initCanvasNest = async () => {
+// 初始化 Canvas 动画
+setTimeout(async () => {
   try {
     const CanvasNestModule = await import('canvas-nest.js')
-    const CanvasNest = (CanvasNestModule && (CanvasNestModule as any).default) || CanvasNestModule
+    const CanvasNest = (CanvasNestModule as any).default || CanvasNestModule
     if (typeof CanvasNest === 'function') {
-      new (CanvasNest as any)(document.getElementById("app"), {
+      new (CanvasNest as any)(document.getElementById('app'), {
         color: '16,24,32',
         pointColor: '16,24,32',
         opacity: 0.95,
@@ -31,25 +30,6 @@ const initCanvasNest = async () => {
       })
     }
   } catch (error) {
-    console.error('CanvasNest 初始化失败：', error)
+    console.error('CanvasNest init failed:', error)
   }
-}
-
-// 首先等待应用挂载完成，然后等待 DOMContentLoaded，最后在浏览器空闲时初始化动画
-if (typeof window !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(initCanvasNest, { timeout: 2000 })
-      } else {
-        setTimeout(initCanvasNest, 500)
-      }
-    })
-  } else {
-    if (typeof requestIdleCallback !== 'undefined') {
-      requestIdleCallback(initCanvasNest, { timeout: 2000 })
-    } else {
-      setTimeout(initCanvasNest, 500)
-    }
-  }
-}
+}, 500)

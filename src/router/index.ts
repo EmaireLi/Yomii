@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createMemoryHistory, createWebHistory } from 'vue-router'
 import type { RouteLocationNormalized, NavigationGuardNext } from 'vue-router'
 import { isAuthenticated } from '@/api'
 
@@ -56,10 +56,21 @@ const routes = [
 ]
 
 // 创建路由实例
+// Electron 环境使用 Memory 模式，网页环境使用 Web 模式
+const isElectron = !!(window as any).electronAPI?.isElectron
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: isElectron ? createMemoryHistory() : createWebHistory(import.meta.env.BASE_URL),
   routes
 })
+
+// 仅在 Electron 环境中初始化路由到首页
+if (isElectron) {
+  router.isReady().then(() => {
+    if (router.currentRoute.value.path === '/') {
+      router.push('/home')
+    }
+  })
+}
 
 /**
  * 路由前置守卫 - 检查认证状态

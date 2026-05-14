@@ -8,6 +8,8 @@ import { contextBridge } from 'electron'
 
 // 向渲染进程暴露安全的 API
 contextBridge.exposeInMainWorld('electronAPI', {
+  // 标记当前运行在 Electron 环境中
+  isElectron: true,
   // 在这里添加你需要暴露给前端的方法，例如：
   // sendMessage: (msg) => ipcRenderer.send('channel', msg)
 })

@@ -12,17 +12,15 @@ import * as fs from 'fs'
 
 let mainWindow: BrowserWindow | null = null
 
-app.commandLine.appendSwitch('force-device-scale-factor', '1')
-
 function createWindow() {
   // 根据平台设置不同的窗口配置
   const isMac = process.platform === 'darwin'
   
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 1200,
-    minHeight: 800,
+    width: 800,
+    height: 600,
+    minWidth: 800,
+    minHeight: 600,
     // Mac: 保留系统按键，隐藏菜单栏; Windows: 使用标准窗口框架，隐藏菜单栏
     frame: true,
     // Mac 特定配置：保留红绿黄按钮并设置其位置
@@ -48,13 +46,24 @@ function createWindow() {
 
   // 开发时由 launcher 注入 VITE_DEV_SERVER_URL，生产时读取 dist/index.html
   const devUrl = process.env.VITE_DEV_SERVER_URL
-  const prodFile = path.join(__dirname, '..', 'dist', 'index.html')
 
   if (devUrl) {
     mainWindow.loadURL(devUrl)
   } else {
-    mainWindow.loadFile(prodFile)
+    // 生产环境：加载打包后的应用
+    const appPath = app.getAppPath()
+    const htmlPath = path.join(appPath, 'dist', 'index.html')
+    mainWindow.loadFile(htmlPath).catch((err) => {
+      console.error('[Electron] Failed to load HTML:', err)
+    })
   }
+
+  // Electron 在高 DPI 环境下会比浏览器更容易显得“放大”
+  // 这里统一给一个轻微的缩放修正，避免字体和布局整体偏大
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (!mainWindow) return
+    mainWindow.webContents.setZoomFactor(0.8)
+  })
 
   mainWindow.on('closed', () => {
     mainWindow = null

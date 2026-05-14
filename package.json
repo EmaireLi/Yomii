@@ -40,7 +40,8 @@
     "appId": "com.yomii.app",
     "productName": "Yomii",
     "files": [
-      "dist/**/*",
+      "dist/index.html",
+      "dist/assets/**/*",
       "dist-electron/**/*",
       "package.json"
     ],
