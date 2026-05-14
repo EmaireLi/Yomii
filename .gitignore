@@ -74,3 +74,6 @@ backend/.pip-cache/
 CLAUDE.md
 backend/models.zip
 backend/models/
+known_hosts
+*known_hosts
+Dsshknown_hosts
