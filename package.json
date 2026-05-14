@@ -56,7 +56,9 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": true,
+      "include": "build/nsis/uninstaller.nsh"
     },
     "mac": {
       "target": [
