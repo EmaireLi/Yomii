@@ -72,12 +72,7 @@ backend/
 cd backend
 pip install -r requirements.txt
 ```
-
-如果你后续要恢复本地模型服务，再额外安装：
-
-```bash
-pip install -r requirements-model.txt
-```
+这份依赖已经同时包含后端、本地模型服务和训练脚本所需包。
 
 ### 2. 配置环境变量
 
@@ -120,7 +115,7 @@ DEEPSEEK_TIMEOUT_SECONDS=60
 - 作文原文评分会同时纳入本地评分模型与 `DeepSeek V4 Flash` 的候选结果，再由后端择优返回
 - 作文修订会同时纳入本地修订、规则增强修订与 `DeepSeek` 修订，再按复评分择优返回
 - 只有本地模型、DeepSeek 与最终规则链路都无法提供更优结果时，才会回落到最后的保守结果
-- 模型服务额外依赖放在 `requirements-model.txt`
+- 后端、本地模型服务和训练脚本统一使用 `requirements.txt`
 - `DEEPSEEK_API_KEY` 只能放在本地根目录 `.env`，不要提交到 GitHub
 
 ### 3. 启动 MySQL
@@ -178,7 +173,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ```powershell
 cd backend
-pip install -r requirements-model.txt
+pip install -r requirements.txt
 python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-score-merged --model-version qwen3-1.7b-score-merged --port 8011 --device-map auto --quantize bnb-nf4
 ```
 
@@ -186,7 +181,7 @@ python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-sco
 
 ```powershell
 cd backend
-pip install -r requirements-model.txt
+pip install -r requirements.txt
 python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-revision-merged --model-version qwen3-1.7b-revision-merged --port 8012 --device-map auto --quantize bnb-nf4
 ```
 
@@ -219,21 +214,18 @@ ESSAY_MODEL_TIMEOUT_SECONDS=45
 ```powershell
 # 终端 1：后端
 cd yomii\backend
-pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 ```powershell
 # 终端 2：评分模型
 cd yomii\backend
-pip install -r requirements-model.txt
 python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-score-merged --model-version qwen3-1.7b-score-merged --port 8011 --device-map auto --quantize bnb-nf4
 ```
 
 ```powershell
 # 终端 3：修改模型
 cd yomii\backend
-pip install -r requirements-model.txt
 python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-revision-merged --model-version qwen3-1.7b-revision-merged --port 8012 --device-map auto --quantize bnb-nf4
 ```
 
@@ -242,7 +234,6 @@ python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-
 ```powershell
 # 终端 1：后端（确保 .env 中两个模型 URL 为空）
 cd yomii\backend
-pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -326,7 +317,7 @@ python scripts/test_deepseek_fallback.py --task revision
 - `backend/models/score-lora`
 - `backend/models/revision-lora`
 - `backend/training/` 下的训练和服务代码
-- `backend/requirements-model.txt` 作为可选本地模型运行依赖清单
+- `backend/requirements.txt` 统一作为后端、本地模型和训练脚本依赖清单
 
 ### 主要接口
 

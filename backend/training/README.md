@@ -21,8 +21,8 @@
 ```bash
 cd backend
 
-# 安装服务依赖
-pip install -r requirements-model.txt
+# 安装统一依赖
+pip install -r requirements.txt
 
 # 启动评分模型（端口 8011）
 python training/serve_qwen_adapter.py --task score --model models/qwen3-1.7b-score-merged --model-version qwen3-1.7b-score-merged --port 8011 --device-map auto --quantize bnb-nf4

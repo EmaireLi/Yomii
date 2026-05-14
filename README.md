@@ -22,26 +22,42 @@
 
 ### 安装和运行（前后端 + 模型）
 
+终端 1：前端
+
 ```bash
-# 终端 1：前端
 cd yomii
 npm install
-npm run dev
+npm run electron
 ```
 
-再开 3 个终端：
+终端 2：后端
 
 ```powershell
-# 终端 2：启动后端
 cd backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-作文评测模块默认建议两种方式：
+终端 3：评分模型
+
+```powershell
+cd backend
+pip install -r requirements.txt
+python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-score-merged --model-version qwen3-1.7b-score-merged --port 8011 --device-map auto --quantize bnb-nf4
+```
+
+终端 4：修改模型
+
+```powershell
+cd backend
+pip install -r requirements.txt
+python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-revision-merged --model-version qwen3-1.7b-revision-merged --port 8012 --device-map auto --quantize bnb-nf4
+```
+
+作文评测模块默认建议三种方式：
 
 - 默认完整模式：启动前端、后端、评分模型、修改模型四个进程
-- 如果模型服务依赖还没装，先执行：`pip install -r backend/requirements-model.txt`
+- 前后端、模型服务和训练脚本统一使用：`backend/requirements.txt`
 - 如果临时不想启动模型，再把根目录 `.env` 里的模型 URL 留空，后端会走内置 mock 结果
 
 访问地址：
@@ -92,34 +108,32 @@ DEEPSEEK_TIMEOUT_SECONDS=60
 
 标准运行模式：
 
-```powershell
-# 终端 1：前端
-cd yomii
-npm install
-npm run dev
-```
+终端 1：前端
 
 ```powershell
-# 终端 2：后端
+cd yomii
+npm run electron
+```
+
+终端 2：后端
+
+```powershell
 cd backend
-pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-```powershell
-# 终端 3：评分模型（等待完全就绪后再启动终端 4）
-cd backend
-pip install -r requirements-model.txt
-python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-score-merged --model-version qwen3-1.7b-score-merged --port 8011 --device-map auto --quantize bnb-nf4
-# 等待约 25 秒，看到 "Uvicorn running on http://127.0.0.1:8011" 后再开下一个终端
-```
+终端 3：评分模型
 
 ```powershell
-# 终端 4：修改模型（需在评分模型就绪后启动，共用 GPU 显存）
 cd backend
-pip install -r requirements-model.txt
+python training\serve_qwen_adapter.py --task score --model models\qwen3-1.7b-score-merged --model-version qwen3-1.7b-score-merged --port 8011 --device-map auto --quantize bnb-nf4
+```
+
+终端 4：修改模型
+
+```powershell
+cd backend
 python training\serve_qwen_adapter.py --task revision --model models\qwen3-1.7b-revision-merged --model-version qwen3-1.7b-revision-merged --port 8012 --device-map auto --quantize bnb-nf4
-# 等待约 25 秒，看到 "Uvicorn running on http://127.0.0.1:8012" 后再启动后端
 ```
 
 macOS CPU 模式可使用下面两条命令分别启动模型服务：
@@ -137,7 +151,7 @@ python training/serve_qwen_adapter.py --task revision --model models/qwen3-1.7b-
 ### 作文模块的两种接法
 
 1. `默认本地模型` 模式  
-安装 `backend/requirements-model.txt`，并启动评分模型和修改模型服务。
+安装 `backend/requirements.txt`，并启动评分模型和修改模型服务。
 
 2. `现成模型服务` 模式  
 把 `ESSAY_SCORE_MODEL_URL` / `ESSAY_REVISION_MODEL_URL` 改成你已有的推理接口地址，后端会按统一协议调用。
