@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -24,8 +25,14 @@ class Settings(BaseSettings):
     
     # 数据库配置 - SQLite (词典数据)
     SQLITE_DATABASE_PATH: str = "backend/data/dictionary.db"
+    USER_DATABASE_BACKEND: Literal["mysql", "sqlite"] = "mysql"
+    USER_SQLITE_DATABASE_PATH: str = "backend/data/user_data.db"
+    ENABLE_ESSAY_EVALUATION: bool = True
+    ENABLE_DEFAULT_AUTO_LOGIN: bool = False
+    DEFAULT_RELEASE_USERNAME: str = "丰川祥子"
+    DEFAULT_RELEASE_PHONE: str = "18800000000"
     
-    # 数据库配置 - MySQL (用户行为数据)
+    # 数据库配置 - MySQL (用户行为数据，主要用于开发环境)
     MYSQL_HOST: str = "localhost"
     MYSQL_PORT: int = 3306
     MYSQL_USER: str = "root"
@@ -41,11 +48,28 @@ class Settings(BaseSettings):
     def SQLITE_DATABASE_URL(self) -> str:
         """SQLite 连接 URL (词典数据)"""
         return f"sqlite+aiosqlite:///{self.SQLITE_DATABASE_FILE.as_posix()}"
+
+    @property
+    def USER_SQLITE_DATABASE_FILE(self) -> Path:
+        """用户 SQLite 数据库文件路径。"""
+        return _resolve_project_path(self.USER_SQLITE_DATABASE_PATH)
+
+    @property
+    def USER_SQLITE_DATABASE_URL(self) -> str:
+        """SQLite 连接 URL (用户行为数据)。"""
+        return f"sqlite+aiosqlite:///{self.USER_SQLITE_DATABASE_FILE.as_posix()}"
     
     @property
     def MYSQL_DATABASE_URL(self) -> str:
         """MySQL 连接 URL (用户行为数据)"""
         return f"mysql+aiomysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}"
+
+    @property
+    def USER_DATABASE_URL(self) -> str:
+        """当前启用的用户行为数据库 URL。"""
+        if self.USER_DATABASE_BACKEND == "sqlite":
+            return self.USER_SQLITE_DATABASE_URL
+        return self.MYSQL_DATABASE_URL
     
     # JWT 认证配置
     SECRET_KEY: str = "your-secret-key-change-in-production"

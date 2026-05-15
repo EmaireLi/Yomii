@@ -178,7 +178,7 @@ import type { FormInstance } from 'element-plus'
 import { House, Search, DocumentCopy, Notebook, Edit, Star, CircleCheckFilled } from '@element-plus/icons-vue'
 import { VIEWS } from '@/utils/constants'
 import { useStudyStats } from '@/composables/useLocalStorage'
-import { login, register, logout, getCurrentUser, isAuthenticated, requestPasswordReset, resetPassword } from '@/api'
+import { defaultLogin, login, register, logout, getCurrentUser, isAuthenticated, requestPasswordReset, resetPassword } from '@/api'
 import type { User, LoginRequest, RegisterRequest, ResetPasswordRequest, SetNewPasswordRequest } from '@/types'
 
 /**
@@ -262,6 +262,7 @@ const resetForm = ref<SetNewPasswordRequest & { phone: string }>({
  */
 onMounted(() => {
   checkAuthentication()
+  void tryDefaultLoginIfNeeded()
   calculateSidebarWidth()
   // 监听窗口大小变化，动态调整 sidebar 宽度
   window.addEventListener('resize', calculateSidebarWidth)
@@ -292,6 +293,22 @@ function checkAuthentication() {
   } else {
     isLoggedIn.value = false
     currentUser.value = null
+  }
+}
+
+async function tryDefaultLoginIfNeeded() {
+  const isElectron = !!(window as any).electronAPI?.isElectron
+  if (!isElectron || isAuthenticated()) {
+    return
+  }
+
+  try {
+    const result = await defaultLogin()
+    if (result.success) {
+      checkAuthentication()
+    }
+  } catch {
+    // 发布版默认登录失败时保留手动登录入口
   }
 }
 

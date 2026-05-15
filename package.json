@@ -1,17 +1,18 @@
 {
   "name": "yomii",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "electron": "npm run build:electron && node electron/dev.mjs",
+    "build:backend-exe": "pyinstaller --noconfirm --clean --onefile --name yomii-backend --distpath backend/dist --workpath backend/build/pyinstaller --specpath backend/build/pyinstaller --paths backend --collect-submodules app --hidden-import aiosqlite --hidden-import sqlmodel --hidden-import passlib.handlers.bcrypt --exclude-module torch --exclude-module torchvision --exclude-module transformers --exclude-module peft --exclude-module optimum --exclude-module bitsandbytes --exclude-module gptqmodel --exclude-module datasets --exclude-module pandas --exclude-module scipy --exclude-module sklearn --exclude-module trl --exclude-module pyarrow --exclude-module torchao --exclude-module sentencepiece --exclude-module openai backend/release_backend.py",
     "build:electron": "tsc -p tsconfig.electron.json && node ./electron/rename.cjs",
     "build": "run-p type-check build-frontend --",
     "build-frontend": "vite build",
-    "build:full": "npm run build && npm run build:electron && electron-builder",
-    "build:win": "npm run build && npm run build:electron && electron-builder --win",
+    "build:full": "npm run build && npm run build:electron && npm run build:backend-exe && electron-builder",
+    "build:win": "npm run build && npm run build:electron && npm run build:backend-exe && electron-builder --win",
     "build:mac": "npm run build && npm run build:electron && electron-builder --mac",
     "type-check": "vue-tsc --build"
   },
@@ -39,28 +40,69 @@
   "build": {
     "appId": "com.yomii.app",
     "productName": "Yomii",
+    "toolsets": {
+      "winCodeSign": "1.1.0"
+    },
     "files": [
       "dist/index.html",
       "dist/assets/**/*",
       "dist-electron/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "backend/dist",
+        "to": "backend",
+        "filter": [
+          "yomii-backend.exe"
+        ]
+      },
+      {
+        "from": "backend/data",
+        "to": "backend/data",
+        "filter": [
+          "dictionary.db"
+        ]
+      },
+      {
+        "from": "public",
+        "to": "public",
+        "filter": [
+          "yomii.ico"
+        ]
+      }
+    ],
     "directories": {
-      "buildResources": "public"
+      "buildResources": "public",
+      "output": "release/v${version}"
     },
+    "electronDist": "node_modules/electron/dist",
     "win": {
+      "icon": "public/yomii.ico",
       "target": [
         "nsis",
         "portable"
+      ],
+      "signExts": [
+        "!.exe",
+        "!.dll"
       ]
     },
     "nsis": {
+      "artifactName": "${productName}-${version}-setup-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": true,
+      "installerIcon": "public/yomii.ico",
+      "uninstallerIcon": "public/yomii.ico",
+      "installerHeaderIcon": "public/yomii.ico",
       "include": "build/nsis/uninstaller.nsh"
     },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable-${arch}.${ext}"
+    },
     "mac": {
+      "icon": "public/yomii.png",
       "target": [
         "dmg",
         "zip"

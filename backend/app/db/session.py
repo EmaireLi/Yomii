@@ -3,10 +3,9 @@
 
 双数据库架构:
 - SQLite: 存储词典数据 (words, quiz_questions)
-- MySQL: 存储用户行为数据 (users, progress, essays, study_plans, etc.)
+- 用户行为数据库: 开发环境默认 MySQL，发布版可切换为 SQLite
 """
 from typing import AsyncGenerator
-from pathlib import Path
 
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -18,6 +17,7 @@ from app.core.config import settings
 
 # 创建 SQLite 数据目录
 settings.SQLITE_DATABASE_FILE.parent.mkdir(parents=True, exist_ok=True)
+settings.USER_SQLITE_DATABASE_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 # ==================== SQLite 引擎 (词典数据) ====================
 sqlite_engine: AsyncEngine = create_async_engine(
@@ -33,21 +33,32 @@ sqlite_session_maker = sessionmaker(
     expire_on_commit=False
 )
 
-# ==================== MySQL 引擎 (用户行为数据) ====================
-mysql_engine: AsyncEngine = create_async_engine(
-    settings.MYSQL_DATABASE_URL,
-    echo=settings.SQL_ECHO,
-    future=True,
-    pool_pre_ping=True,  # 连接健康检查
-    pool_size=10,
-    max_overflow=20
-)
+# ==================== 用户行为数据库引擎 (MySQL / SQLite) ====================
+if settings.USER_DATABASE_BACKEND == "sqlite":
+    user_engine: AsyncEngine = create_async_engine(
+        settings.USER_DATABASE_URL,
+        echo=settings.SQL_ECHO,
+        future=True,
+        connect_args={"check_same_thread": False},
+    )
+else:
+    user_engine = create_async_engine(
+        settings.USER_DATABASE_URL,
+        echo=settings.SQL_ECHO,
+        future=True,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+    )
 
-mysql_session_maker = sessionmaker(
-    mysql_engine,
+user_session_maker = sessionmaker(
+    user_engine,
     class_=AsyncSession,
     expire_on_commit=False
 )
+
+# 兼容旧代码路径
+mysql_session_maker = user_session_maker
 
 
 def _model_tables(*models: type[SQLModel]) -> list[Table]:
@@ -109,6 +120,12 @@ def _drop_tables_if_exist(sync_conn, table_names: set[str]) -> None:
         table.drop(sync_conn)
 
 
+def _sqlite_compatible_add_column(sync_conn, table_name: str, definition_mysql: str, definition_sqlite: str | None = None) -> None:
+    """针对 SQLite / MySQL 生成兼容的 ADD COLUMN 语句。"""
+    definition = definition_sqlite if settings.USER_DATABASE_BACKEND == "sqlite" and definition_sqlite else definition_mysql
+    sync_conn.exec_driver_sql(f"ALTER TABLE {table_name} ADD COLUMN {definition}")
+
+
 def _migrate_study_plans_table_columns(sync_conn) -> None:
     """为 study_plans 表补齐新字段。"""
     inspector = inspect(sync_conn)
@@ -130,38 +147,31 @@ def _migrate_word_progress_table_columns(sync_conn) -> None:
 
     column_names = {column["name"] for column in inspector.get_columns("word_progress")}
     if "interval" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE word_progress ADD COLUMN `interval` FLOAT NOT NULL DEFAULT 0.02"
-        )
+        _sqlite_compatible_add_column(sync_conn, "word_progress", "`interval` FLOAT NOT NULL DEFAULT 0.02")
     if "ease" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE word_progress ADD COLUMN ease FLOAT NOT NULL DEFAULT 2.5"
-        )
+        _sqlite_compatible_add_column(sync_conn, "word_progress", "ease FLOAT NOT NULL DEFAULT 2.5")
     if "lapse_count" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE word_progress ADD COLUMN lapse_count INT NOT NULL DEFAULT 0"
-        )
+        _sqlite_compatible_add_column(sync_conn, "word_progress", "lapse_count INT NOT NULL DEFAULT 0")
     if "last_review" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE word_progress ADD COLUMN last_review DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
-        )
+        _sqlite_compatible_add_column(sync_conn, "word_progress", "last_review DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP")
     if "created_at" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE word_progress ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
-        )
+        _sqlite_compatible_add_column(sync_conn, "word_progress", "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP")
     if "next_review" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE word_progress ADD COLUMN next_review DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
-        )
+        _sqlite_compatible_add_column(sync_conn, "word_progress", "next_review DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP")
 
     latest_column_names = {column["name"] for column in inspect(sync_conn).get_columns("word_progress")}
     if "last_reviewed_at" in latest_column_names:
         sync_conn.exec_driver_sql(
             "UPDATE word_progress SET last_review = COALESCE(last_reviewed_at, last_review)"
         )
-    sync_conn.exec_driver_sql(
-        "UPDATE word_progress SET next_review = DATE_ADD(last_review, INTERVAL GREATEST(`interval`, 0.02) DAY)"
-    )
+    if settings.USER_DATABASE_BACKEND == "sqlite":
+        sync_conn.exec_driver_sql(
+            "UPDATE word_progress SET next_review = datetime(last_review, '+' || CASE WHEN \"interval\" > 0.02 THEN \"interval\" ELSE 0.02 END || ' days')"
+        )
+    else:
+        sync_conn.exec_driver_sql(
+            "UPDATE word_progress SET next_review = DATE_ADD(last_review, INTERVAL GREATEST(`interval`, 0.02) DAY)"
+        )
 
     index_names = {idx["name"] for idx in inspector.get_indexes("word_progress")}
     if "idx_word_progress_next_review" not in index_names:
@@ -209,13 +219,14 @@ def _migrate_quiz_results_table_columns(sync_conn) -> None:
 
     column_names = {column["name"] for column in inspector.get_columns("quiz_results")}
     if "session_id" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE quiz_results ADD COLUMN session_id INT NULL AFTER user_id"
+        _sqlite_compatible_add_column(
+            sync_conn,
+            "quiz_results",
+            "session_id INT NULL AFTER user_id",
+            "session_id INT NULL",
         )
     if "difficulty" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE quiz_results ADD COLUMN difficulty VARCHAR(255) NOT NULL DEFAULT 'medium'"
-        )
+        _sqlite_compatible_add_column(sync_conn, "quiz_results", "difficulty VARCHAR(255) NOT NULL DEFAULT 'medium'")
 
     index_names = {idx["name"] for idx in inspect(sync_conn).get_indexes("quiz_results")}
     if "idx_quiz_results_session_id" not in index_names:
@@ -236,25 +247,15 @@ def _migrate_essays_table_columns(sync_conn) -> None:
 
     column_names = {column["name"] for column in inspector.get_columns("essays")}
     if "target_level" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essays ADD COLUMN target_level VARCHAR(32) NOT NULL DEFAULT 'N3'"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essays", "target_level VARCHAR(32) NOT NULL DEFAULT 'N3'")
     if "status" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essays ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'pending'"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essays", "status VARCHAR(32) NOT NULL DEFAULT 'pending'")
     if "evaluation_requested_at" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essays ADD COLUMN evaluation_requested_at DATETIME NULL"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essays", "evaluation_requested_at DATETIME NULL")
     if "evaluation_completed_at" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essays ADD COLUMN evaluation_completed_at DATETIME NULL"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essays", "evaluation_completed_at DATETIME NULL")
     if "last_error" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essays ADD COLUMN last_error TEXT NULL"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essays", "last_error TEXT NULL")
 
     sync_conn.exec_driver_sql("UPDATE essays SET status = COALESCE(status, 'pending')")
     sync_conn.exec_driver_sql("UPDATE essays SET target_level = COALESCE(target_level, 'N3')")
@@ -269,35 +270,25 @@ def _migrate_essay_scores_table_columns(sync_conn) -> None:
 
     column_names = {column["name"] for column in inspector.get_columns("essay_scores")}
     if "task_completion_score" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essay_scores ADD COLUMN task_completion_score INT NOT NULL DEFAULT 0"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essay_scores", "task_completion_score INT NOT NULL DEFAULT 0")
     if "naturalness_score" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essay_scores ADD COLUMN naturalness_score INT NOT NULL DEFAULT 0"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essay_scores", "naturalness_score INT NOT NULL DEFAULT 0")
     if "jlpt_fit_score" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essay_scores ADD COLUMN jlpt_fit_score INT NOT NULL DEFAULT 0"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essay_scores", "jlpt_fit_score INT NOT NULL DEFAULT 0")
     if "level_estimate" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essay_scores ADD COLUMN level_estimate VARCHAR(32) NOT NULL DEFAULT 'N5'"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essay_scores", "level_estimate VARCHAR(32) NOT NULL DEFAULT 'N5'")
     if "summary" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essay_scores ADD COLUMN summary TEXT NULL"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essay_scores", "summary TEXT NULL")
     if "model_version" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essay_scores ADD COLUMN model_version VARCHAR(128) NOT NULL DEFAULT ''"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essay_scores", "model_version VARCHAR(128) NOT NULL DEFAULT ''")
 
     sync_conn.exec_driver_sql(
         "UPDATE essay_scores SET task_completion_score = CASE WHEN task_completion_score = 0 THEN overall_score ELSE task_completion_score END"
     )
+    latest_column_names = {column["name"] for column in inspect(sync_conn).get_columns("essay_scores")}
+    naturalness_source = "COALESCE(fluency_score, overall_score)" if "fluency_score" in latest_column_names else "overall_score"
     sync_conn.exec_driver_sql(
-        "UPDATE essay_scores SET naturalness_score = CASE WHEN naturalness_score = 0 THEN COALESCE(fluency_score, overall_score) ELSE naturalness_score END"
+        f"UPDATE essay_scores SET naturalness_score = CASE WHEN naturalness_score = 0 THEN {naturalness_source} ELSE naturalness_score END"
     )
     sync_conn.exec_driver_sql(
         "UPDATE essay_scores SET jlpt_fit_score = CASE WHEN jlpt_fit_score = 0 THEN overall_score ELSE jlpt_fit_score END"
@@ -340,17 +331,11 @@ def _migrate_essay_revisions_table_columns(sync_conn) -> None:
 
     column_names = {column["name"] for column in inspector.get_columns("essay_revisions")}
     if "expanded_revision" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essay_revisions ADD COLUMN expanded_revision TEXT NULL"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essay_revisions", "expanded_revision TEXT NULL")
     if "polished_revision" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essay_revisions ADD COLUMN polished_revision TEXT NULL"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essay_revisions", "polished_revision TEXT NULL")
     if "revised_score_json" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essay_revisions ADD COLUMN revised_score_json TEXT NULL"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essay_revisions", "revised_score_json TEXT NULL")
     sync_conn.exec_driver_sql(
         "UPDATE essay_revisions SET expanded_revision = COALESCE(expanded_revision, '')"
     )
@@ -370,22 +355,28 @@ def _migrate_essay_jobs_table_columns(sync_conn) -> None:
 
     column_names = {column["name"] for column in inspector.get_columns("essay_jobs")}
     if "progress_percent" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essay_jobs ADD COLUMN progress_percent INT NOT NULL DEFAULT 0"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essay_jobs", "progress_percent INT NOT NULL DEFAULT 0")
     if "progress_message" not in column_names:
-        sync_conn.exec_driver_sql(
-            "ALTER TABLE essay_jobs ADD COLUMN progress_message TEXT NULL"
-        )
+        _sqlite_compatible_add_column(sync_conn, "essay_jobs", "progress_message TEXT NULL")
 
-    sync_conn.exec_driver_sql(
-        "UPDATE essay_jobs SET progress_percent = CASE "
-        "WHEN status = 'completed' THEN 100 "
-        "WHEN status = 'failed' THEN 100 "
-        "WHEN status = 'revising' THEN GREATEST(progress_percent, 60) "
-        "WHEN status = 'scoring' THEN GREATEST(progress_percent, 25) "
-        "ELSE COALESCE(progress_percent, 0) END"
-    )
+    if settings.USER_DATABASE_BACKEND == "sqlite":
+        sync_conn.exec_driver_sql(
+            "UPDATE essay_jobs SET progress_percent = CASE "
+            "WHEN status = 'completed' THEN 100 "
+            "WHEN status = 'failed' THEN 100 "
+            "WHEN status = 'revising' THEN MAX(progress_percent, 60) "
+            "WHEN status = 'scoring' THEN MAX(progress_percent, 25) "
+            "ELSE COALESCE(progress_percent, 0) END"
+        )
+    else:
+        sync_conn.exec_driver_sql(
+            "UPDATE essay_jobs SET progress_percent = CASE "
+            "WHEN status = 'completed' THEN 100 "
+            "WHEN status = 'failed' THEN 100 "
+            "WHEN status = 'revising' THEN GREATEST(progress_percent, 60) "
+            "WHEN status = 'scoring' THEN GREATEST(progress_percent, 25) "
+            "ELSE COALESCE(progress_percent, 0) END"
+        )
     sync_conn.exec_driver_sql(
         "UPDATE essay_jobs SET progress_message = COALESCE(progress_message, '')"
     )
@@ -404,8 +395,8 @@ async def create_sqlite_tables():
         await conn.run_sync(_create_selected_tables, sqlite_tables)
 
 
-async def create_mysql_tables():
-    """创建 MySQL 表 (用户行为数据)"""
+async def create_user_tables():
+    """创建用户行为数据库表 (MySQL / SQLite)"""
     from app.models.user import User
     from app.models.progress import WordProgress
     from app.models.favorite import Favorite, SearchHistory
@@ -429,7 +420,7 @@ async def create_mysql_tables():
         LearningSession,
     )
 
-    async with mysql_engine.begin() as conn:
+    async with user_engine.begin() as conn:
         await conn.run_sync(
             _drop_tables_if_exist,
             {"words", "word_tags", "quiz_questions"},
@@ -445,10 +436,43 @@ async def create_mysql_tables():
         await conn.run_sync(_migrate_essay_jobs_table_columns)
 
 
+async def ensure_default_release_user() -> None:
+    """为发布版 SQLite 用户库创建默认账户。"""
+    if settings.USER_DATABASE_BACKEND != "sqlite" or not settings.ENABLE_DEFAULT_AUTO_LOGIN:
+        return
+
+    from app.core.security import get_password_hash
+    from app.models.stats import StudyStats
+    from app.models.user import User
+
+    async with user_session_maker() as session:
+        existing_user = await session.scalar(
+            select(User).where(User.username == settings.DEFAULT_RELEASE_USERNAME)
+        )
+        if existing_user is None:
+            existing_user = User(
+                username=settings.DEFAULT_RELEASE_USERNAME,
+                phone=settings.DEFAULT_RELEASE_PHONE,
+                hashed_password=get_password_hash(settings.SECRET_KEY),
+                is_active=True,
+            )
+            session.add(existing_user)
+            await session.commit()
+            await session.refresh(existing_user)
+
+        existing_stats = await session.scalar(
+            select(StudyStats).where(StudyStats.user_id == existing_user.id)
+        )
+        if existing_stats is None:
+            session.add(StudyStats(user_id=existing_user.id))
+            await session.commit()
+
+
 async def create_db_and_tables():
     """创建所有数据库表"""
     await create_sqlite_tables()
-    await create_mysql_tables()
+    await create_user_tables()
+    await ensure_default_release_user()
 
 
 async def get_sqlite_session() -> AsyncGenerator[AsyncSession, None]:
@@ -457,14 +481,19 @@ async def get_sqlite_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-async def get_mysql_session() -> AsyncGenerator[AsyncSession, None]:
-    """获取 MySQL 数据库会话 (用户行为数据)"""
-    async with mysql_session_maker() as session:
+async def get_user_session() -> AsyncGenerator[AsyncSession, None]:
+    """获取用户行为数据库会话。"""
+    async with user_session_maker() as session:
         yield session
 
 
-# 兼容性别名
+async def get_mysql_session() -> AsyncGenerator[AsyncSession, None]:
+    """兼容旧接口名称，实际返回当前用户数据库会话。"""
+    async for session in get_user_session():
+        yield session
+
+
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """获取默认数据库会话 (MySQL)"""
-    async for session in get_mysql_session():
+    """获取默认用户数据库会话。"""
+    async for session in get_user_session():
         yield session

@@ -1624,6 +1624,29 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
 }
 
 /**
+ * 发布版默认用户自动登录
+ * POST /api/auth/default-login
+ */
+export async function defaultLogin(): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/default-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  })
+  const result: AuthResponse = await response.json()
+  if (response.ok && result.token) {
+    expiredTokenHandled = false
+    localStorage.setItem('yomii_auth_token', result.token)
+    if (result.user) {
+      localStorage.setItem('yomii_user', JSON.stringify(result.user))
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('yomii:login'))
+    }
+  }
+  return result
+}
+
+/**
  * 用户登出
  */
 export function logout(): void {
@@ -1723,6 +1746,7 @@ export default {
   // 认证相关
   register,
   login,
+  defaultLogin,
   logout,
   getCurrentUser,
   getAuthToken,

@@ -24,7 +24,7 @@ async def get_dict_db() -> Generator[AsyncSession, None, None]:
 
 
 async def get_user_db() -> Generator[AsyncSession, None, None]:
-    """获取用户数据库会话 (MySQL)"""
+    """获取用户数据库会话 (MySQL / SQLite)"""
     async for session in get_mysql_session():
         yield session
 

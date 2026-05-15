@@ -303,7 +303,8 @@ export interface RegisterRequest {
 
 /** 用户登录请求 */
 export interface LoginRequest {
-  phone: string
+  phone?: string
+  username?: string
   password: string
 }
 

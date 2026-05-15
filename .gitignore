@@ -65,6 +65,8 @@ backend/models/
 backend/.venv-training/
 backend/.venv-gptq/
 backend/.pip-cache/
+backend/build/
+backend/dist/
 
 # Local dictionary data
 /data/dictionary.txt
@@ -77,3 +79,5 @@ backend/models/
 known_hosts
 *known_hosts
 Dsshknown_hosts
+
+release/

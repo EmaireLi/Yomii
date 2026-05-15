@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.schemas.token import Token
 from app.models.user import UserCreate, User
 from app.services.user_service import user_service
+from app.db.session import ensure_default_release_user
 
 router = APIRouter()
 
@@ -213,6 +214,18 @@ async def logout() -> dict:
     """用户登出"""
     # JWT 无状态，客户端删除 token 即可
     return {"success": True, "message": "登出成功"}
+
+
+@router.post("/default-login", response_model=LoginResponse)
+async def default_login(
+    db: UserDB,
+) -> LoginResponse:
+    """发布版默认用户自动登录，仅在本地 SQLite 发布模式启用。"""
+    if not settings.ENABLE_DEFAULT_AUTO_LOGIN:
+        raise HTTPException(status_code=404, detail="default login disabled")
+
+    await ensure_default_release_user()
+    return await _do_login(db, settings.DEFAULT_RELEASE_USERNAME, settings.SECRET_KEY)
 
 
 @router.get("/me", response_model=UserResponse)

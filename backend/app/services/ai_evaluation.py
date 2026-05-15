@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from openai import AsyncOpenAI
 
 from app.core.config import settings
 
@@ -564,9 +563,13 @@ class DeepSeekEssayFallbackService:
     def enabled(self) -> bool:
         return bool(self.api_key and self.model_name)
 
-    def _build_client(self) -> AsyncOpenAI:
+    def _build_client(self):
         if not self.enabled:
             raise RuntimeError("DeepSeek fallback is not configured")
+        try:
+            from openai import AsyncOpenAI
+        except ImportError as exc:
+            raise RuntimeError("openai package is not installed") from exc
         return AsyncOpenAI(
             api_key=self.api_key,
             base_url=f"{self.base_url}/v1",
