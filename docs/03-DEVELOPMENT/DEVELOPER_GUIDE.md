@@ -194,16 +194,12 @@ incrementRecited()
 ### 常量使用
 
 ```typescript
-import { VIEWS, WORD_STATUS, TEAM_INFO } from '@/utils/constants'
+import { VIEWS, WORD_STATUS } from '@/utils/constants'
 
 // 视图常量
 console.log(VIEWS.HOME)
 console.log(VIEWS.SEARCH)
 
-// 团队信息
-TEAM_INFO.members.forEach(member => {
-  console.log(member.name, member.role)
-})
 ```
 
 ### 模拟数据使用
