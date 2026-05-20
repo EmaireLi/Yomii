@@ -1,0 +1,129 @@
+name: yomii
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-yomii}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  api:
+    image: yomii-app:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.app
+    restart: unless-stopped
+    env_file:
+      - ../.env.docker
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      mysql:
+        condition: service_healthy
+      score-model:
+        condition: service_healthy
+      revision-model:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  score-model:
+    image: yomii-app:latest
+    restart: unless-stopped
+    command:
+      [
+        "python",
+        "training/serve_qwen_adapter.py",
+        "--task",
+        "score",
+        "--model",
+        "models/qwen3-1.7b-score-merged",
+        "--model-version",
+        "qwen3-1.7b-score-merged",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8011",
+        "--device-map",
+        "auto",
+        "--quantize",
+        "bnb-nf4"
+      ]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8011/docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
+
+  revision-model:
+    image: yomii-app:latest
+    restart: unless-stopped
+    command:
+      [
+        "python",
+        "training/serve_qwen_adapter.py",
+        "--task",
+        "revision",
+        "--model",
+        "models/qwen3-1.7b-revision-merged",
+        "--model-version",
+        "qwen3-1.7b-revision-merged",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8012",
+        "--device-map",
+        "auto",
+        "--quantize",
+        "bnb-nf4"
+      ]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8012/docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+      args:
+        VITE_API_URL: /api
+        VITE_USE_MOCK: "false"
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+
+volumes:
+  mysql_data:
