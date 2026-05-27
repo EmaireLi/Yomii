@@ -348,13 +348,14 @@
           测试时间: {{ formatDateTime(selectedHistoryItem.completedAt) }} | 难度: {{ difficultyText(selectedHistoryItem.difficulty) }}
         </p>
 
-        <el-row :gutter="20" style="margin-bottom: 2rem; border: 0.1rem solid #EBEEF5; padding: 1.5rem; border-radius: 0.8rem; background: #FAFAFA;">
-          <el-col :span="8" style="text-align: center; display: flex; flex-direction: column; justify-content: center;">
+        <el-row :gutter="20" class="history-score-overview">
+          <el-col :span="8" class="history-score-col">
             <div style="font-size: 2.4rem; font-weight: bold; color: #409EFF;">{{ selectedHistoryItem.correctAnswers }} / {{ selectedHistoryItem.totalQuestions }}</div>
             <div style="font-size: 1.2rem; color: #909399; margin-top: 0.5rem;">答对题数</div>
           </el-col>
-          <el-col :span="8" style="text-align: center; display: flex; flex-direction: column; justify-content: center; border-left: 0.1rem solid #EBEEF5; border-right: 0.1rem solid #EBEEF5;">
+          <el-col :span="8" class="history-score-col history-accuracy-col">
             <el-progress
+              class="history-accuracy-progress"
               type="dashboard"
               :percentage="selectedHistoryItem.accuracy"
               :color="selectedHistoryItem.accuracy >= 80 ? '#67C23A' : '#E6A23C'"
@@ -366,7 +367,7 @@
             </el-progress>
             <div style="font-size: 1.2rem; color: #909399; margin-top: 0.5rem;">准确率</div>
           </el-col>
-          <el-col :span="8" style="text-align: center; display: flex; flex-direction: column; justify-content: center;">
+          <el-col :span="8" class="history-score-col">
             <div style="font-size: 2.4rem; font-weight: bold; color: #67C23A;">{{ selectedHistoryItem.level }}</div>
             <div style="font-size: 1.2rem; color: #909399; margin-top: 0.5rem;">评级</div>
           </el-col>
@@ -1326,6 +1327,39 @@ onUnmounted(() => {
   margin-top: 0.6rem;
   font-size: 1.2rem;
   color: #909399;
+}
+
+.history-score-overview {
+  margin-bottom: 2rem;
+  border: 0.1rem solid #ebeef5;
+  padding: 1.5rem;
+  border-radius: 0.8rem;
+  background: #fafafa;
+}
+
+.history-score-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.history-accuracy-col {
+  border-left: 0.1rem solid #ebeef5;
+  border-right: 0.1rem solid #ebeef5;
+}
+
+.history-accuracy-progress {
+  align-self: center;
+  flex: 0 0 auto;
+}
+
+.history-accuracy-progress :deep(.el-progress__text) {
+  left: 50%;
+  width: auto;
+  min-width: 0;
+  transform: translate(-50%, -50%);
 }
 
 .recommendation-text {

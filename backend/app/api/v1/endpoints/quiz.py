@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from datetime import timedelta
 from math import exp, sqrt
 from statistics import mean
@@ -33,6 +34,8 @@ DIFFICULTY_LEVELS = {item["value"] for item in get_quiz_difficulty_catalog()} | 
 REPORT_RECENT_WINDOW_DAYS = 90
 REPORT_WEIGHT_HALF_LIFE_DAYS = 21
 REPORT_MIN_RECENT_SESSIONS = 3
+LATIN_LETTER_RE = re.compile(r"[A-Za-z]")
+JAPANESE_READING_RE = re.compile(r"[\u3040-\u30ff\u3400-\u9fff]")
 
 
 def _json_dumps(value: Any) -> str:
@@ -107,6 +110,12 @@ def _build_options(correct: str, candidates: list[str], size: int = 4) -> list[s
                 break
     random.shuffle(options)
     return options[:size]
+
+
+def _is_valid_reading_option(value: str | None) -> bool:
+    if not value:
+        return False
+    return bool(JAPANESE_READING_RE.search(value)) and not LATIN_LETTER_RE.search(value)
 
 
 def _speed_score(avg_seconds_per_question: float, difficulty: str) -> float:
@@ -356,7 +365,7 @@ async def get_quiz_questions(
 
     random.shuffle(raw_words)
     selected_words = raw_words[: min(count, len(raw_words))]
-    all_kana = [item.kana for item in raw_words if item.kana]
+    all_kana = [item.kana for item in raw_words if _is_valid_reading_option(item.kana)]
     all_cn_meaning = [item.chinese_meaning for item in raw_words if item.chinese_meaning]
 
     questions: list[dict[str, Any]] = []
@@ -364,7 +373,10 @@ async def get_quiz_questions(
         if word.id is None:
             continue
 
-        question_mode = random.choice(["kana", "chinese"])
+        available_modes = ["chinese"]
+        if _is_valid_reading_option(word.kana):
+            available_modes.append("kana")
+        question_mode = random.choice(available_modes)
         if question_mode == "kana":
             question_text = f"以下哪个选项是「{word.word}」的正确读音？"
             correct_answer = word.kana

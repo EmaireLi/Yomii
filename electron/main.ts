@@ -15,12 +15,15 @@ let mainWindow: BrowserWindow | null = null
 function createWindow() {
   // 根据平台设置不同的窗口配置
   const isMac = process.platform === 'darwin'
+  const windowIcon = path.join(__dirname, '..', 'public', 'icon', 'yomii-logo.ico')
   
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     minWidth: 800,
     minHeight: 600,
+    title: 'Yomii 辞书 - 日语词典学习应用',
+    icon: windowIcon,
     // Mac: 保留系统按键，隐藏菜单栏; Windows: 使用标准窗口框架，隐藏菜单栏
     frame: true,
     // Mac 特定配置：保留红绿黄按钮并设置其位置
